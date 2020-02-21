@@ -5,6 +5,7 @@
 // NOTE: offsetof
 #include <stddef.h>
 #include <stdarg.h>
+#include <math.h>
 
 #if defined(_MSC_VER)
 #define COMPILER_MSVC
@@ -86,6 +87,9 @@ typedef u32 u32x;
 typedef i32 i32x;
 
 const uptr UPTR_MAX = UINTPTR_MAX;
+const f32 PI_32 = 3.14159265358979323846f;
+const f32 FLOAT_EPS = 0.000001f;
+const f32 FLOAT_NAN = NAN;
 
 #include "flux_opengl.h"
 
@@ -150,6 +154,8 @@ typedef void(SetInputModeFn)(InputMode);
 
 typedef void*(AllocateFn)(uptr size);
 typedef void(DeallocateFn)(void* ptr);
+typedef void*(ReallocateFn)(void* ptr, uptr newSize);
+
 
 struct PlatformCalls
 {
@@ -164,6 +170,7 @@ struct PlatformCalls
 
     AllocateFn* Allocate;
     DeallocateFn* Deallocate;
+    ReallocateFn* Reallocate;
 
     GetTimeStampFn* GetTimeStamp;
 

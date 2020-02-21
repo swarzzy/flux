@@ -20,6 +20,7 @@ void FluxRender();
 
 #define PlatformAlloc platform_call(Allocate)
 #define PlatformFree platform_call(Deallocate)
+#define PlatformRealloc platform_call(Reallocate)
 
 #if defined(COMPILER_MSVC)
 #define gl_call(func) GlobalPlatform->gl->functions.fn.##func
@@ -129,12 +130,9 @@ static PlatformState* GlobalPlatform = 0;
 void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
 void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr); }
 
-extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void* data)
-{
-    switch (reason)
-    {
-    case GameInvoke::Init:
-    {
+extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void* data) {
+    switch (reason) {
+    case GameInvoke::Init: {
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
@@ -150,16 +148,14 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
 
         FluxInit();
     } break;
-    case GameInvoke::Reload:
-    {
+    case GameInvoke::Reload: {
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
         GlobalPlatform = platform;
         FluxReload();
     } break;
-    case GameInvoke::Update:
-    {
+    case GameInvoke::Update: {
         bool imguiDemoWindow = true;
         if (imguiDemoWindow)
         {
@@ -167,22 +163,19 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         }
         FluxUpdate();
     } break;
-    case GameInvoke::Render:
-    {
+    case GameInvoke::Render: {
         FluxRender();
     } break;
     invalid_default();
     }
 }
 
-void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam)
-{
+void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam) {
     const char* sourceStr;
     const char* typeStr;
     const char* severityStr;
 
-    switch (source)
-    {
+    switch (source) {
     case GL_DEBUG_SOURCE_API: { sourceStr = "API"; } break;
     case GL_DEBUG_SOURCE_WINDOW_SYSTEM: { sourceStr = "window system"; } break;
     case GL_DEBUG_SOURCE_SHADER_COMPILER: { sourceStr = "shader compiler"; } break;
@@ -192,8 +185,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
     invalid_default();
     }
 
-    switch (type)
-    {
+    switch (type) {
     case GL_DEBUG_TYPE_ERROR: { typeStr = "error"; } break;
     case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: { typeStr = "deprecated behavior"; } break;
     case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: { typeStr = "undefined behavior"; } break;
@@ -203,8 +195,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
     invalid_default();
     }
 
-    switch (severity)
-    {
+    switch (severity) {
     case GL_DEBUG_SEVERITY_HIGH: { severityStr = "high"; } break;
     case GL_DEBUG_SEVERITY_MEDIUM: { severityStr = "medium"; } break;
     case GL_DEBUG_SEVERITY_LOW: { severityStr = "low"; } break;
