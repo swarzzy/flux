@@ -88,8 +88,8 @@ typedef i32 i32x;
 
 const uptr UPTR_MAX = UINTPTR_MAX;
 const f32 PI_32 = 3.14159265358979323846f;
-const f32 FLOAT_EPS = 0.000001f;
-const f32 FLOAT_NAN = NAN;
+const f32 F32_EPS = 0.000001f;
+const f32 F32_NAN = NAN;
 
 #include "flux_opengl.h"
 

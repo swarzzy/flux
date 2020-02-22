@@ -6,7 +6,7 @@ struct MemoryArena;
 struct PlatformState;
 struct Application;
 
-typedef void(GameUpdateAndRenderFn)(PlatformState*, GameInvoke, void* data);
+typedef void(GameUpdateAndRenderFn)(PlatformState*, GameInvoke, void** data);
 
 struct LibraryData
 {

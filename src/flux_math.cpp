@@ -77,6 +77,10 @@ union SquareMatrix<3> {
         f32 _12, _22, _32;
         f32 _13, _23, _33;
     };
+
+    f32& At(u32 i, u32 j) {
+        return this->data[i + Size * j];
+    }
 };
 
 template<>
@@ -91,6 +95,10 @@ union SquareMatrix<4> {
         f32 _13, _23, _33, _43;
         f32 _14, _24, _34, _44;
     };
+
+    f32& At(u32 i, u32 j) {
+        return this->data[i + Size * j];
+    }
 };
 
 typedef SquareMatrix<4> m4x4;
@@ -361,6 +369,30 @@ v3 Cross(v3 l, v3 r) {
 }
 
 template<u32 Size>
+SquareMatrix<Size> operator*(SquareMatrix<Size> left, SquareMatrix<Size> right) {
+    SquareMatrix<Size> result = {};
+    for (u32x i = 0; i < Size; i++) {
+        for (u32x j = 0; j < Size; j++) {
+            for (u32x k = 0; k < Size; k++) {
+                result.At(i, j) += left.At(i, k) * right.At(k, j);
+            }
+        }
+    }
+    return result;
+}
+
+template<u32 Size>
+Vector<f32, Size> operator*(SquareMatrix<Size> left, Vector<f32, Size> right) {
+    Vector<f32, Size> result = {};
+    for (u32x i = 0; i < Size; i++) {
+        for (u32x j = 0; j < Size; j++) {
+            result.data[i] += left.At(i, j) * right.data[j];
+        }
+    }
+    return result;
+}
+
+template<u32 Size>
 SquareMatrix<Size> Transpose(SquareMatrix<Size> m) {
     SquareMatrix<Size> result;
     for (u32x i = 0; i < Size; i++) {
@@ -371,23 +403,76 @@ SquareMatrix<Size> Transpose(SquareMatrix<Size> m) {
     return result;
 }
 
-template<u32 Size>
-SquareMatrix<Size> Translation(Vector<f32, Size - 1> offset) {
-    SquareMatrix<Size> result = {};
-    for (u32x i = 0; i < Size; i++) {
-        result[i + Size * i] = 1.0f;
-    }
-    for (u32x i = 0; i < (Size - 1); i++) {
-        result[i + Size * (Size - 1)] = offset.data[i];
-    }
+m4x4 Translation(v3 offset) {
+    m4x4 result = {};
+    result._11 = 1.0f;
+    result._22 = 1.0f;
+    result._33 = 1.0f;
+    result._44 = 1.0f;
+
+    result._14 = offset.x;
+    result._24 = offset.y;
+    result._34 = offset.z;
+
     return result;
 }
 
-template<u32 Size>
-SquareMatrix<Size> Scaling(Vector<f32, Size - 1> scalar) {
-    SquareMatrix<Size> result = {};
-    result.data[Size * Size - 1] = 1.0f;
-    for (u32x i = 0; i < (Size - 1); i++) {
-        result[i + Size * i] = scalar.data[i];
-    }
+m4x4 Scaling(v3 scalar) {
+    m4x4 result = {};
+    result._11 = scalar.x;
+    result._22 = scalar.y;
+    result._33 = scalar.z;
+    result._44 = 1.0f;
+
+    return result;
+}
+
+m4x4 OrthoGLRH(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far) {
+    m4x4 m = {};
+    m._11 = 2.0f / (right - left);
+    m._22 = 2.0f / (top - bottom);
+    m._33 = -2.0f / (far - near);
+    m._14 = -(right + left) / (right - left);
+    m._24 = -(top + bottom) / (top - bottom);
+    m._34 = -(far + near) / (far - near);
+    m._44 = 1.0f;
+    return m;
+}
+
+m4x4 PerspectiveGLRH(f32 near, f32 far, f32 fov, f32 aRatio) {
+    m4x4 m = {};
+    f32 c = 1.0f / Tan(ToRad(fov) / 2.0f);
+    m._11 = c / aRatio;
+    m._22 = c;
+    m._33 = -(far + near) / (far - near);
+    m._34 = -(2.0f * far * near) / (far - near);
+    m._43 = -1.0f;
+    return m;
+}
+
+m4x4 LookAtGLRH(v3 eye, v3 target, v3 up) {
+    m4x4 m = {};
+
+    auto z = Normalize(eye - target);
+    auto x = Normalize(Cross(up, z));
+    auto y = Normalize(Cross(z, x));
+
+    m._11 = x.x;
+    m._12 = x.y;
+    m._13 = x.z;
+    m._14 = -Dot(x, eye);
+
+    m._21 = y.x;
+    m._22 = y.y;
+    m._23 = y.z;
+    m._24 = -Dot(y, eye);
+
+    m._31 = z.x;
+    m._32 = z.y;
+    m._33 = z.z;
+    m._34 = -Dot(z, eye);
+
+    m._44 = 1.0f;
+
+    return m;
 }

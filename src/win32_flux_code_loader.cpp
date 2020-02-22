@@ -1,7 +1,7 @@
 #include "win32_flux_code_loader.h"
 #include <stdlib.h>
 
-static void GameUpdateAndRenderDummy(PlatformState*, GameInvoke, void*)
+static void GameUpdateAndRenderDummy(PlatformState*, GameInvoke, void**)
 {
 
 }

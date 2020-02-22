@@ -1,4 +1,5 @@
 #include "flux_platform.h"
+#include "flux.h"
 
 #define DEBUG_OPENGL
 
@@ -6,11 +7,6 @@
 #include <stdlib.h>
 
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
-
-void FluxInit();
-void FluxReload();
-void FluxUpdate();
-void FluxRender();
 
 #if defined(COMPILER_MSVC)
 #define platform_call(func) GlobalPlatform->functions.##func
@@ -130,7 +126,7 @@ static PlatformState* GlobalPlatform = 0;
 void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
 void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr); }
 
-extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void* data) {
+extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void** data) {
     switch (reason) {
     case GameInvoke::Init: {
         IMGUI_CHECKVERSION();
@@ -145,15 +141,16 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
         glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER, GL_DEBUG_SEVERITY_LOW, 0, 0, GL_FALSE);
 #endif
-
-        FluxInit();
+        auto context = (Context*)PlatformAlloc(sizeof(Context));
+        *data = context;
+        FluxInit(context);
     } break;
     case GameInvoke::Reload: {
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
         GlobalPlatform = platform;
-        FluxReload();
+        FluxReload((Context*)(*data));
     } break;
     case GameInvoke::Update: {
         bool imguiDemoWindow = true;
@@ -161,10 +158,10 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         {
             ImGui::ShowDemoWindow(&imguiDemoWindow);
         }
-        FluxUpdate();
+        FluxUpdate((Context*)(*data));
     } break;
     case GameInvoke::Render: {
-        FluxRender();
+        FluxRender((Context*)(*data));
     } break;
     invalid_default();
     }

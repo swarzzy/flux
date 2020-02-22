@@ -1125,7 +1125,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->state.localTime = GetLocalTime();
 
-    app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Init, GlobalGameData);
+    app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Init, &GlobalGameData);
 
     while (GlobalRunning)
     {
@@ -1149,18 +1149,17 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         bool codeReloaded = UpdateGameCode(&app->gameLib);
         if (codeReloaded)
         {
-            app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Reload, GlobalGameData);
+            app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Reload, &GlobalGameData);
         }
 
         updatesSinceLastTick++;
-        app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Update, GlobalGameData);
+        app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Update, &GlobalGameData);
 
-        app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Render, GlobalGameData);
+        app->gameLib.GameUpdateAndRender(&app->state, GameInvoke::Render, &GlobalGameData);
 
         ImGui::Render();
+
         glViewport(0, 0, app->state.windowWidth, app->state.windowHeight);
-        glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         SwapBuffers(app->windowDC);
