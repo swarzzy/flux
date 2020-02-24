@@ -17,9 +17,8 @@ struct Texture {
 };
 
 struct Mesh {
+    void* base;
     u32 vertexCount;
-    u32 normalCount;
-    u32 uvCount;
     u32 indexCount;
     v3* vertices;
     v3* normals;
@@ -89,7 +88,9 @@ struct CubeTexture {
 };
 
 Renderer* InitializeRenderer(uv2 renderRes);
-Mesh LoadMesh(const wchar_t* filepath);
+Mesh LoadMeshAAB(const wchar_t* filepath);
+Mesh LoadMeshObj(const char* filepath);
+
 Material LoadMaterialPBRMetallic(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath);
 Material LoadMaterialLegacy(const char* diffusePath,  const char* specularPath = 0);
 CubeTexture LoadCubemap(const char* back, const char* down, const char* front, const char* left, const char* right, const char* up);

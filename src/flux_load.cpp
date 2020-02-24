@@ -37,6 +37,7 @@ bool MouseButtonDown(MouseButton button) {
 #define PlatformDebugGetFileSize platform_call(DebugGetFileSize)
 #define PlatformDebugReadFile platform_call(DebugReadFile)
 #define PlatformDebugWriteFile platform_call(DebugWriteFile)
+#define ResourceLoaderLoadMesh platform_call(ResourceLoaderLoadMesh)
 
 
 #if defined(COMPILER_MSVC)

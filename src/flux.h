@@ -11,6 +11,7 @@ struct Context {
     RenderGroup renderGroup;
     Mesh sphereMesh;
     Mesh plateMesh;
+    Mesh wheelMesh;
     Material oldMetalMaterial;
     Material checkerboardMaterial;
     CubeTexture skybox;

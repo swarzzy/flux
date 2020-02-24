@@ -162,6 +162,18 @@ typedef void*(AllocateFn)(uptr size);
 typedef void(DeallocateFn)(void* ptr);
 typedef void*(ReallocateFn)(void* ptr, uptr newSize);
 
+struct LoadedMesh {
+    void* base;
+    u32 vertexCount;
+    u32 indexCount;
+    f32* vertices;
+    f32* normals;
+    f32* uvs;
+    f32* tangents;
+    u32* indices;
+};
+
+typedef void(ResourceLoaderLoadMeshFn)(const char* filename, AllocateFn* allocator, LoadedMesh* mesh);
 
 struct PlatformCalls
 {
@@ -179,6 +191,8 @@ struct PlatformCalls
     ReallocateFn* Reallocate;
 
     GetTimeStampFn* GetTimeStamp;
+
+    ResourceLoaderLoadMeshFn* ResourceLoaderLoadMesh;
 
     EnumerateFilesInDirectoryFn* EnumerateFilesInDirectory;
 };

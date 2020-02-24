@@ -180,8 +180,8 @@ void RendererLoadMesh(Mesh* mesh) {
             // NOTE: Using SOA layout of buffer
             uptr verticesSize = mesh->vertexCount * sizeof(v3);
             // TODO: this is redundant. Use only vertexCount
-            uptr normalsSize= mesh->normalCount * sizeof(v3);
-            uptr uvsSize = mesh->uvCount * sizeof(v2);
+            uptr normalsSize = mesh->vertexCount * sizeof(v3);
+            uptr uvsSize = mesh->vertexCount * sizeof(v2);
             uptr tangentsSize = mesh->vertexCount * sizeof(v3);
             uptr indexBufferSize = mesh->indexCount * sizeof(u32);
             uptr vertexBufferSize = verticesSize + normalsSize + uvsSize + tangentsSize;
@@ -478,7 +478,7 @@ struct AABMeshHeaderV2 {
 };
 #pragma pack(pop)
 
-Mesh LoadMesh(const wchar_t* filepath) {
+Mesh LoadMeshAAB(const wchar_t* filepath) {
     Mesh mesh = {};
     u32 fileSize = PlatformDebugGetFileSize(filepath);
     if (fileSize) {
@@ -490,8 +490,6 @@ Mesh LoadMesh(const wchar_t* filepath) {
             assert(header->magicValue == AAB_FILE_MAGIC_VALUE);
 
             mesh.vertexCount = header->vertexCount;
-            mesh.normalCount = header->vertexCount;
-            mesh.uvCount = header->vertexCount;
             mesh.indexCount = header->indexCount;
 
             mesh.vertices = (v3*)((byte*)fileData + header->vertexOffset);
@@ -507,6 +505,28 @@ Mesh LoadMesh(const wchar_t* filepath) {
     }
     return mesh;
 }
+
+Mesh LoadMeshObj(const char* filepath) {
+    LoadedMesh loadedMesh = {};
+    ResourceLoaderLoadMesh(filepath, PlatformAlloc, &loadedMesh);
+    assert(loadedMesh.base);
+
+    Mesh mesh = {};
+    mesh.base = loadedMesh.base;
+    mesh.vertexCount = loadedMesh.vertexCount;
+    mesh.indexCount = loadedMesh.indexCount;
+    mesh.vertices = (v3*)loadedMesh.vertices;
+    mesh.normals = (v3*)loadedMesh.normals;
+    mesh.uvs = (v2*)loadedMesh.uvs;
+    mesh.tangents = (v3*)loadedMesh.tangents;
+    mesh.indices = (u32*)loadedMesh.indices;
+
+    RendererLoadMesh(&mesh);
+    assert(mesh.gpuVertexBufferHandle);
+    assert(mesh.gpuIndexBufferHandle);
+    return mesh;
+}
+
 
 // NOTE: Diffise only
 Material LoadMaterialLegacy(i32 width, i32 height, void* bitmap) {
@@ -1092,7 +1112,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                 glEnableVertexAttribArray(WaterShader::UV);
 
                 u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                u64 uvsOffset = normalsOffset + mesh->normalCount * sizeof(v3);
+                u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
 
                 glVertexAttribPointer(WaterShader::Position, 3, GL_FLOAT, GL_FALSE, 0, 0);
                 glVertexAttribPointer(WaterShader::Normal, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
@@ -1159,7 +1179,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     glEnableVertexAttribArray(2);
 
                     u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                    u64 uvsOffset = normalsOffset + mesh->normalCount * sizeof(v3);
+                    u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
 
                     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
                     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
@@ -1223,8 +1243,8 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     glEnableVertexAttribArray(3);
 
                     u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                    u64 uvsOffset = normalsOffset + mesh->normalCount * sizeof(v3);
-                    u64 tangentsOffset = uvsOffset + mesh->uvCount * sizeof(v2);
+                    u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+                    u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
 
                     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
                     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);

@@ -1049,6 +1049,14 @@ void* Reallocate(void* ptr, uptr newSize)
     return realloc(ptr, newSize);
 }
 
+void LoadResourceLoader(Win32Context* context)
+{
+    auto handle = LoadLibrary(L"flux_resource_loader.dll");
+    assert(handle != INVALID_HANDLE_VALUE);
+    context->state.functions.ResourceLoaderLoadMesh = (ResourceLoaderLoadMeshFn*)GetProcAddress(handle, "ResourceLoaderLoadMesh");
+    assert(context->state.functions.ResourceLoaderLoadMesh);
+}
+
 void* ImguiAllocWrapper(size_t size, void* _) { return Allocate((uptr)size); }
 void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr); }
 
@@ -1085,6 +1093,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     OpenGLLoadResult glResult = LoadOpenGL();
     panic(glResult.success, "Failed to load OpenGL functions");
     app->state.gl = glResult.context;
+
+    LoadResourceLoader(app);
 
     app->state.functions.DebugGetFileSize = DebugGetFileSize;
     app->state.functions.DebugReadFile = DebugReadFileToBuffer;

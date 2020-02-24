@@ -3,8 +3,10 @@
 #include "flux_debug_overlay.h"
 
 void FluxInit(Context* context) {
-    context->sphereMesh = LoadMesh(L"../res/meshes/sphere.aab");
-    context->plateMesh = LoadMesh(L"../res/meshes/plate.aab");
+    LoadedMesh mesh = {};
+    context->wheelMesh = LoadMeshObj("../res/meshes/wheel.obj");
+    context->sphereMesh = LoadMeshAAB(L"../res/meshes/sphere.aab");
+    context->plateMesh = LoadMeshAAB(L"../res/meshes/plate.aab");
     context->checkerboardMaterial = LoadMaterialLegacy("../res/checkerboard.jpg");
     context->oldMetalMaterial = LoadMaterialPBRMetallic("../res/materials/oldmetal/greasy-metal-pan1-albedo.png", "../res/materials/oldmetal/greasy-metal-pan1-roughness.png", "../res/materials/oldmetal/greasy-metal-pan1-metal.png", "../res/materials/oldmetal/greasy-metal-pan1-normal.png");
     context->skybox = LoadCubemap("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
@@ -54,8 +56,8 @@ void FluxUpdate(Context* context) {
 
     RenderCommandDrawMesh command = {};
     command.transform = M4x4(1.0f);
-    command.mesh = &context->sphereMesh;
-    command.material = context->oldMetalMaterial;
+    command.mesh = &context->wheelMesh;
+    command.material = context->checkerboardMaterial;
     Push(group, &command);
 
     RenderCommandDrawMesh plateCommand = {};
