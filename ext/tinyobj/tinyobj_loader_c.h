@@ -111,7 +111,7 @@ extern void tinyobj_materials_free(tinyobj_material_t *materials,
 
 #ifdef TINYOBJ_LOADER_C_IMPLEMENTATION
 #include <stdio.h>
-#include <assert.h>
+//#include <assert.h>
 #include <string.h>
 #include <errno.h>
 

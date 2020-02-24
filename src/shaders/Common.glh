@@ -1,0 +1,55 @@
+#define PI (3.14159265359)
+
+struct DirLight
+{
+    vec3 pos;
+    vec3 dir;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+layout (std140, binding = 0) uniform ShaderFrameData
+{
+    mat4 viewProjMatrix;
+    mat4 viewMatrix;
+    mat4 projectionMatrix;
+    mat4 invViewMatrix;
+    mat4 invProjMatrix;
+    mat4 lightSpaceMatrices[3];
+    DirLight dirLight;
+    vec3 viewPos;
+    vec3 shadowCascadeSplits;
+    int showShadowCascadeBoundaries;
+    float shadowFilterSampleScale;
+    int debugF;
+    int debugG;
+    int debugD;
+    int debugNormals;
+    float constShadowBias;
+    float gamma;
+    float exposure;
+    vec2 screenSize;
+} FrameData;
+
+layout (std140, binding = 1) uniform ShaderMeshData
+{
+    mat4 modelMatrix;
+    mat3 normalMatrix;
+    vec3 lineColor;
+    int metallicWorkflow;
+    int customMaterial;
+    vec3 customAlbedo;
+    float customRoughness;
+    float customMetalness;
+} MeshData;
+
+float saturate(float x)
+{
+  return max(0.0f, min(1.0f, x));
+}
+
+vec3 saturate(vec3 x)
+{
+  return max(vec3(0.0f), min(vec3(1.0f), x));
+}

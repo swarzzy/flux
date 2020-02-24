@@ -2,10 +2,12 @@
 set ExecArg=run
 if "%1" == "%ExecArg%" (
 pushd build
-flux.exe
+win32_flux.exe
 popd
 goto end
 )
+
+set BuildShaderPreprocessor=false
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -25,6 +27,16 @@ set PlatformLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /NOIMPLIB user32.l
 set GameLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutDir%\flux.dll  /PDB:%BinOutDir%\flux_%PdbMangleVal%.pdb
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
+
+if %BuildShaderPreprocessor% equ true (
+echo Building shader preprocessor...
+cl /W3 /wd4530 /Gm- /GR- /Od /Zi /MTd /nologo /diagnostics:classic /WX /std:c++17 /Fo%ObjOutDir% /D_CRT_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN  src/tools/shader_preprocessor.cpp /link /INCREMENTAL:NO /OPT:REF /MACHINE:X64 /OUT:%BinOutDir%\shader_preprocessor.exe /PDB:%BinOutDir%\shader_preprocessor.pdb
+)
+
+echo Preprocessing shaders...
+build\shader_preprocessor.exe src/flux_shader_config.txt
+COPY shader_preprocessor_output.h src\flux_shaders_generated.h
+DEL shader_preprocessor_output.h
 
 echo Building platform...
 start /b "__flux_compilation__" cmd /c cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/win32_flux_platform.cpp /link %PlatformLinkerFlags%

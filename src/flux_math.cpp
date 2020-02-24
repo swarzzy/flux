@@ -1,3 +1,15 @@
+#include "flux_option.h"
+#include <stdlib.h>
+
+struct RandomSeries {
+    // TODO: Random
+};
+
+f32 RandomUnilateral(RandomSeries* series) {
+    f32 result = (f32)rand() / (f32)RAND_MAX;
+    return result;
+}
+
 template <typename T, u32 _Size>
 union Vector {};
 
@@ -198,6 +210,15 @@ Vector<T, Size>& operator+=(Vector<T, Size>& v, f32 s) {
 }
 
 template <typename T, u32 Size>
+Vector<T, Size> operator-(Vector<T, Size> vec) {
+    Vector<T, Size> result;
+    for (u32x i = 0; i < Size; i++) {
+        result.data[i] = -vec.data[i];
+    }
+    return result;
+}
+
+template <typename T, u32 Size>
 Vector<T, Size> operator-(Vector<T, Size> l, Vector<T, Size> r) {
     Vector<T, Size> result;
     for (u32x i = 0; i < Size; i++) {
@@ -263,7 +284,7 @@ Vector<T, Size>& operator*=(Vector<T, Size>& v, f32 s) {
     for (u32x i = 0; i < Size; i++) {
         v.data[i] *= s;
     }
-    return l;
+    return v;
 }
 
 template <typename T, u32 Size>
@@ -324,9 +345,9 @@ f32 Dist(Vector<f32, Size> v1, Vector<f32, Size> v2) {
 
 template <u32 Size>
 Vector<f32, Size> Normalize(Vector<f32, Size> v) {
-    Vector<f32, Size> result;
+    Vector<f32, Size> result = {};
     auto len = Length(v);
-    if (len > F32_EPS) {
+    if (len > F32::Eps) {
         for (u32x i = 0; i < Size; i++) {
             result.data[i] = v.data[i] / len;
         }
@@ -397,7 +418,7 @@ SquareMatrix<Size> Transpose(SquareMatrix<Size> m) {
     SquareMatrix<Size> result;
     for (u32x i = 0; i < Size; i++) {
         for (u32x j = 0; j < Size; j++) {
-            result.data[j + Size * i] = m[i + Size * j];
+            result.data[j + Size * i] = m.data[i + Size * j];
         }
     }
     return result;
@@ -475,4 +496,239 @@ m4x4 LookAtGLRH(v3 eye, v3 target, v3 up) {
     m._44 = 1.0f;
 
     return m;
+}
+
+f32 Determinant(m3x3 m) {
+    auto result = m._11 * m._22 * m._33 - m._11 * m._23 * m._32
+        - m._12 * m._21 * m._33 + m._12 * m._23 * m._31
+        + m._13 * m._21 * m._32 - m._13 * m._22 * m._31;
+    return result;
+}
+
+f32 Determinant(m4x4 m) {
+        f32 minor1 = m._11 * (m._22 * m._33 * m._44 - m._22 * m._34 * m._43
+                              - m._23 * m._32 * m._44 + m._23 * m._34 * m._42
+                              + m._24 * m._32 * m._43 - m._24 * m._33 * m._42);
+
+        f32 minor2 = m._12 * (m._21 * m._33 * m._44 - m._21 * m._34 * m._43
+                              - m._23 * m._31 * m._44 + m._23 * m._41 * m._34
+                              +m._24 * m._31 * m._43 - m._24 * m._33 * m._41);
+
+        f32 minor3 = m._13 * (m._21 * m._32 * m._44 - m._21 * m._34 * m._42
+                              - m._22 * m._31 * m._44 + m._22 * m._34 * m._41
+                              + m._24 * m._31 * m._42 - m._24 * m._32 * m._41);
+
+        f32 minor4 = m._14 * (m._21 * m._32 * m._43 - m._21 * m._33 * m._42
+                              - m._22 * m._31 * m._43 + m._22 * m._41 * m._33
+                              + m._23 * m._31 * m._42 - m._23 * m._32 * m._41);
+
+    auto result = minor1 - minor2 + minor3 - minor4;
+    return result;
+}
+
+Option<m3x3> Inverse(m3x3 m) {
+    f32 a11 = m._22 * m._33 - m._23 * m._32;
+    f32 a12 = - (m._21 * m._33 - m._23 * m._31);
+    f32 a13 = m._21 * m._32 - m._22 * m._31;
+
+    f32 det = (m._11 * a11 + m._12 * a12 + m._13 * a13);
+
+    if (Abs(det) > F32::Eps) {
+        f32 a21 = - (m._12 * m._33 - m._32 * m._13);
+        f32 a22 = m._11 * m._33 - m._13 * m._31;
+        f32 a23 = - (m._11 * m._32 - m._12 * m._31);
+
+        f32 a31 = m._12 * m._23 - m._22 * m._13;
+        f32 a32 = - (m._11 * m._23 - m._21 * m._13);
+        f32 a33 = m._11 * m._22 - m._21 * m._12;
+
+        f32 oneOverDet = 1.0f / det;
+
+        m3x3 inv;
+        inv._11 = a11 * oneOverDet;
+        inv._12 = a21 * oneOverDet;
+        inv._13 = a31 * oneOverDet;
+        inv._21 = a12 * oneOverDet;
+        inv._22 = a22 * oneOverDet;
+        inv._23 = a32 * oneOverDet;
+        inv._31 = a13 * oneOverDet;
+        inv._32 = a23 * oneOverDet;
+        inv._33 = a33 * oneOverDet;
+
+        return Option<m3x3>::Some(inv);
+    }
+    return Option<m3x3>::None();
+}
+
+Option<m4x4> Inverse(m4x4 m) {
+    f32 a11_22 = m._33 * m._44 - m._34 * m._43;
+    f32 a11_23 = m._32 * m._44 - m._34 * m._42;
+    f32 a11_24 = m._32 * m._43 - m._33 * m._42;
+
+    f32 A11 = m._22 * a11_22 - m._23 * a11_23 + m._24 * a11_24;
+
+    f32 a12_21 = m._33 * m._44 - m._34 * m._43;
+    f32 a12_23 = m._31 * m._44 - m._34 * m._41;
+    f32 a12_24 = m._31 * m._43 - m._33 * m._41;
+
+    f32 A12 = -(m._21 * a12_21 - m._23 * a12_23 + m._24 * a12_24);
+
+    f32 a13_21 = m._32 * m._44 - m._34 * m._42;
+    f32 a13_22 = m._31 * m._44 - m._34 * m._41;
+    f32 a13_24 = m._31 * m._42 - m._32 * m._41;
+
+    f32 A13 = m._21 * a13_21 - m._22 * a13_22 + m._24 * a13_24;
+
+    f32 a14_21 = m._32 * m._43 - m._33 * m._42;
+    f32 a14_22 = m._31 * m._43 - m._33 * m._41;
+    f32 a14_23 = m._31 * m._42 - m._32 * m._41;
+
+    f32 A14 = -(m._21 * a14_21 - m._22 * a14_22 + m._23 * a14_23);
+
+    f32 a21_12 = m._33 * m._44 - m._34 * m._43;
+    f32 a21_13 = m._32 * m._44 - m._34 * m._42;
+    f32 a21_14 = m._32 * m._43 - m._33 * m._42;
+
+    f32 A21 = -(m._12 * a21_12 - m._13 * a21_13 + m._14 * a21_14);
+
+    f32 a22_11 = m._33 * m._44 - m._34 * m._43;
+    f32 a22_13 = m._31 * m._44 - m._34 * m._41;
+    f32 a22_14 = m._31 * m._43 - m._33 * m._41;
+
+    f32 A22 = m._11 * a22_11 - m._13 * a22_13 + m._14 * a22_14;
+
+    f32 a23_11 = m._32 * m._44 - m._34 * m._42;
+    f32 a23_12 = m._31 * m._44 - m._34 * m._41;
+    f32 a23_14 = m._31 * m._42 - m._32 * m._41;
+
+    f32 A23 = -(m._11 * a23_11 - m._12 * a23_12 + m._14 * a23_14);
+
+    f32 a24_11 = m._32 * m._43 - m._33 * m._42;
+    f32 a24_12 = m._31 * m._43 - m._33 * m._41;
+    f32 a24_13 = m._31 * m._42 - m._32 * m._41;
+
+    f32 A24 = m._11 * a24_11 - m._12 * a24_12 + m._13 * a24_13;
+
+    f32 a31_12 = m._23 * m._44 - m._24 * m._43;
+    f32 a31_13 = m._22 * m._44 - m._24 * m._42;
+    f32 a31_14 = m._22 * m._43 - m._23 * m._42;
+
+    f32 A31 = m._12 * a31_12 - m._13 * a31_13 + m._14 * a31_14;
+
+    f32 a32_11 = m._23 * m._44 - m._24 * m._43;
+    f32 a32_13 = m._21 * m._44 - m._24 * m._41;
+    f32 a32_14 = m._21 * m._43 - m._23 * m._41;
+
+    f32 A32 = -(m._11 * a32_11 - m._13 * a32_13 + m._14 * a32_14);
+
+    f32 a33_11 = m._22 * m._44 - m._24 * m._42;
+    f32 a33_12 = m._21 * m._44 - m._24 * m._41;
+    f32 a33_14 = m._21 * m._42 - m._22 * m._41;
+
+    f32 A33 = m._11 * a33_11 - m._12 * a33_12 + m._14 * a33_14;
+
+    f32 a34_11 = m._22 * m._43 - m._23 * m._42;
+    f32 a34_12 = m._21 * m._43 - m._23 * m._41;
+    f32 a34_13 = m._21 * m._42 - m._22 * m._41;
+
+    f32 A34 = -(m._11 * a34_11 - m._12 * a34_12 + m._13 * a34_13);
+
+    f32 a41_12 = m._23 * m._34 - m._24 * m._33;
+    f32 a41_13 = m._22 * m._34 - m._24 * m._32;
+    f32 a41_14 = m._22 * m._33 - m._23 * m._32;
+
+    f32 A41 = -(m._12 * a41_12 - m._13 * a41_13 + m._14 * a41_14);
+
+    f32 a42_11 = m._23 * m._34 - m._24 * m._33;
+    f32 a42_13 = m._21 * m._34 - m._24 * m._31;
+    f32 a42_14 = m._21 * m._33 - m._23 * m._31;
+
+    f32 A42 = m._11 * a42_11 - m._13 * a42_13 + m._14 * a42_14;
+
+    f32 a43_11 = m._22 * m._34 - m._24 * m._32;
+    f32 a43_12 = m._21 * m._34 - m._24 * m._31;
+    f32 a43_14 = m._21 * m._32 - m._22 * m._31;
+
+    f32 A43 = -(m._11 * a43_11 - m._12 * a43_12 + m._14 * a43_14);
+
+    f32 a44_11 = m._22 * m._33 - m._23 * m._32;
+    f32 a44_12 = m._21 * m._33 - m._23 * m._31;
+    f32 a44_13 = m._21 * m._32 - m._22 * m._31;
+
+    f32 A44 = m._11 * a44_11 - m._12 * a44_12 + m._13 * a44_13;
+
+    f32 det = m._11 * A11 + m._12 * A12 + m._13 * A13 + m._14 * A14;
+
+    if (det == 0) {
+        return Option<m4x4>::None();
+    } else {
+        m4x4 result;
+        f32 oneOverDet = 1.0f / det;
+        result._11 = A11 * oneOverDet;
+        result._12 = A21 * oneOverDet;
+        result._13 = A31 * oneOverDet;
+        result._14 = A41 * oneOverDet;
+        result._21 = A12 * oneOverDet;
+        result._22 = A22 * oneOverDet;
+        result._23 = A32 * oneOverDet;
+        result._24 = A42 * oneOverDet;
+        result._31 = A13 * oneOverDet;
+        result._32 = A23 * oneOverDet;
+        result._33 = A33 * oneOverDet;
+        result._34 = A43 * oneOverDet;
+        result._41 = A14 * oneOverDet;
+        result._42 = A24 * oneOverDet;
+        result._43 = A34 * oneOverDet;
+        result._44 = A44 * oneOverDet;
+
+        return Option<m4x4>::Some(result);
+    }
+}
+
+// TODO: These should be reworked
+struct Basis {
+    // NOTE: Assumed to be normalized
+    v3 p;
+    v3 xAxis;
+    v3 yAxis;
+    v3 zAxis;
+};
+
+union FrustumCorners {
+    struct  {
+        v3 nlt; // near left top
+        v3 nrt;
+        v3 nlb; // near left botom
+        v3 nrb;
+        v3 flt; // far left top
+        v3 frt;
+        v3 flb;
+        v3 frb;
+    };
+    v3 corners[8];
+};
+
+FrustumCorners GetFrustumCorners(Basis basis, f32 fovDeg, f32 aspectRatio, f32 n, f32 f) {
+    FrustumCorners result;
+    f32 tanHalfFov2 = Tan(ToRad(fovDeg / 2.0f)) * 2.0f;
+
+    f32 halfNearHeight = tanHalfFov2 * n * 0.5f;
+    f32 halfNearWidth = halfNearHeight * aspectRatio;
+
+    f32 halfFarHeight = tanHalfFov2 * f * 0.5f;
+    f32 halfFarWidth = halfFarHeight * aspectRatio;
+
+    v3 nearCenter = basis.p + basis.zAxis * n;
+    v3 farCenter = basis.p + basis.zAxis * f;
+
+    result.nlt = nearCenter + basis.yAxis * halfNearHeight - basis.xAxis * halfNearWidth;
+    result.nrt = nearCenter + basis.yAxis * halfNearHeight + basis.xAxis * halfNearWidth;
+    result.nlb = nearCenter - basis.yAxis * halfNearHeight - basis.xAxis * halfNearWidth;
+    result.nrb = nearCenter - basis.yAxis * halfNearHeight + basis.xAxis * halfNearWidth;
+    result.flt = farCenter + basis.yAxis * halfFarHeight - basis.xAxis * halfFarWidth;
+    result.frt = farCenter + basis.yAxis * halfFarHeight + basis.xAxis * halfFarWidth;
+    result.flb = farCenter - basis.yAxis * halfFarHeight - basis.xAxis * halfFarWidth;
+    result.frb = farCenter - basis.yAxis * halfFarHeight + basis.xAxis * halfFarWidth;
+
+    return result;
 }

@@ -86,10 +86,16 @@ typedef double f64;
 typedef u32 u32x;
 typedef i32 i32x;
 
-const uptr UPTR_MAX = UINTPTR_MAX;
-const f32 PI_32 = 3.14159265358979323846f;
-const f32 F32_EPS = 0.000001f;
-const f32 F32_NAN = NAN;
+namespace Uptr {
+    constexpr uptr Max = UINTPTR_MAX;
+}
+
+namespace F32 {
+    constexpr f32 Pi = 3.14159265358979323846f;
+    constexpr f32 Eps = 0.000001f;
+    constexpr f32 Nan = NAN;
+    constexpr f32 Max = FLT_MAX;
+};
 
 #include "flux_opengl.h"
 
@@ -127,7 +133,7 @@ struct MemoryArena;
 
 // NOTE: On unix API this should be defined as int
 typedef uptr FileHandle;
-const FileHandle InvalidFileHandle = UPTR_MAX;
+const FileHandle InvalidFileHandle = Uptr::Max;
 
 typedef u32(DebugGetFileSizeFn)(const wchar_t* filename);
 typedef u32(DebugReadFileFn)(void* buffer, u32 bufferSize, const wchar_t* filename);

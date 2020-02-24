@@ -1,0 +1,146 @@
+
+vec3 FresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (vec3(1.0f) - F0) * pow(1.0f - cosTheta, 5.0f);
+}
+
+float DistributionGGX(vec3 N, vec3 H, float a)
+{
+    float a4 = a * a * a * a;
+    float NdotH = saturate(dot(N, H));
+    float NdotHSq = NdotH * NdotH;
+
+    float num = a4;
+    float denom = (NdotHSq * (a4 - 1.0f) + 1.0f);
+    denom = PI * denom * denom;
+
+    return num / max(denom, 0.001f);
+}
+
+float GeometrySchlickGGX(float NdotV, float a)
+{
+    float k = ((a + 1.0f) * (a + 1.0f)) / 8.0f;
+
+    float num = NdotV;
+    float denom = NdotV * (1.0f - k) + k;
+
+    return num / denom;
+}
+
+float GeometrySmith(float NdotV, float NdotL, float a)
+{
+    float ggx1 = GeometrySchlickGGX(NdotV, a);
+    float ggx2 = GeometrySchlickGGX(NdotL, a);
+
+    return ggx1 * ggx2;
+}
+
+struct PBR
+{
+    bool metallicWorkflow;
+    vec3 V;
+    vec3 N;
+    vec3 F0;
+    // NOTE: Metallic/Specular
+    vec3 albedo;
+    // NOTE: Metallic
+    float metallic;
+    float roughness;
+};
+
+PBR InitPBRMetallic(vec3 V, vec3 N, vec3 albedo, float metallic, float roughness)
+{
+    PBR pbr;
+    pbr.metallicWorkflow = true;
+    pbr.V = V;
+    pbr.N = N;
+    pbr.albedo = albedo;
+    // TODO: Specify F0 for dielectrics
+    vec3 F0 = vec3(0.04f);
+    pbr.F0 = mix(F0, albedo, metallic);
+    pbr.roughness = roughness;
+    pbr.metallic = metallic;
+    return pbr;
+}
+
+PBR InitPBRSpecular(vec3 V, vec3 N, vec3 albedo, vec3 specular, float gloss)
+{
+    PBR pbr;
+    pbr.metallicWorkflow = false;
+    pbr.V = V;
+    pbr.N = N;
+    pbr.albedo = albedo;
+    pbr.F0 = specular;
+    pbr.roughness = gloss;//saturate(1.0f - gloss);
+    pbr.metallic = 0.0f;
+    return pbr;
+}
+
+const float MAX_REFLECTION_LOD = 5.0f;
+
+vec3 Unreal4BRDF(PBR pbr, vec3 L)
+{
+    vec3 H = normalize(pbr.V + L);
+
+    // TODO: Adding this to avoid artifacts on edges
+    float NdotV = saturate(dot(pbr.N, pbr.V)); // + 0.000001f; // NOTE: Adding this value (trick from epic games shaders) reduces artifacts on the edges in Intel gpu's but completely brokes everything on nvidia
+    float NdotL = saturate(dot(pbr.N, L));
+
+    float HdotL = saturate(dot(H, L));
+    vec3 F = FresnelSchlick(HdotL, pbr.F0);
+    float D = DistributionGGX(pbr.N, H, pbr.roughness);
+    float G = GeometrySmith(NdotV, NdotL, pbr.roughness);
+
+    vec3 num = D * G * F;
+    float denom = 4.0f * NdotV * NdotL;
+    vec3 specular = num / max(denom, 0.001f);
+
+    vec3 refracted = vec3(1.0f) - F;
+    refracted *= 1.0f - pbr.metallic;
+    // NOTE: Lambertian diffuse brdf
+    vec3 diffuse = refracted * pbr.albedo / PI;
+    vec3 result = (specular + diffuse) * NdotL;
+
+    if (FrameData.debugF == 1) result = F;
+    else if (FrameData.debugG == 1) result = vec3(G, G, G);
+    else if (FrameData.debugD == 1) result = vec3(D, D, D);
+    else if (FrameData.debugNormals == 1) result = pbr.N;
+
+    return result;
+}
+
+vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0f - roughness), F0) - F0) * pow(1.0f - cosTheta, 5.0f);
+}
+
+vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, sampler2D brdfLut)
+{
+    float roughness;
+    if (pbr.metallicWorkflow)
+    {
+        roughness = pbr.roughness;
+    }
+    else
+    {
+        roughness = 1.0f - pbr.roughness;
+    }
+    // NOTE: Specular irradance
+    float NdotV = saturate(dot(pbr.N, pbr.V)); // + 0.000001f; // NOTE: Adding this value (trick from epic games shaders) reduces artifacts on the edges in Intel gpu's but completely brokes everything on nvidia
+    vec3 R = reflect(-pbr.V, pbr.N);
+    vec3 envIrradance = textureLod(enviromentMap, R, roughness * MAX_REFLECTION_LOD).rgb;
+    // TODO: This might be wrong (use NdotL instead?)
+    vec3 Fenv = FresnelSchlickRoughness(NdotV, pbr.F0, roughness);
+    vec2 envBRDF = texture(brdfLut, vec2(NdotV, roughness)).rg;
+    vec3 envSpecular = envIrradance * (Fenv * envBRDF.r + envBRDF.g);
+
+    // NOTE: Diffuse irradance
+    vec3 kS = FresnelSchlick(NdotV, pbr.F0);
+    vec3 kD = vec3(1.0f) - kS;
+    kD *= 1.0f - pbr.metallic;
+    vec3 diffIrradance = texture(irradanceMap, pbr.N).rgb;
+    vec3 diffuse = diffIrradance * pbr.albedo;
+
+    vec3 irradance = (kD * diffuse + envSpecular);// * uAO;
+    return irradance;
+}

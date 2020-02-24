@@ -1026,9 +1026,14 @@ void GetExecutablePath(TCHAR* buffer, u32 bufferSizeBytes, u32* bytesWritten)
     GetModuleFileName(NULL, buffer, bufferSizeBytes / sizeof(TCHAR));
 }
 
+#if defined(COMPILER_MSVC)
+__declspec(restrict)
+#endif
 void* Allocate(uptr size)
 {
-    return malloc(size);
+    auto memory = malloc(size);
+    assert(memory);
+    return memory;
 }
 
 void Deallocate(void* ptr)
@@ -1036,6 +1041,9 @@ void Deallocate(void* ptr)
     free(ptr);
 }
 
+#if defined(COMPILER_MSVC)
+__declspec(restrict)
+#endif
 void* Reallocate(void* ptr, uptr newSize)
 {
     return realloc(ptr, newSize);

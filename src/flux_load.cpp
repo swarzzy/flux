@@ -1,27 +1,48 @@
 #include "flux_platform.h"
+#include "flux_intrinsics.cpp"
+#include "flux_math.cpp"
 #include "flux.h"
 
 #define DEBUG_OPENGL
-
 // NOTE: Defined only in debug build
 #include <stdlib.h>
 
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
+static PlatformState* _GlobalPlatform = 0;
+#define GlobalPlatform (*((const PlatformState *const)(_GlobalPlatform)))
+// NOTE: Actual frame time
+#define GlobalAbsDeltaTime GlobalPlatform.absDeltaTime
+// NOTE: Frame time corrected by game speed
+#define GlobalGameDeltaTime GlobalPlatform.gameDeltaTime
+#define GlobalInput GlobalPlatform.input
+
+bool KeyDown(Key key) {
+    return GlobalInput.keys[(u32)key].pressedNow;
+}
+
+bool MouseButtonDown(MouseButton button) {
+    return GlobalInput.mouseButtons[(u32)button].pressedNow;
+}
+
 #if defined(COMPILER_MSVC)
-#define platform_call(func) GlobalPlatform->functions.##func
+#define platform_call(func) GlobalPlatform.functions.##func
 #else
-#define platform_call(func) GlobalPlatform->functions. func
+#define platform_call(func) GlobalPlatform.functions. func
 #endif
 
 #define PlatformAlloc platform_call(Allocate)
 #define PlatformFree platform_call(Deallocate)
 #define PlatformRealloc platform_call(Reallocate)
+#define PlatformDebugGetFileSize platform_call(DebugGetFileSize)
+#define PlatformDebugReadFile platform_call(DebugReadFile)
+#define PlatformDebugWriteFile platform_call(DebugWriteFile)
+
 
 #if defined(COMPILER_MSVC)
-#define gl_call(func) GlobalPlatform->gl->functions.fn.##func
+#define gl_call(func) GlobalPlatform.gl->functions.fn.##func
 #else
-#define platform_call(func) GlobalPlatform->gl->functions.fn. func
+#define platform_call(func) GlobalPlatform.gl->functions.fn. func
 #endif
 
 #define glGenTextures gl_call(glGenTextures)
@@ -119,20 +140,58 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #define glBindTextureUnit gl_call(glBindTextureUnit)
 #define glDebugMessageCallback gl_call(glDebugMessageCallback)
 #define glDebugMessageControl gl_call(glDebugMessageControl)
+#define glDeleteProgram gl_call(glDeleteProgram)
+#define glGetIntegerv gl_call(glGetIntegerv)
+#define glDeleteBuffers gl_call(glDeleteBuffers)
 
-static PlatformState* GlobalPlatform = 0;
+#include "flux_memory.h"
+// NOTE: Libs
+
+void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size); memset(ptr, 0, num * size); return ptr; }
+
+#include "../ext/stb/stb_image.h"
 
 #include "../ext/imgui/imgui.h"
+
 void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
 void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr); }
+
+void ImGuiMainDockSpaceBagin() {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    bool p_open;
+    ImGui::Begin("DockSpace Demo", &p_open, window_flags);
+    ImGui::PopStyleVar(3);
+
+    ImGuiID dockspaceId = ImGui::GetID("Main dockspace");
+    auto dockspaceFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+    ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), dockspaceFlags);
+}
+
+void ImGuiMainDockSpaceEnd() {
+    ImGui::End();
+}
 
 extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void** data) {
     switch (reason) {
     case GameInvoke::Init: {
+        stbi_set_flip_vertically_on_load(1);
+
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
-        GlobalPlatform = platform;
+        _GlobalPlatform = platform;
 
 #if defined(DEBUG_OPENGL)
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -142,23 +201,30 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER, GL_DEBUG_SEVERITY_LOW, 0, 0, GL_FALSE);
 #endif
         auto context = (Context*)PlatformAlloc(sizeof(Context));
+        *context = {};
         *data = context;
+
+        context->renderer = InitializeRenderer(UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight));
+        //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
+        context->renderGroup = RenderGroup::Make(Kilobytes(1024), 16384);
+
         FluxInit(context);
     } break;
     case GameInvoke::Reload: {
+        auto context = (Context*)(*data);
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
-        GlobalPlatform = platform;
-        FluxReload((Context*)(*data));
+        _GlobalPlatform = platform;
+        glDebugMessageCallback(OpenglDebugCallback, 0);
+        RecompileShaders(context->renderer);
+        printf("[Info] Game was hot-reloaded");
+        FluxReload(context);
     } break;
     case GameInvoke::Update: {
-        bool imguiDemoWindow = true;
-        if (imguiDemoWindow)
-        {
-            ImGui::ShowDemoWindow(&imguiDemoWindow);
-        }
+        ImGuiMainDockSpaceBagin();
         FluxUpdate((Context*)(*data));
+        ImGuiMainDockSpaceEnd();
     } break;
     case GameInvoke::Render: {
         FluxRender((Context*)(*data));
@@ -203,9 +269,29 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 #include "flux.cpp"
+#include "flux_debug_overlay.cpp"
+#include "flux_camera.cpp"
+#include "flux_render_group.cpp"
+#include "flux_renderer.cpp"
+#include "flux_shaders.cpp"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"
 #include "../ext/imgui/imgui_draw.cpp"
 #include "../ext/imgui/imgui_widgets.cpp"
 #include "../ext/imgui/imgui_demo.cpp"
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_MALLOC PlatformAlloc
+#define STBI_REALLOC PlatformRealloc
+#define STBI_FREE PlatformFree
+#define STBI_ASSERT(x) assert(x)
+#define STBI_NO_BMP
+#define STBI_NO_PSD
+#define STBI_NO_TGA
+#define STBI_NO_GIF
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+
+#include "../ext/stb/stb_image.h"
+#undef STB_IMAGE_IMPLEMENTATION

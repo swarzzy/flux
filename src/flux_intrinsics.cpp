@@ -31,12 +31,12 @@ constexpr T Max(T a, T b) {
 
 template<typename T>
 constexpr T Clamp(T x, T min, T max) {
-    return (x < min) ? min : ((x > max) ? max : x);
+    return Min(Max(x, min), max);
 }
 
 template<typename T>
 constexpr T Abs(T val) {
-    return val >= static_cast<T>(0) ? value : -value;
+    return val >= static_cast<T>(0) ? val : -val;
 }
 
 template<typename T>
@@ -45,11 +45,11 @@ constexpr f32 Lerp(T a, T b, f32 t) {
 }
 
 constexpr f32 ToDeg(f32 rad) {
-    return 180.0f / PI_32 * rad;
+    return 180.0f / F32::Pi * rad;
 }
 
 constexpr f32 ToRad(f32 deg) {
-    return PI_32 / 180.0f * deg;
+    return F32::Pi / 180.0f * deg;
 }
 
 f32 Sin(f32 rad) {
@@ -84,6 +84,26 @@ f32 Ceil(f32 v) {
     return ceilf(v);
 }
 
-f32 Rounf(f32 v) {
+f32 Round(f32 v) {
     return roundf(v);
+}
+
+constexpr u32 StrLength(const char* string) {
+    u32 result = 0;
+    while (*string) {
+        result++;
+        string++;
+    }
+    return result;
+}
+
+constexpr u32 StrSize(const char* string) {
+    u32 result = 0;
+    while (*string) {
+        result++;
+        string++;
+    }
+    result++;
+    result *= sizeof(char);
+    return result;
 }

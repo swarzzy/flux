@@ -1,5 +1,5 @@
 #pragma once
-#include "flux_latform.h"
+#include "flux_platform.h"
 #include <cstring>
 
 template <typename T>
