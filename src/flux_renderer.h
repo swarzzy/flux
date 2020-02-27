@@ -16,20 +16,6 @@ struct Texture {
     void* data;
 };
 
-struct Mesh {
-    void* base;
-    u32 vertexCount;
-    u32 indexCount;
-    v3* vertices;
-    v3* normals;
-    v2* uvs;
-    v3* tangents;
-    u32* indices;
-    u32 gpuVertexBufferHandle;
-    u32 gpuIndexBufferHandle;
-};
-
-
 struct Material {
     enum struct Type { Legacy = 0, PBR } type;
     enum struct Workflow { Legacy = 0, Metallic, Specular, Custom } workflow;
@@ -89,7 +75,7 @@ struct CubeTexture {
 
 Renderer* InitializeRenderer(uv2 renderRes);
 Mesh LoadMeshAAB(const wchar_t* filepath);
-Mesh LoadMeshObj(const char* filepath);
+Mesh* LoadMesh(const char* filepath);
 
 Material LoadMaterialPBRMetallic(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath);
 Material LoadMaterialLegacy(const char* diffusePath,  const char* specularPath = 0);

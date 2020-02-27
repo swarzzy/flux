@@ -1,7 +1,7 @@
 #pragma once
+#include "flux_platform.h"
 #include <windows.h>
 
-#include "flux_platform.h"
 #include "win32_flux_code_loader.h"
 
 #define DISCRETE_GRAPHICS_DEFAULT

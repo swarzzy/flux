@@ -85,6 +85,7 @@ typedef double f64;
 
 typedef u32 u32x;
 typedef i32 i32x;
+typedef u32 uint;
 
 namespace Uptr {
     constexpr uptr Max = UINTPTR_MAX;
@@ -97,6 +98,8 @@ namespace F32 {
     constexpr f32 Max = FLT_MAX;
 };
 
+#include "flux_intrinsics.cpp"
+#include "flux_math.cpp"
 #include "flux_opengl.h"
 
 enum struct GameInvoke : u32
@@ -162,18 +165,26 @@ typedef void*(AllocateFn)(uptr size);
 typedef void(DeallocateFn)(void* ptr);
 typedef void*(ReallocateFn)(void* ptr, uptr newSize);
 
-struct LoadedMesh {
+struct Mesh {
+    char name[32];
     void* base;
+    Mesh* head;
+    Mesh* next;
     u32 vertexCount;
     u32 indexCount;
-    f32* vertices;
-    f32* normals;
-    f32* uvs;
-    f32* tangents;
+    v3* vertices;
+    v3* normals;
+    v2* uvs;
+    v3* tangents;
+    v3* colors;
     u32* indices;
+    u32 gpuVertexBufferHandle;
+    u32 gpuIndexBufferHandle;
 };
 
-typedef void(ResourceLoaderLoadMeshFn)(const char* filename, AllocateFn* allocator, LoadedMesh* mesh);
+static_assert(sizeof(Mesh) % 4 == 0);
+
+typedef Mesh*(ResourceLoaderLoadMeshFn)(const char* filename, AllocateFn* allocator);
 
 struct PlatformCalls
 {

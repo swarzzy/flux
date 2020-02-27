@@ -506,24 +506,18 @@ Mesh LoadMeshAAB(const wchar_t* filepath) {
     return mesh;
 }
 
-Mesh LoadMeshObj(const char* filepath) {
-    LoadedMesh loadedMesh = {};
-    ResourceLoaderLoadMesh(filepath, PlatformAlloc, &loadedMesh);
-    assert(loadedMesh.base);
+Mesh* LoadMesh(const char* filepath) {
+    Mesh* mesh = ResourceLoaderLoadMesh(filepath, PlatformAlloc);
+    assert(mesh->base);
 
-    Mesh mesh = {};
-    mesh.base = loadedMesh.base;
-    mesh.vertexCount = loadedMesh.vertexCount;
-    mesh.indexCount = loadedMesh.indexCount;
-    mesh.vertices = (v3*)loadedMesh.vertices;
-    mesh.normals = (v3*)loadedMesh.normals;
-    mesh.uvs = (v2*)loadedMesh.uvs;
-    mesh.tangents = (v3*)loadedMesh.tangents;
-    mesh.indices = (u32*)loadedMesh.indices;
+    auto child = mesh;
+    while (child) {
+        RendererLoadMesh(child);
+        assert(child->gpuVertexBufferHandle);
+        assert(child->gpuIndexBufferHandle);
+        child = child->next;
+    }
 
-    RendererLoadMesh(&mesh);
-    assert(mesh.gpuVertexBufferHandle);
-    assert(mesh.gpuIndexBufferHandle);
     return mesh;
 }
 
@@ -1031,14 +1025,17 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
 
                 auto* mesh = data->mesh;
 
-                glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+                while (mesh) {
+                    glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
-                auto posAttrLoc = ShadowPassShader::PositionAttribLocation;
-                glEnableVertexAttribArray(posAttrLoc);
-                glVertexAttribPointer(posAttrLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                    auto posAttrLoc = ShadowPassShader::PositionAttribLocation;
+                    glEnableVertexAttribArray(posAttrLoc);
+                    glVertexAttribPointer(posAttrLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
-                glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+                    glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                    mesh = mesh->next;
+                }
             } break;
             }
         }
@@ -1166,34 +1163,37 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     meshBuffer->normalMatrix = normalMatrix;
                     Unmap(renderer->meshUniformBuffer);
 
-                    auto* mesh = data->mesh;
 
                     glBindTextureUnit(MeshShader::DiffMap, data->material.legacy.diffMap.gpuHandle);
                     glBindTextureUnit(MeshShader::SpecMap, data->material.legacy.specMap.gpuHandle);
                     glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
 
-                    glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+                    auto* mesh = data->mesh;
 
-                    glEnableVertexAttribArray(0);
-                    glEnableVertexAttribArray(1);
-                    glEnableVertexAttribArray(2);
+                    while (mesh) {
+                        glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
-                    u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                    u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+                        glEnableVertexAttribArray(0);
+                        glEnableVertexAttribArray(1);
+                        glEnableVertexAttribArray(2);
 
-                    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+                        u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                        u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
 
-                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+                        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
 
-                    glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+
+                        glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                        mesh = mesh->next;
+                    }
                 } else if (data->material.type == Material::Type::PBR) {
                     assert(group->irradanceMapHandle);
                     auto meshProg = renderer->shaders.PbrMesh;
                     glUseProgram(meshProg);
 
-                    auto* mesh = data->mesh;
                     auto* m = &data->material;
 
                     auto normalMatrix = MakeNormalMatrix(data->transform);
@@ -1234,26 +1234,30 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     glBindTextureUnit(MeshPBRShader::EnviromentMap, group->envMapHandle);
                     glBindTextureUnit(MeshPBRShader::ShadowMap, renderer->shadowMapDepthTarget);
 
+                    auto* mesh = data->mesh;
 
-                    glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+                    while (mesh) {
+                        glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
-                    glEnableVertexAttribArray(0);
-                    glEnableVertexAttribArray(1);
-                    glEnableVertexAttribArray(2);
-                    glEnableVertexAttribArray(3);
+                        glEnableVertexAttribArray(0);
+                        glEnableVertexAttribArray(1);
+                        glEnableVertexAttribArray(2);
+                        glEnableVertexAttribArray(3);
 
-                    u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                    u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
-                    u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
+                        u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                        u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+                        u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
 
-                    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
-                    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
+                        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+                        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
 
-                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+                        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
 
-                    glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                        glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                        mesh = mesh->next;
+                    }
                 } else {
                     unreachable();
                 }

@@ -438,6 +438,10 @@ m4x4 Translation(v3 offset) {
     return result;
 }
 
+v3 ExtractTranslation(m4x4 m) {
+    return V3(m._14, m._24, m._34);
+}
+
 m4x4 Scaling(v3 scalar) {
     m4x4 result = {};
     result._11 = scalar.x;
@@ -447,7 +451,8 @@ m4x4 Scaling(v3 scalar) {
 
     return result;
 }
-
+#undef far
+#undef near
 m4x4 OrthoGLRH(f32 left, f32 right, f32 bottom, f32 top, f32 near, f32 far) {
     m4x4 m = {};
     m._11 = 2.0f / (right - left);

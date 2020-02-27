@@ -3,8 +3,8 @@
 #include "flux_debug_overlay.h"
 
 void FluxInit(Context* context) {
-    LoadedMesh mesh = {};
-    context->wheelMesh = LoadMeshObj("../res/meshes/wheel.obj");
+    context->wheelMesh = LoadMesh("../res/meshes/backpack_low.fbx");
+    //context->wheelMesh = LoadMesh("../res/meshes/backpack_low.fbx");
     context->sphereMesh = LoadMeshAAB(L"../res/meshes/sphere.aab");
     context->plateMesh = LoadMeshAAB(L"../res/meshes/plate.aab");
     context->checkerboardMaterial = LoadMaterialLegacy("../res/checkerboard.jpg");
@@ -55,8 +55,9 @@ void FluxUpdate(Context* context) {
     Push(group, &lightCommand);
 
     RenderCommandDrawMesh command = {};
-    command.transform = M4x4(1.0f);
-    command.mesh = &context->wheelMesh;
+    DEBUG_OVERLAY_TRACE(context->camera.position * 0.9f);
+    command.transform = Translation(V3(2.0f, 2.0f, 5.0f)) * Scaling(V3(0.02f));
+    command.mesh = context->wheelMesh;
     command.material = context->checkerboardMaterial;
     Push(group, &command);
 

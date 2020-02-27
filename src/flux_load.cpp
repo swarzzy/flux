@@ -1,6 +1,4 @@
 #include "flux_platform.h"
-#include "flux_intrinsics.cpp"
-#include "flux_math.cpp"
 #include "flux.h"
 
 #define DEBUG_OPENGL
