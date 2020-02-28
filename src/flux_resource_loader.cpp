@@ -4,6 +4,18 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_BMP
+#define STBI_NO_PSD
+#define STBI_NO_TGA
+#define STBI_NO_GIF
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+
+#include "../ext/stb/stb_image.h"
+#undef STB_IMAGE_IMPLEMENTATION
+
+
 #if defined(PLATFORM_WINDOWS)
 #include <windows.h>
 static LARGE_INTEGER GlobalPerformanceFrequency = {};
@@ -123,7 +135,7 @@ Mesh* ProcessAssimpNode(aiNode* node, const aiScene* scene, Mesh* lastLoaded, Al
     return lastLoaded;
 }
 
-extern "C" GAME_CODE_ENTRY Mesh* ResourceLoaderLoadMesh(const char* filename, AllocateFn* allocator) {
+extern "C" GAME_CODE_ENTRY Mesh* __cdecl ResourceLoaderLoadMesh(const char* filename, AllocateFn* allocator) {
     printf("[Resource loader] Loading mesh %s ...", filename);
     auto startTime = GetTimeStamp();
 
@@ -141,4 +153,66 @@ extern "C" GAME_CODE_ENTRY Mesh* ResourceLoaderLoadMesh(const char* filename, Al
     printf("   Time: %f ms\n", (endTime - startTime) * 1000.0f);
 
     return meshChain;
+}
+
+
+extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator) {
+    printf("[Resource loader] Loading image %s ...", filename);
+    auto startTime = GetTimeStamp();
+
+    void* data = nullptr;
+    int width;
+    int height;
+    i32 channels;
+    u32 channelSize;
+
+    if (flipY) {
+        stbi_set_flip_vertically_on_load(1);
+    } else {
+        stbi_set_flip_vertically_on_load(0);
+    }
+
+    if (range == DynamicRange::LDR) {
+        int n;
+        data = stbi_load(filename, &width, &height, &n, forceBPP);
+        channelSize = sizeof(u8);
+        channels = forceBPP ? forceBPP : n;
+    } else if (range == DynamicRange::HDR) {
+        int n;
+        data = stbi_loadf(filename, &width, &height, &n, forceBPP);
+        channelSize = sizeof(f32);
+        channels = forceBPP ? forceBPP : n;
+    } else {
+        unreachable();
+    }
+
+    LoadedImage* header = nullptr;
+
+    if (data) {
+        auto bitmapSize = channelSize * width * height * channels;
+        auto size = sizeof(LoadedImage) + bitmapSize;
+        auto memory = allocator(size);
+        header = (LoadedImage*)memory;
+        header->base = memory;
+        header->bits = (byte*)memory + sizeof(LoadedImage);
+        header->width = width;
+        header->height = height;
+        header->channels = channels;
+        header->range = range;
+
+        auto nameLen = strlen(filename);
+        if (nameLen > array_count(header->name) - 2) {
+            nameLen = array_count(header->name) - 2;
+        }
+        memcpy(header->name, filename, nameLen);
+        header->name[nameLen + 1] = 0;
+
+        memcpy(header->bits, data, bitmapSize);
+        stbi_image_free(data);
+    }
+
+    auto endTime = GetTimeStamp();
+    printf("   Time: %f ms\n", (endTime - startTime) * 1000.0f);
+
+    return header;
 }

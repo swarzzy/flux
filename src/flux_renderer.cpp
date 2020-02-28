@@ -208,63 +208,71 @@ void RendererLoadMesh(Mesh* mesh) {
     }
 }
 
-CubeTexture LoadCubemap(const char* back, const char* down, const char* front,
-                        const char* left, const char* right, const char* up) {
+CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* frontPath,
+                        const char* leftPath, const char* rightPath, const char* upPath,
+                        DynamicRange range, GLenum glFormat) {
     CubeTexture texture = {};
 
-    i32 backWidth, backHeight, backBpp;
-    unsigned char* backData = stbi_load(back, &backWidth, &backHeight, &backBpp, 3);
+    // TODO: Use memory arena
+    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc);
+    defer { PlatformFree(back->base); };
+    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc);
+    defer { PlatformFree(down->base); };
+    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc);
+    defer { PlatformFree(front->base); };
+    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc);
+    defer { PlatformFree(left->base); };
+    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc);
+    defer { PlatformFree(right->base); };
+    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc);
+    defer { PlatformFree(up->base); };
 
-    i32 downWidth, downHeight, downBpp;
-    unsigned char* downData = stbi_load(down, &downWidth, &downHeight, &downBpp, 3);
+    texture.back.format = glFormat;
+    texture.back.width = back->width;
+    texture.back.height = back->height;
+    texture.back.data = back->bits;
 
-    i32 frontWidth, frontHeight, frontBpp;
-    unsigned char* frontData = stbi_load(front, &frontWidth, &frontHeight, &frontBpp, 3);
+    texture.down.format = glFormat;
+    texture.down.width = down->width;
+    texture.down.height = down->height;
+    texture.down.data = down->bits;
 
-    i32 leftWidth, leftHeight, leftBpp;
-    unsigned char* leftData = stbi_load(left, &leftWidth, &leftHeight, &leftBpp, 3);
+    texture.front.format = glFormat;
+    texture.front.width = front->width;
+    texture.front.height = front->height;
+    texture.front.data = front->bits;
 
-    i32 rightWidth, rightHeight, rightBpp;
-    unsigned char* rightData = stbi_load(right, &rightWidth, &rightHeight, &rightBpp, 3);
+    texture.left.format = glFormat;
+    texture.left.width = left->width;
+    texture.left.height = left->height;
+    texture.left.data = left->bits;
 
-    i32 upWidth, upHeight, upBpp;
-    unsigned char* upData = stbi_load(up, &upWidth, &upHeight, &upBpp, 3);
+    texture.right.format = glFormat;
+    texture.right.width = right->width;
+    texture.right.height = right->height;
+    texture.right.data = right->bits;
 
-    texture.back.format = GL_SRGB8;
-    texture.back.width = backWidth;
-    texture.back.height = backHeight;
-    texture.back.data = backData;
-
-    texture.down.format = GL_SRGB8;
-    texture.down.width = downWidth;
-    texture.down.height = downHeight;
-    texture.down.data = downData;
-
-    texture.front.format = GL_SRGB8;
-    texture.front.width = frontWidth;
-    texture.front.height = frontHeight;
-    texture.front.data = frontData;
-
-    texture.left.format = GL_SRGB8;
-    texture.left.width = leftWidth;
-    texture.left.height = leftHeight;
-    texture.left.data = leftData;
-
-    texture.right.format = GL_SRGB8;
-    texture.right.width = rightWidth;
-    texture.right.height = rightHeight;
-    texture.right.data = rightData;
-
-    texture.up.format = GL_SRGB8;
-    texture.up.width = upWidth;
-    texture.up.height = upHeight;
-    texture.up.data = upData;
+    texture.up.format = glFormat;
+    texture.up.width = up->width;
+    texture.up.height = up->height;
+    texture.up.data = up->bits;
 
     RendererLoadCubeTexture(&texture);
     assert(texture.gpuHandle);
 
     return texture;
 }
+
+CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* frontPath,
+                        const char* leftPath, const char* rightPath, const char* upPath) {
+    return LoadCubemap(backPath, downPath, frontPath, leftPath, rightPath, upPath, DynamicRange::LDR, GL_SRGB8);
+}
+
+CubeTexture LoadCubemapHDR(const char* backPath, const char* downPath, const char* frontPath,
+                           const char* leftPath, const char* rightPath, const char* upPath) {
+    return LoadCubemap(backPath, downPath, frontPath, leftPath, rightPath, upPath, DynamicRange::HDR, GL_RGB16F);
+}
+
 
 CubeTexture MakeEmptyCubemap(int w, int h, GLenum format, TextureFilter filter, bool useMips) {
     CubeTexture texture = {};
@@ -281,76 +289,12 @@ CubeTexture MakeEmptyCubemap(int w, int h, GLenum format, TextureFilter filter, 
     return texture;
 }
 
-CubeTexture LoadCubemapHDR(const char* back, const char* down, const char* front,
-                           const char* left, const char* right, const char* up) {
-    CubeTexture texture = {};
-
-    i32 backWidth, backHeight, backBpp;
-    f32* backData = stbi_loadf(back, &backWidth, &backHeight, &backBpp, 3);
-
-    i32 downWidth, downHeight, downBpp;
-    f32* downData = stbi_loadf(down, &downWidth, &downHeight, &downBpp, 3);
-
-    i32 frontWidth, frontHeight, frontBpp;
-    f32* frontData = stbi_loadf(front, &frontWidth, &frontHeight, &frontBpp, 3);
-
-    i32 leftWidth, leftHeight, leftBpp;
-    f32* leftData = stbi_loadf(left, &leftWidth, &leftHeight, &leftBpp, 3);
-
-    i32 rightWidth, rightHeight, rightBpp;
-    f32* rightData = stbi_loadf(right, &rightWidth, &rightHeight, &rightBpp, 3);
-
-    i32 upWidth, upHeight, upBpp;
-    f32* upData = stbi_loadf(up, &upWidth, &upHeight, &upBpp, 3);
-
-    texture.useMips = true;
-    texture.filter = TextureFilter::Trilinear;
-
-    texture.back.format = GL_RGB16F;
-    texture.back.width = backWidth;
-    texture.back.height = backHeight;
-    texture.back.data = backData;
-
-    texture.down.format = GL_RGB16F;
-    texture.down.width = downWidth;
-    texture.down.height = downHeight;
-    texture.down.data = downData;
-
-    texture.front.format = GL_RGB16F;
-    texture.front.width = frontWidth;
-    texture.front.height = frontHeight;
-    texture.front.data = frontData;
-
-    texture.left.format = GL_RGB16F;
-    texture.left.width = leftWidth;
-    texture.left.height = leftHeight;
-    texture.left.data = leftData;
-
-    texture.right.format = GL_RGB16F;
-    texture.right.width = rightWidth;
-    texture.right.height = rightHeight;
-    texture.right.data = rightData;
-
-    texture.up.format = GL_RGB16F;
-    texture.up.width = upWidth;
-    texture.up.height = upHeight;
-    texture.up.data = upData;
-
-    RendererLoadCubeTexture(&texture);
-    assert(texture.gpuHandle);
-
-    return texture;
-}
-
 Texture LoadTexture(const char* filename,
                     GLenum format = 0,
                     GLenum wrapMode = GL_REPEAT,
                     TextureFilter filter = TextureFilter::Bilinear) {
     Texture t = {};
 
-    i32 width;
-    i32 height;
-    i32 bpp;
     i32 desiredBpp = 0;
 
     if (format) {
@@ -365,10 +309,11 @@ Texture LoadTexture(const char* filename,
         }
     }
 
-    unsigned char* diffBitmap = stbi_load(filename, &width, &height, &bpp, desiredBpp);
+    auto image = ResourceLoaderLoadImage(filename, DynamicRange::LDR, true, desiredBpp, PlatformAlloc);
+    assert(image);
 
     if (!format) {
-        switch (bpp) {
+        switch (image->channels) {
         case 1: { format = GL_R8; } break;
         case 2: { format = GL_RG8; } break; // TODO: Implement in renderer
         case 3: { format = GL_RGB8; } break;
@@ -378,12 +323,12 @@ Texture LoadTexture(const char* filename,
     }
 
     t.format = format;
-    t.width = width;
-    t.height = height;
+    t.width = image->width;
+    t.height = image->height;
     t.wrapMode = wrapMode;
     t.filter = filter;
 
-    t.data = diffBitmap;
+    t.data = image->bits;
     RendererLoadTexture(&t);
     assert(t.gpuHandle);
 

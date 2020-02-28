@@ -36,7 +36,7 @@ bool MouseButtonDown(MouseButton button) {
 #define PlatformDebugReadFile platform_call(DebugReadFile)
 #define PlatformDebugWriteFile platform_call(DebugWriteFile)
 #define ResourceLoaderLoadMesh platform_call(ResourceLoaderLoadMesh)
-
+#define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
 
 #if defined(COMPILER_MSVC)
 #define gl_call(func) GlobalPlatform.gl->functions.fn.##func
@@ -148,8 +148,6 @@ bool MouseButtonDown(MouseButton button) {
 
 void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size); memset(ptr, 0, num * size); return ptr; }
 
-#include "../ext/stb/stb_image.h"
-
 #include "../ext/imgui/imgui.h"
 
 void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
@@ -185,8 +183,6 @@ void ImGuiMainDockSpaceEnd() {
 extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void** data) {
     switch (reason) {
     case GameInvoke::Init: {
-        stbi_set_flip_vertically_on_load(1);
-
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
@@ -279,18 +275,3 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "../ext/imgui/imgui_draw.cpp"
 #include "../ext/imgui/imgui_widgets.cpp"
 #include "../ext/imgui/imgui_demo.cpp"
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STBI_MALLOC PlatformAlloc
-#define STBI_REALLOC PlatformRealloc
-#define STBI_FREE PlatformFree
-#define STBI_ASSERT(x) assert(x)
-#define STBI_NO_BMP
-#define STBI_NO_PSD
-#define STBI_NO_TGA
-#define STBI_NO_GIF
-#define STBI_NO_PIC
-#define STBI_NO_PNM
-
-#include "../ext/stb/stb_image.h"
-#undef STB_IMAGE_IMPLEMENTATION

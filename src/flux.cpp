@@ -9,10 +9,8 @@ void FluxInit(Context* context) {
     context->plateMesh = LoadMeshAAB(L"../res/meshes/plate.aab");
     context->checkerboardMaterial = LoadMaterialLegacy("../res/checkerboard.jpg");
     context->oldMetalMaterial = LoadMaterialPBRMetallic("../res/materials/oldmetal/greasy-metal-pan1-albedo.png", "../res/materials/oldmetal/greasy-metal-pan1-roughness.png", "../res/materials/oldmetal/greasy-metal-pan1-metal.png", "../res/materials/oldmetal/greasy-metal-pan1-normal.png");
+    context->backpackMaterial = LoadMaterialPBRMetallic("../res/materials/backpack/albedo.png", "../res/materials/backpack/rough.png", "../res/materials/backpack/metallic.png", "../res/materials/backpack/normal.png");
     context->skybox = LoadCubemap("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
-
-    stbi_set_flip_vertically_on_load(0);
-    defer { stbi_set_flip_vertically_on_load(1); };
 
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
     context->irradanceMap = MakeEmptyCubemap(64, 64, GL_RGB16F);
@@ -58,7 +56,7 @@ void FluxUpdate(Context* context) {
     DEBUG_OVERLAY_TRACE(context->camera.position * 0.9f);
     command.transform = Translation(V3(2.0f, 2.0f, 5.0f)) * Scaling(V3(0.02f));
     command.mesh = context->wheelMesh;
-    command.material = context->checkerboardMaterial;
+    command.material = context->backpackMaterial;
     Push(group, &command);
 
     RenderCommandDrawMesh plateCommand = {};

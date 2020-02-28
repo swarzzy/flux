@@ -14,6 +14,7 @@ struct Context {
     Mesh* wheelMesh;
     Material oldMetalMaterial;
     Material checkerboardMaterial;
+    Material backpackMaterial;
     CubeTexture skybox;
     CubeTexture hdrMap;
     CubeTexture irradanceMap;

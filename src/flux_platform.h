@@ -184,7 +184,25 @@ struct Mesh {
 
 static_assert(sizeof(Mesh) % 4 == 0);
 
-typedef Mesh*(ResourceLoaderLoadMeshFn)(const char* filename, AllocateFn* allocator);
+typedef Mesh*(__cdecl ResourceLoaderLoadMeshFn)(const char* filename, AllocateFn* allocator);
+
+enum struct DynamicRange : u32 {
+    LDR, HDR
+};
+
+struct LoadedImage {
+    void* base;
+    void* bits;
+    char name[32];
+    u32 width;
+    u32 height;
+    u32 channels;
+    DynamicRange range;
+};
+
+static_assert(sizeof(LoadedImage) % 4 == 0);
+
+typedef LoadedImage*(__cdecl ResourceLoaderLoadImageFn)(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator);
 
 struct PlatformCalls
 {
@@ -204,6 +222,7 @@ struct PlatformCalls
     GetTimeStampFn* GetTimeStamp;
 
     ResourceLoaderLoadMeshFn* ResourceLoaderLoadMesh;
+    ResourceLoaderLoadImageFn* ResourceLoaderLoadImage;
 
     EnumerateFilesInDirectoryFn* EnumerateFilesInDirectory;
 };
