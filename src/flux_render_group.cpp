@@ -16,6 +16,7 @@ RenderGroup RenderGroup::Make(uptr renderBufferSize, u32 commandQueueCapacity) {
 
 void ValidateCommand(RenderGroup* group, RenderCommand type) {
     if ((type == RenderCommand::LinePushVertex) || (type == RenderCommand::LineEnd)) {
+        assert(group->pendingLineBatchCommandHeader);
     } else {
         assert(!group->pendingLineBatchCommandHeader);
     }
@@ -91,13 +92,14 @@ void Push(RenderGroup* group, RenderCommandLineBegin* command) {
 }
 
 void Push(RenderGroup* group, RenderCommandPushLineVertex* command) {
-    ValidateCommand(group, RenderCommand::LineBegin);
+    ValidateCommand(group, RenderCommand::LinePushVertex);
 
     PushRenderData(group, sizeof(RenderCommandPushLineVertex), alignof(RenderCommandPushLineVertex), command);
     group->pendingLineBatchCommandHeader->instanceCount++;
 }
 
 void Push(RenderGroup* group, RenderCommandLineEnd* command) {
+    ValidateCommand(group, RenderCommand::LineEnd);
     group->pendingLineBatchCommandHeader = nullptr;
 }
 

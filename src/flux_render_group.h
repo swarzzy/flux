@@ -29,6 +29,7 @@ struct RenderCommandDrawWater {
 
 struct RenderCommandDrawMesh {
     m4x4 transform;
+    // TODO: Decide how to pass this (ptr vs value)
     Mesh* mesh;
     Material material;
     enum DrawMeshFlags : u32 { Highlight, Wireframe } flags;

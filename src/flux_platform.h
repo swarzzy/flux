@@ -33,7 +33,7 @@
 // NOTE: Defined always
 #define panic(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
 
-#define array_count(arr) (sizeof(arr) / sizeof(arr[0]))
+#define array_count(arr) ((uint)(sizeof(arr) / sizeof(arr[0])))
 #define typedecl(type, member) (((type*)0)->member)
 #define invalid_default() default: { debug_break(); } break
 #define unreachable() debug_break()
@@ -96,10 +96,11 @@ namespace F32 {
     constexpr f32 Eps = 0.000001f;
     constexpr f32 Nan = NAN;
     constexpr f32 Max = FLT_MAX;
+    constexpr f32 Min = FLT_MIN;
 };
 
 #include "flux_intrinsics.cpp"
-#include "flux_math.cpp"
+#include "flux_math.h"
 #include "flux_opengl.h"
 
 enum struct GameInvoke : u32
@@ -178,6 +179,7 @@ struct Mesh {
     v3* tangents;
     v3* colors;
     u32* indices;
+    BBoxAligned aabb;
     u32 gpuVertexBufferHandle;
     u32 gpuIndexBufferHandle;
 };

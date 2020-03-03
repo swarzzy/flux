@@ -1,4 +1,5 @@
 #include "flux_platform.h"
+#include "flux_math.cpp"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
@@ -148,6 +149,12 @@ extern "C" GAME_CODE_ENTRY Mesh* __cdecl ResourceLoaderLoadMesh(const char* file
     auto lastLoaded = ProcessAssimpNode(scene->mRootNode, scene, nullptr, allocator);
     auto meshChain = lastLoaded->head;
     assert(meshChain);
+
+    auto mesh = meshChain;
+    while (mesh) {
+        mesh->aabb = BBoxAligned::From(mesh);
+        mesh = mesh->next;
+    }
 
     auto endTime = GetTimeStamp();
     printf("   Time: %f ms\n", (endTime - startTime) * 1000.0f);

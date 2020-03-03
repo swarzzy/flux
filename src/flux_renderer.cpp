@@ -443,6 +443,8 @@ Mesh LoadMeshAAB(const wchar_t* filepath) {
             mesh.indices = (u32*)((byte*)fileData + header->indicesOffset);
             mesh.tangents = (v3*)((byte*)fileData + header->tangentsOffset);
 
+            mesh.aabb = BBoxAligned::From(&mesh);
+
             RendererLoadMesh(&mesh);
             assert(mesh.gpuVertexBufferHandle);
             assert(mesh.gpuIndexBufferHandle);

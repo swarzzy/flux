@@ -213,7 +213,7 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         _GlobalPlatform = platform;
         glDebugMessageCallback(OpenglDebugCallback, 0);
         RecompileShaders(context->renderer);
-        printf("[Info] Game was hot-reloaded");
+        printf("[Info] Game was hot-reloaded\n");
         FluxReload(context);
     } break;
     case GameInvoke::Update: {
@@ -264,11 +264,13 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 #include "flux.cpp"
+#include "flux_math.cpp"
 #include "flux_debug_overlay.cpp"
 #include "flux_camera.cpp"
 #include "flux_render_group.cpp"
 #include "flux_renderer.cpp"
 #include "flux_shaders.cpp"
+#include "flux_world.cpp"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"
