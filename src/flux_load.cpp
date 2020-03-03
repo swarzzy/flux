@@ -19,9 +19,14 @@ bool KeyDown(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;
 }
 
-bool MouseButtonDown(MouseButton button) {
+bool MouseButtonHeld(MouseButton button) {
     return GlobalInput.mouseButtons[(u32)button].pressedNow;
 }
+
+bool MouseButtonPressed(MouseButton button) {
+    return GlobalInput.mouseButtons[(u32)button].pressedNow && !GlobalInput.mouseButtons[(u32)button].wasPressed;
+}
+
 
 #if defined(COMPILER_MSVC)
 #define platform_call(func) GlobalPlatform.functions.##func

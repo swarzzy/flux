@@ -85,6 +85,10 @@ CubeTexture MakeEmptyCubemap(int w, int h, GLenum format, TextureFilter filter =
 void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle);
 void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels);
 
+// TODO: Temporary hack while struct is defined in cpp file
+uv2 GetRenderResolution(Renderer* renderer);
+void ChangeRenderResolution(Renderer* renderer, uv2 newRes);
+
 struct RenderGroup;
 
 void Begin(Renderer* renderer, RenderGroup* group);

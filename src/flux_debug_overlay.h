@@ -1,6 +1,8 @@
 #pragma once
 #include "flux_platform.h"
 
+b32 GlobalDrawDebugOverlay = false;
+
 void DrawDebugPerformanceCounters();
 void BeginDebugOverlay();
 bool DebugOverlayBeginCustom();

@@ -28,7 +28,7 @@ void GatherInput(Camera* camera) {
     camera->frameAcceleration = Normalize(camera->frameAcceleration);
     camera->frameAcceleration *= camera->moveSpeed;
 
-    if (MouseButtonDown(MouseButton::Right))
+    if (MouseButtonHeld(MouseButton::Right))
     {
         v2 mousePos;
         f32 speed = camera->rotSpeed;
@@ -74,6 +74,8 @@ void Update(Camera* camera, f32 dt) {
     camera->front = Normalize(V3(x, y, z));
 
     v2 normMousePos;
+    DEBUG_OVERLAY_TRACE(GlobalInput.mouseX);
+    DEBUG_OVERLAY_TRACE(GlobalInput.mouseY);
     normMousePos.x = 2.0f * GlobalInput.mouseX - 1.0f;
     normMousePos.y = 2.0f * GlobalInput.mouseY - 1.0f;
     v4 mouseClip = V4(normMousePos, -1.0f, 0.0f);

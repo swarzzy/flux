@@ -10,6 +10,18 @@ struct Option
     T _some;
     OptionStatus status;
 
+    inline bool IsSome() {
+        return this->status == OptionStatus::Some ? true : false;
+    }
+
+    inline bool IsNone() {
+        return !this->IsSome();
+    }
+
+    explicit operator bool() {
+        return this->IsSome();
+    }
+
     inline T Unwrap() {
         if (this->status == ::Some) {
             return this->_some;

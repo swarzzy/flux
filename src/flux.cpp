@@ -40,7 +40,6 @@ void FluxInit(Context* context) {
 }
 
 void FluxReload(Context* context) {
-
 }
 
 void DrawMenu(Ui* ui) {
@@ -54,6 +53,9 @@ void DrawMenu(Ui* ui) {
         }
         if (ImGui::MenuItem("Show bounding volumes", nullptr, ui->showBoundingVolumes)) {
             ui->showBoundingVolumes = !ui->showBoundingVolumes;
+        }
+        if (ImGui::MenuItem("Show debug overlay", nullptr, ui->showDebugOverlay)) {
+            ui->showDebugOverlay = !ui->showDebugOverlay;
         }
         ImGui::EndMenu();
     }
@@ -90,6 +92,9 @@ void DrawEntityInspector(Ui* ui, World* world) {
     ImGui::SetNextWindowSize({300, 600});
     auto windowFlags = ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
     if (ImGui::Begin("Entity inspector", (bool*)&ui->entityInspectorOpen, windowFlags)) {
+        if (ImGui::Button("Add entity")) {
+            ui->wantsAddEntity = true;
+        }
         if (!ui->selectedEntity)  {
             ImGui::Text("No entity selected");
         } else {
@@ -133,26 +138,52 @@ void DrawEntityInspector(Ui* ui, World* world) {
 }
 
 void FluxUpdate(Context* context) {
+    auto ui = &context->ui;
+    auto world = &context->world;
+    auto renderer = context->renderer;
+
+    auto renderRes = GetRenderResolution(renderer);
+    if (renderRes.x != GlobalPlatform.windowWidth ||
+        renderRes.y != GlobalPlatform.windowHeight) {
+        ChangeRenderResolution(renderer, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight));
+    }
     Update(&context->camera, GlobalAbsDeltaTime);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     DrawDebugPerformanceCounters();
-    DrawMenu(&context->ui);
 
-    if (context->ui.entityListerOpen) {
+    DrawMenu(ui);
+
+    GlobalDrawDebugOverlay = ui->showDebugOverlay;
+
+    if (ui->entityListerOpen) {
         DrawEntityLister(context);
     }
-    if (context->ui.entityInspectorOpen) {
-        DrawEntityInspector(&context->ui, &context->world);
+    if (ui->entityInspectorOpen) {
+        DrawEntityInspector(ui, world);
     }
 
-    auto renderer = context->renderer;
+    if (ui->wantsAddEntity) {
+        ui->wantsAddEntity = false;
+        auto entity = AddEntity(world);
+        entity->mesh = &context->sphereMesh;
+        entity->material = &context->checkerboardMaterial;
+    }
+    auto rd = context->camera.mouseRay;
+    auto ro = context->camera.position;
+    if (MouseButtonPressed(MouseButton::Left)) {
+        DEBUG_OVERLAY_TRACE(context->camera.position);
+        auto raycast = Raycast(world, ro, rd);
+        if (raycast) {
+            ui->selectedEntity = raycast.Unwrap().entityId;
+        }
+    }
+
+    Update(world);
+
     auto group = &context->renderGroup;
 
     group->camera = &context->camera;
-
-    DEBUG_OVERLAY_TRACE(group->camera->position);
-    DEBUG_OVERLAY_TRACE(group->camera->front);
 
     DirectionalLight light = {};
     light.dir = Normalize(V3(0.0f, -1.0f, -1.0f));
@@ -163,19 +194,27 @@ void FluxUpdate(Context* context) {
     RenderCommandSetDirLight lightCommand = { light };
     Push(group, &lightCommand);
 
+    if (ui->selectedEntity) {
+        auto entity = GetEntity(world, ui->selectedEntity);
+        assert(entity);
+        auto aabb = entity->mesh->aabb;
+        aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
+        aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
+        DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(0.0f, 0.0f, 1.0f), 2.0f);
+    }
+
     for (uint i = 0; i < array_count(context->world.entities); i++) {
         auto entity = context->world.entities + i;
         if (entity->id) {
             RenderCommandDrawMesh command = {};
-            auto transform = Translate(entity->p) * Scale(entity->scale);
-            command.transform = transform;
+            command.transform = entity->transform;
             command.mesh = entity->mesh;
             command.material = *entity->material;
             Push(group, &command);
             if (context->ui.showBoundingVolumes) {
                 auto aabb = entity->mesh->aabb;
-                aabb.min = (transform * V4(aabb.min, 1.0f)).xyz;
-                aabb.max = (transform * V4(aabb.max, 1.0f)).xyz;
+                aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
+                aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
                 DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(1.0f, 0.0f, 0.0f), 2.0f);
             }
         }

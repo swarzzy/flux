@@ -34,120 +34,118 @@ void BeginDebugOverlay() {
 }
 
 bool DebugOverlayBeginCustom() {
-    bool result = ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags);
+    bool result = false;
+    if (GlobalDrawDebugOverlay) {
+        result = ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags);
+    }
     return result;
 }
 
 void DebugOverlayEndCustom() {
-    ImGui::End();
+    if (GlobalDrawDebugOverlay) {
+        ImGui::End();
+    }
+}
+
+void DebugOverlayPushInternal(const char* string) {
+    if (GlobalDrawDebugOverlay) {
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            ImGui::Text("%s", string);
+        }
+        ImGui::End();
+    }
 }
 
 void DebugOverlayPushString(const char* string) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        ImGui::Text("%s", string);
-    }
-    ImGui::End();
+    DebugOverlayPushInternal(string);
 }
 
 void DebugOverlayPushVar(const char* title, uv3 var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        char buffer[128];
-        sprintf_s(buffer, 128, "%s: x: %lu; y: %lu; z: %lu", title, (unsigned long)var.x, (unsigned long)var.y, (unsigned long)var.z);
-        ImGui::Text("%s", buffer);
-    }
-    ImGui::End();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %lu; y: %lu; z: %lu", title, (unsigned long)var.x, (unsigned long)var.y, (unsigned long)var.z);
+    DebugOverlayPushInternal(buffer);
 }
 
 void DebugOverlayPushVar(const char* title, iv3 var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        char buffer[128];
-        sprintf_s(buffer, 128, "%s: x: %ld; y: %ld; z: %ld", title, (long)var.x, (long)var.y, (long)var.z);
-        ImGui::Text("%s", buffer);
-    }
-    ImGui::End();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %ld; y: %ld; z: %ld", title, (long)var.x, (long)var.y, (long)var.z);
+    DebugOverlayPushInternal(buffer);
 }
 
 
 void DebugOverlayPushVar(const char* title, v3 var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        char buffer[128];
-        sprintf_s(buffer, 128, "%s: x: %.3f; y: %.3f; z: %.3f", title, var.x, var.y, var.z);
-        ImGui::Text("%s", buffer);
-    }
-    ImGui::End();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %.3f; y: %.3f; z: %.3f", title, var.x, var.y, var.z);
+    DebugOverlayPushInternal(buffer);
 }
 
 void DebugOverlayPushVar(const char* title, v4 var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        char buffer[128];
-        sprintf_s(buffer, 128, "%s: x: %.3f; y: %.3f; z: %.3f; w: %.3f", title, var.x, var.y, var.z, var.w);
-        ImGui::Text("%s", buffer);
-    }
-    ImGui::End();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %.3f; y: %.3f; z: %.3f; w: %.3f", title, var.x, var.y, var.z, var.w);
+    DebugOverlayPushInternal(buffer);
 }
 
 
 void DebugOverlayPushVar(const char* title, u32 var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        char buffer[128];
-        sprintf_s(buffer, 128, "%s: x: %lu", title, (unsigned long)var);
-        ImGui::Text("%s", buffer);
-    }
-    ImGui::End();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %lu", title, (unsigned long)var);
+    DebugOverlayPushInternal(buffer);
 }
 
 void DebugOverlayPushVar(const char* title, f32 var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        char buffer[128];
-        sprintf_s(buffer, 128, "%s: x: %.5f", title, var);
-        ImGui::Text("%s", buffer);
-    }
-    ImGui::End();
+    char buffer[128];
+    sprintf_s(buffer, 128, "%s: x: %.5f", title, var);
+    DebugOverlayPushInternal(buffer);
 }
 
 void DebugOverlayPushSlider(const char* title, f32* var, f32 min, f32 max) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        ImGui::SliderFloat(title, var, min, max);
+    if (GlobalDrawDebugOverlay) {
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            ImGui::SliderFloat(title, var, min, max);
+        }
+        ImGui::End();
     }
-    ImGui::End();
 }
 
 void DebugOverlayPushSlider(const char* title, i32* var, i32 min, i32 max) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        ImGui::SliderInt(title, var, min, max);
+    if (GlobalDrawDebugOverlay) {
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            ImGui::SliderInt(title, var, min, max);
+        }
+        ImGui::End();
     }
-    ImGui::End();
 }
 
 void DebugOverlayPushSlider(const char* title, v3* var, f32 min, f32 max) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        ImGui::SliderFloat3(title, var->data, min, max);
+    if (GlobalDrawDebugOverlay) {
+
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            ImGui::SliderFloat3(title, var->data, min, max);
+        }
+        ImGui::End();
     }
-    ImGui::End();
 }
 
 void DebugOverlayPushSlider(const char* title, v4* var, f32 min, f32 max) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        ImGui::SliderFloat4(title, var->data, min, max);
+    if (GlobalDrawDebugOverlay) {
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            ImGui::SliderFloat4(title, var->data, min, max);
+        }
+        ImGui::End();
     }
-    ImGui::End();
 }
 
 void DebugOverlayPushToggle(const char* title, bool* var) {
-    if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
-        ImGui::Separator();
-        ImGui::Checkbox(title, var);
+    if (GlobalDrawDebugOverlay) {
+        if (ImGui::Begin("Debug overlay", nullptr, DebugOverlayFlags)) {
+            ImGui::Separator();
+            ImGui::Checkbox(title, var);
+        }
+        ImGui::End();
     }
-    ImGui::End();
 }

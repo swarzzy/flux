@@ -516,6 +516,10 @@ void ReloadShadowMaps(Renderer* renderer, u32 newResolution = 0) {
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
 
+uv2 GetRenderResolution(Renderer* renderer) {
+    return renderer->renderRes;
+}
+
 void ChangeRenderResolution(Renderer* renderer, uv2 newRes) {
     // TODO: There are maybe could be a problems on some drivers
     // with changing framebuffer attachments so this code needs to be checked
