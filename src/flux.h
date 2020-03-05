@@ -3,31 +3,18 @@
 #include "flux_renderer.h"
 #include "flux_render_group.h"
 #include "flux_world.h"
-
-struct Ui {
-    b32 entityListerOpen;
-    b32 entityInspectorOpen;
-    b32 uniformEntityScale;
-    b32 wantsAddEntity;
-    u32 showBoundingVolumes;
-    u32 showDebugOverlay;
-    u32 selectedEntity;
-};
+#include "flux_ui.h"
 
 struct Context {
-    World world;
+    World* world;
     Ui ui;
     GLuint prog;
     GLuint vbo;
     Camera camera;
     Renderer* renderer;
     RenderGroup renderGroup;
-    Mesh sphereMesh;
-    Mesh plateMesh;
-    Mesh* wheelMesh;
-    Material oldMetalMaterial;
-    Material checkerboardMaterial;
-    Material backpackMaterial;
+    Mesh* meshes[EntityMesh::_Count];
+    Material materials[EntityMaterial::_Count];
     CubeTexture skybox;
     CubeTexture hdrMap;
     CubeTexture irradanceMap;

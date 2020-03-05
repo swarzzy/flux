@@ -423,8 +423,10 @@ struct AABMeshHeaderV2 {
 };
 #pragma pack(pop)
 
-Mesh LoadMeshAAB(const wchar_t* filepath) {
-    Mesh mesh = {};
+Mesh* LoadMeshAAB(const wchar_t* filepath) {
+    // TODO: This is temporary
+    auto mesh = (Mesh*)PlatformAlloc(sizeof(Mesh));
+    *mesh = {};
     u32 fileSize = PlatformDebugGetFileSize(filepath);
     if (fileSize) {
         void* fileData = PlatformAlloc(fileSize);
@@ -434,20 +436,20 @@ Mesh LoadMeshAAB(const wchar_t* filepath) {
             auto header = (AABMeshHeaderV2*)fileData;
             assert(header->magicValue == AAB_FILE_MAGIC_VALUE);
 
-            mesh.vertexCount = header->vertexCount;
-            mesh.indexCount = header->indexCount;
+            mesh->vertexCount = header->vertexCount;
+            mesh->indexCount = header->indexCount;
 
-            mesh.vertices = (v3*)((byte*)fileData + header->vertexOffset);
-            mesh.normals = (v3*)((byte*)fileData + header->normalsOffset);
-            mesh.uvs = (v2*)((byte*)fileData + header->uvOffset);
-            mesh.indices = (u32*)((byte*)fileData + header->indicesOffset);
-            mesh.tangents = (v3*)((byte*)fileData + header->tangentsOffset);
+            mesh->vertices = (v3*)((byte*)fileData + header->vertexOffset);
+            mesh->normals = (v3*)((byte*)fileData + header->normalsOffset);
+            mesh->uvs = (v2*)((byte*)fileData + header->uvOffset);
+            mesh->indices = (u32*)((byte*)fileData + header->indicesOffset);
+            mesh->tangents = (v3*)((byte*)fileData + header->tangentsOffset);
 
-            mesh.aabb = BBoxAligned::From(&mesh);
+            mesh->aabb = BBoxAligned::From(mesh);
 
-            RendererLoadMesh(&mesh);
-            assert(mesh.gpuVertexBufferHandle);
-            assert(mesh.gpuIndexBufferHandle);
+            RendererLoadMesh(mesh);
+            assert(mesh->gpuVertexBufferHandle);
+            assert(mesh->gpuIndexBufferHandle);
         }
     }
     return mesh;

@@ -143,6 +143,7 @@ typedef u32(DebugGetFileSizeFn)(const wchar_t* filename);
 typedef u32(DebugReadFileFn)(void* buffer, u32 bufferSize, const wchar_t* filename);
 typedef u32(DebugReadTextFileFn)(void* buffer, u32 bufferSize, const wchar_t* filename);
 typedef bool(DebugWriteFileFn)(const wchar_t* filename, void* data, u32 dataSize);
+typedef b32(DebugCopyFileFn)(const wchar_t* source, const wchar_t* dest, bool overwrite);
 
 typedef FileHandle(DebugOpenFileFn)(const wchar_t* filename);
 typedef bool(DebugCloseFileFn)(FileHandle handle);
@@ -214,6 +215,7 @@ struct PlatformCalls
     DebugWriteFileFn* DebugWriteFile;
     DebugOpenFileFn* DebugOpenFile;
     DebugCloseFileFn* DebugCloseFile;
+    DebugCopyFileFn* DebugCopyFile;
     DebugWriteToOpenedFileFn* DebugWriteToOpenedFile;
     SetInputModeFn* SetInputMode;
 

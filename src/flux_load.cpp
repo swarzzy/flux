@@ -15,8 +15,12 @@ static PlatformState* _GlobalPlatform = 0;
 #define GlobalGameDeltaTime GlobalPlatform.gameDeltaTime
 #define GlobalInput GlobalPlatform.input
 
-bool KeyDown(Key key) {
+bool KeyHeld(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;
+}
+
+bool KeyPressed(Key key) {
+    return GlobalInput.keys[(u32)key].pressedNow && !GlobalInput.keys[(u32)key].wasPressed;
 }
 
 bool MouseButtonHeld(MouseButton button) {
@@ -40,6 +44,7 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformDebugGetFileSize platform_call(DebugGetFileSize)
 #define PlatformDebugReadFile platform_call(DebugReadFile)
 #define PlatformDebugWriteFile platform_call(DebugWriteFile)
+#define PlatformDebugCopyFile platform_call(DebugCopyFile)
 #define ResourceLoaderLoadMesh platform_call(ResourceLoaderLoadMesh)
 #define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
 
@@ -276,6 +281,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_renderer.cpp"
 #include "flux_shaders.cpp"
 #include "flux_world.cpp"
+#include "flux_ui.cpp"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"

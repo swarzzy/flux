@@ -74,7 +74,7 @@ struct CubeTexture {
 };
 
 Renderer* InitializeRenderer(uv2 renderRes);
-Mesh LoadMeshAAB(const wchar_t* filepath);
+Mesh* LoadMeshAAB(const wchar_t* filepath);
 Mesh* LoadMesh(const char* filepath);
 
 Material LoadMaterialPBRMetallic(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath);

@@ -292,6 +292,13 @@ u32 DebugWriteToOpenedFile(FileHandle handle, void* data, u32 size)
     return result;
 }
 
+b32 DebugCopyFile(const wchar_t* source, const wchar_t* dest, bool overwrite)
+{
+    BOOL failIfExists = overwrite ? FALSE : TRUE;
+    auto result = CopyFile(source, dest, failIfExists);
+    return (b32)result;
+}
+
 DirectoryContents EnumerateFilesInDirectory(const wchar_t* dirName, MemoryArena* tempArena)
 {
     DirectoryContents result = {};
@@ -1104,6 +1111,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     app->state.functions.DebugWriteFile = DebugWriteFile;
     app->state.functions.DebugOpenFile = DebugOpenFile;
     app->state.functions.DebugCloseFile = DebugCloseFile;
+    app->state.functions.DebugCopyFile = DebugCopyFile;
     app->state.functions.DebugWriteToOpenedFile = DebugWriteToOpenedFile;
     app->state.functions.SetInputMode = SetInputMode;
 

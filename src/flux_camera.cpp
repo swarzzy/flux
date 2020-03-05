@@ -8,19 +8,19 @@ void GatherInput(Camera* camera) {
 
     camera->frameAcceleration = {};
 
-    if (KeyDown(Key::W))
+    if (KeyHeld(Key::W))
     {
         camera->frameAcceleration -= z;
     }
-    if (KeyDown(Key::S))
+    if (KeyHeld(Key::S))
     {
         camera->frameAcceleration += z;
     }
-    if (KeyDown(Key::A))
+    if (KeyHeld(Key::A))
     {
         camera->frameAcceleration -= x;
     }
-    if (KeyDown(Key::D))
+    if (KeyHeld(Key::D))
     {
         camera->frameAcceleration += x;
     }
