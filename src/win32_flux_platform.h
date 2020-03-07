@@ -49,6 +49,28 @@ extern "C"
     typedef int (APIENTRY wglGetSwapIntervalEXTFn)(void);
 }
 
+struct WorkQueueEntry {
+    void* data;
+    WorkFn* function;
+};
+
+struct WorkQueue {
+    u32 volatile pendingWorkCount;
+    u32 volatile completedWorkCount;
+    u32 volatile begin;
+    u32 volatile end;
+    HANDLE semaphore;
+    WorkQueueEntry queue[128];
+};
+
+struct Win32ThreadInfo {
+    u32 index;
+    WorkQueue* queue;
+};
+
+#define WriteFence(...) (_WriteBarrier(), _mm_sfence())
+#define ReadFence(...) (_ReadBarrier(), _mm_lfence())
+
 struct Win32Context
 {
     HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -62,6 +84,7 @@ struct Win32Context
     TRACKMOUSEEVENT Win32MouseTrackEvent;
     InputMode inputMode;
     LibraryData gameLib;
+    WorkQueue workQueue;
 
     // NOTE: WGL
     wglGetExtensionsStringARBFn* wglGetExtensionsStringARB;

@@ -167,6 +167,12 @@ typedef void*(AllocateFn)(uptr size);
 typedef void(DeallocateFn)(void* ptr);
 typedef void*(ReallocateFn)(void* ptr, uptr newSize);
 
+// Work queue API
+struct WorkQueue;
+typedef void(WorkFn)(void* data, u32 threadIndex);
+typedef b32(PushWorkFn)(WorkQueue* queue, void* data, WorkFn* fn);
+typedef void(CompleteAllWorkFn)(WorkQueue* queue);
+
 struct Mesh {
     char name[32];
     void* base;
@@ -222,6 +228,10 @@ struct PlatformCalls
     AllocateFn* Allocate;
     DeallocateFn* Deallocate;
     ReallocateFn* Reallocate;
+
+    // Work queue
+    PushWorkFn* PushWork;
+    CompleteAllWorkFn* CompleteAllWork;
 
     GetTimeStampFn* GetTimeStamp;
 
@@ -310,6 +320,7 @@ struct PlatformState
 {
     PlatformCalls functions;
     OpenGL* gl;
+    WorkQueue* workQueue;
     ImGuiContext* imguiContext;
     InputState input;
     i32 fps;

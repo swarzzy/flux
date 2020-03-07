@@ -9,6 +9,7 @@
 
 #include "win32_flux_platform.h"
 
+#include <intrin.h>
 #include <timeapi.h>
 #include <tchar.h>
 #include <stdlib.h>
@@ -1077,6 +1078,66 @@ void ImguiFreeWrapper(void* ptr, void*_) { Deallocate(ptr); }
 #define glClearColor gl_function(glClearColor)
 #define glClear gl_function(glClear)
 
+b32 Win32PushWork(WorkQueue* queue, void* data, WorkFn* fn) {
+    bool result = false;
+    auto nextEntry = (queue->end + 1) % array_count(queue->queue);
+    if (nextEntry != queue->begin) {
+        auto entry = queue->queue + queue->end;
+        entry->function = fn;
+        entry->data = data;
+        queue->pendingWorkCount++;
+        WriteFence();
+        // TODO: Maybe it should be atomic?
+        queue->end = nextEntry;
+        ReleaseSemaphore(queue->semaphore, 1, nullptr);
+        result = true;
+    }
+    return result;
+}
+
+bool Win32DoWorkerWork(WorkQueue* queue, u32 threadIndex) {
+    bool result = false;
+    auto oldBegin = queue->begin;
+    auto newBegin = (oldBegin + 1) % array_count(queue->queue);
+    // TODO: new? or old?
+    if (oldBegin != queue->end) {
+        u32 index = InterlockedCompareExchange(((LONG volatile*)&queue->begin), newBegin, oldBegin);
+        if (index == oldBegin) {
+            auto entry = queue->queue + index;
+            if (entry->function) {
+                entry->function(entry->data, threadIndex);
+            }
+            InterlockedIncrement((LONG volatile*)&queue->completedWorkCount);
+            result = true;
+        }
+    }
+    return result;
+}
+
+void Win32CompleteAllWork(WorkQueue* queue) {
+    auto threadId = GetCurrentThreadId();
+    while (queue->pendingWorkCount != queue->completedWorkCount) {
+        Win32DoWorkerWork(queue, threadId);
+    }
+    queue->pendingWorkCount = 0;
+    queue->completedWorkCount = 0;
+}
+
+DWORD WINAPI Win32ThreadProc(void* param) {
+    auto threadInfo = (Win32ThreadInfo*)param;
+    auto queue = threadInfo->queue;
+    while (true) {
+        auto didSomeWork = Win32DoWorkerWork(queue, threadInfo->index);
+        if (!didSomeWork) {
+            WaitForSingleObjectEx(queue->semaphore, INFINITE, FALSE);
+        }
+    }
+}
+
+void PushString(WorkQueue* queue, const char* string) {
+    while (!Win32PushWork(queue, (void*)string, [](void* data, u32) { printf("%s", (const char*)data); })) { Sleep(3); };
+}
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCmd)
 {
 #if defined(ENABLE_CONSOLE)
@@ -1085,6 +1146,34 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 #endif
 
     auto app = &GlobalContext;
+
+    auto workQueue = &app->workQueue;
+
+    Win32ThreadInfo threadInfo[4];
+    auto semHandle = CreateSemaphoreEx(0, 0, array_count(threadInfo), nullptr, 0, SEMAPHORE_ALL_ACCESS);
+    workQueue->semaphore = semHandle;
+    for (u32x i = 0; i < array_count(threadInfo); i++) {
+        auto info = threadInfo + i;
+        DWORD threadId;
+        auto threadHandle = CreateThread(0, 0, Win32ThreadProc, (void*)info, CREATE_SUSPENDED, &threadId);
+        info->index = GetThreadId(threadHandle);
+        info->queue = workQueue;
+        ResumeThread(threadHandle);
+        CloseHandle(threadHandle);
+    }
+
+    PushString(workQueue, "String 0\n");
+    PushString(workQueue, "String 1\n");
+    PushString(workQueue, "String 2\n");
+    PushString(workQueue, "String 3\n");
+    PushString(workQueue, "String 4\n");
+    PushString(workQueue, "String 5\n");
+    PushString(workQueue, "String 6\n");
+    PushString(workQueue, "String 7\n");
+    PushString(workQueue, "String 8\n");
+    PushString(workQueue, "String 9\n");
+
+    Win32CompleteAllWork(workQueue);
 
     UINT sleepGranularityMs = 1;
     auto granularityWasSet = (timeBeginPeriod(sleepGranularityMs) == TIMERR_NOERROR);
@@ -1119,9 +1208,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     app->state.functions.Deallocate = Deallocate;
     app->state.functions.Reallocate = Reallocate;
 
+    app->state.functions.PushWork = Win32PushWork;
+    app->state.functions.CompleteAllWork = Win32CompleteAllWork;
+
     app->state.functions.GetTimeStamp = GetTimeStamp;
 
     app->state.functions.EnumerateFilesInDirectory = EnumerateFilesInDirectory;
+
+    app->state.workQueue = workQueue;
 
     //SetupDirs(&app->gameLib);
 

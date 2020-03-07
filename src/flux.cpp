@@ -2,9 +2,16 @@
 #include "flux_platform.h"
 #include "flux_debug_overlay.h"
 
+void Work(void* data, u32 id) {
+    //while (true) {
+        printf("Thread %d does some work\n", (int)id);
+        //}
+}
+
 void FluxInit(Context* context) {
     context->world = (World*)PlatformAlloc(sizeof(World));
     *context->world = {};
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
     strcpy_s(context->world->name, array_count(context->world->name), "dummy_world");
     context->meshes[(u32)EntityMesh::Backpack] = LoadMesh("../res/meshes/backpack_low.fbx");
     context->meshes[(u32)EntityMesh::Sphere] = LoadMeshAAB(L"../res/meshes/sphere.aab");

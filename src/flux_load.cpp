@@ -7,6 +7,7 @@
 
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
+// NOTE: Platforn globals
 static PlatformState* _GlobalPlatform = 0;
 #define GlobalPlatform (*((const PlatformState *const)(_GlobalPlatform)))
 // NOTE: Actual frame time
@@ -14,6 +15,7 @@ static PlatformState* _GlobalPlatform = 0;
 // NOTE: Frame time corrected by game speed
 #define GlobalGameDeltaTime GlobalPlatform.gameDeltaTime
 #define GlobalInput GlobalPlatform.input
+#define GlobalPlaformWorkQueue GlobalPlatform.workQueue
 
 bool KeyHeld(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;
@@ -47,6 +49,9 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformDebugCopyFile platform_call(DebugCopyFile)
 #define ResourceLoaderLoadMesh platform_call(ResourceLoaderLoadMesh)
 #define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
+
+#define PlatformPushWork platform_call(PushWork)
+#define PlatformCompleteAllWork platform_call(CompleteAllWork)
 
 #if defined(COMPILER_MSVC)
 #define gl_call(func) GlobalPlatform.gl->functions.fn.##func
