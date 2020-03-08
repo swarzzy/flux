@@ -47,8 +47,8 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformDebugReadFile platform_call(DebugReadFile)
 #define PlatformDebugWriteFile platform_call(DebugWriteFile)
 #define PlatformDebugCopyFile platform_call(DebugCopyFile)
-#define ResourceLoaderLoadMesh platform_call(ResourceLoaderLoadMesh)
 #define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
+#define PlatformGetTimeStamp platform_call(GetTimeStamp)
 
 #define PlatformPushWork platform_call(PushWork)
 #define PlatformCompleteAllWork platform_call(CompleteAllWork)
@@ -287,6 +287,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_shaders.cpp"
 #include "flux_world.cpp"
 #include "flux_ui.cpp"
+#include "flux_resource_manager.cpp"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"

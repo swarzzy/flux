@@ -171,40 +171,43 @@ void RendererLoadCubeTexture(CubeTexture* texture) {
 }
 
 void RendererLoadMesh(Mesh* mesh) {
-    if (!mesh->gpuVertexBufferHandle && !mesh->gpuIndexBufferHandle) {
-        GLuint vboHandle;
-        GLuint iboHandle;
-        glGenBuffers(1, &vboHandle);
-        glGenBuffers(1, &iboHandle);
-        if (vboHandle && iboHandle) {
-            // NOTE: Using SOA layout of buffer
-            uptr verticesSize = mesh->vertexCount * sizeof(v3);
-            // TODO: this is redundant. Use only vertexCount
-            uptr normalsSize = mesh->vertexCount * sizeof(v3);
-            uptr uvsSize = mesh->vertexCount * sizeof(v2);
-            uptr tangentsSize = mesh->vertexCount * sizeof(v3);
-            uptr indexBufferSize = mesh->indexCount * sizeof(u32);
-            uptr vertexBufferSize = verticesSize + normalsSize + uvsSize + tangentsSize;
+    while (mesh) {
+        if (!mesh->gpuVertexBufferHandle && !mesh->gpuIndexBufferHandle) {
+            GLuint vboHandle;
+            GLuint iboHandle;
+            glGenBuffers(1, &vboHandle);
+            glGenBuffers(1, &iboHandle);
+            if (vboHandle && iboHandle) {
+                // NOTE: Using SOA layout of buffer
+                uptr verticesSize = mesh->vertexCount * sizeof(v3);
+                // TODO: this is redundant. Use only vertexCount
+                uptr normalsSize = mesh->vertexCount * sizeof(v3);
+                uptr uvsSize = mesh->vertexCount * sizeof(v2);
+                uptr tangentsSize = mesh->vertexCount * sizeof(v3);
+                uptr indexBufferSize = mesh->indexCount * sizeof(u32);
+                uptr vertexBufferSize = verticesSize + normalsSize + uvsSize + tangentsSize;
 
-            glBindBuffer(GL_ARRAY_BUFFER, vboHandle);
+                glBindBuffer(GL_ARRAY_BUFFER, vboHandle);
 
-            glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, 0, GL_STATIC_DRAW);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, verticesSize, (void*)mesh->vertices);
-            glBufferSubData(GL_ARRAY_BUFFER, verticesSize, normalsSize, (void*)mesh->normals);
-            glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize, uvsSize, (void*)mesh->uvs);
-            glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize + uvsSize, tangentsSize, (void*)mesh->tangents);
+                glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, 0, GL_STATIC_DRAW);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, verticesSize, (void*)mesh->vertices);
+                glBufferSubData(GL_ARRAY_BUFFER, verticesSize, normalsSize, (void*)mesh->normals);
+                glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize, uvsSize, (void*)mesh->uvs);
+                glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize + uvsSize, tangentsSize, (void*)mesh->tangents);
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboHandle);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iboHandle);
 
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferSize, (void*)mesh->indices, GL_STATIC_DRAW);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferSize, (void*)mesh->indices, GL_STATIC_DRAW);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-            mesh->gpuVertexBufferHandle = vboHandle;
-            mesh->gpuIndexBufferHandle = iboHandle;
+                mesh->gpuVertexBufferHandle = vboHandle;
+                mesh->gpuIndexBufferHandle = iboHandle;
+            }
         }
+        mesh = mesh->next;
     }
 }
 
@@ -289,6 +292,33 @@ CubeTexture MakeEmptyCubemap(int w, int h, GLenum format, TextureFilter filter, 
     return texture;
 }
 
+int STBDesiredBPPFromGLFormat(GLenum format) {
+    int desiredBpp = 0;
+    switch (format) {
+    case GL_SRGB8_ALPHA8:
+    case GL_RGBA: { desiredBpp = 4; } break;
+    case GL_SRGB8:
+    case GL_RGB8:
+    case GL_RGB16F: { desiredBpp = 3; } break;
+    case GL_RG16F: { desiredBpp = 2; } break;
+    case GL_R8: { desiredBpp = 1; } break;
+        invalid_default();
+    }
+    return desiredBpp;
+}
+
+GLenum GLTexFormatFromNumChannels(u32 num) {
+    GLenum format = 0;
+    switch (num) {
+    case 1: { format = GL_R8; } break;
+    case 2: { format = GL_RG8; } break; // TODO: Implement in renderer
+    case 3: { format = GL_RGB8; } break;
+    case 4: { format = GL_SRGB8_ALPHA8; } break;
+        invalid_default();
+    }
+    return format;
+}
+
 Texture LoadTexture(const char* filename,
                     GLenum format = 0,
                     GLenum wrapMode = GL_REPEAT,
@@ -298,28 +328,14 @@ Texture LoadTexture(const char* filename,
     i32 desiredBpp = 0;
 
     if (format) {
-        switch (format) {
-        case GL_SRGB8_ALPHA8:
-        case GL_RGBA: { desiredBpp = 4; } break;
-        case GL_SRGB8:
-        case GL_RGB8:
-        case GL_RGB16F: { desiredBpp = 3; } break;
-        case GL_RG16F: { desiredBpp = 2; } break;
-        case GL_R8: { desiredBpp = 1; } break;
-        }
+        desiredBpp = STBDesiredBPPFromGLFormat(format);
     }
 
     auto image = ResourceLoaderLoadImage(filename, DynamicRange::LDR, true, desiredBpp, PlatformAlloc);
     assert(image);
 
     if (!format) {
-        switch (image->channels) {
-        case 1: { format = GL_R8; } break;
-        case 2: { format = GL_RG8; } break; // TODO: Implement in renderer
-        case 3: { format = GL_RGB8; } break;
-        case 4: { format = GL_SRGB8_ALPHA8; } break;
-            invalid_default();
-        }
+        format = GLTexFormatFromNumChannels(image->channels);
     }
 
     t.format = format;
@@ -333,6 +349,61 @@ Texture LoadTexture(const char* filename,
     assert(t.gpuHandle);
 
     return t;
+}
+
+Texture LoadTextureAsync(const char* filename, GLenum format = 0, GLenum wrapMode = GL_REPEAT, TextureFilter filter = TextureFilter::Bilinear) {
+    Texture t = {};
+    i32 desiredBpp = 0;
+    if (format) {
+        desiredBpp = STBDesiredBPPFromGLFormat(format);
+    }
+
+    auto image = ResourceLoaderLoadImage(filename, DynamicRange::LDR, true, desiredBpp, PlatformAlloc);
+    assert(image);
+
+    if (!format) {
+        format = GLTexFormatFromNumChannels(image->channels);
+    }
+
+    t.format = format;
+    t.width = image->width;
+    t.height = image->height;
+    t.wrapMode = wrapMode;
+    t.filter = filter;
+    t.data = image->bits;
+    return t;
+}
+
+Material LoadMaterialPBRMetallicAsync(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath) {
+    Texture albedo = LoadTextureAsync(albedoPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
+    Texture roughness = LoadTextureAsync(roughnessPath, GL_R8, GL_REPEAT, TextureFilter::Anisotropic);
+    Texture metalness = LoadTextureAsync(metalnessPath, GL_R8, GL_REPEAT, TextureFilter::Anisotropic);
+    Texture normals = LoadTextureAsync(normalsPath, GL_RGB8, GL_REPEAT, TextureFilter::Anisotropic);
+
+    Material material = {};
+    material.type = Material::Type::PBR;
+    material.workflow = Material::Workflow::Metallic;
+    material.pbr.metallic.albedo = albedo;
+    material.pbr.metallic.roughness = roughness;
+    material.pbr.metallic.metalness = metalness;
+    material.pbr.metallic.normals = normals;
+
+    return material;
+}
+
+void LoadPbrMaterialJob(void* materialSpec, u32 threadIndex) {
+    auto spec = (MaterialSpec*)materialSpec;
+    printf("[Info] Thread %d: Loading material %s\n", (int)threadIndex, spec->albedo);
+    auto material = LoadMaterialPBRMetallicAsync(spec->albedo, spec->roughness, spec->metallic, spec->normals);
+    *spec->result = material;
+
+}
+
+void CompletePbrMaterialLoad(Material* material) {
+    RendererLoadTexture(&material->pbr.metallic.albedo);
+    RendererLoadTexture(&material->pbr.metallic.roughness);
+    RendererLoadTexture(&material->pbr.metallic.metalness);
+    RendererLoadTexture(&material->pbr.metallic.normals);
 }
 
 Material LoadMaterialLegacy(const char* diffusePath, const char* specularPath) {
@@ -454,22 +525,6 @@ Mesh* LoadMeshAAB(const wchar_t* filepath) {
     }
     return mesh;
 }
-
-Mesh* LoadMesh(const char* filepath) {
-    Mesh* mesh = ResourceLoaderLoadMesh(filepath, PlatformAlloc);
-    assert(mesh->base);
-
-    auto child = mesh;
-    while (child) {
-        RendererLoadMesh(child);
-        assert(child->gpuVertexBufferHandle);
-        assert(child->gpuIndexBufferHandle);
-        child = child->next;
-    }
-
-    return mesh;
-}
-
 
 // NOTE: Diffise only
 Material LoadMaterialLegacy(i32 width, i32 height, void* bitmap) {

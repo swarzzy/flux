@@ -191,9 +191,7 @@ struct Mesh {
     u32 gpuIndexBufferHandle;
 };
 
-static_assert(sizeof(Mesh) % 4 == 0);
-
-typedef Mesh*(__cdecl ResourceLoaderLoadMeshFn)(const char* filename, AllocateFn* allocator);
+static_assert(sizeof(Mesh) % 8 == 0);
 
 enum struct DynamicRange : u32 {
     LDR, HDR
@@ -235,7 +233,6 @@ struct PlatformCalls
 
     GetTimeStampFn* GetTimeStamp;
 
-    ResourceLoaderLoadMeshFn* ResourceLoaderLoadMesh;
     ResourceLoaderLoadImageFn* ResourceLoaderLoadImage;
 
     EnumerateFilesInDirectoryFn* EnumerateFilesInDirectory;

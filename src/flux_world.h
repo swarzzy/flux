@@ -11,6 +11,7 @@ enum struct EntityMesh {
     Sphere = 0,
     Plate,
     Backpack,
+    Gizmos,
     _Count
 };
 

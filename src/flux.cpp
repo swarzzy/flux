@@ -1,24 +1,51 @@
 #include "flux.h"
 #include "flux_platform.h"
 #include "flux_debug_overlay.h"
-
-void Work(void* data, u32 id) {
-    //while (true) {
-        printf("Thread %d does some work\n", (int)id);
-        //}
-}
+#include "flux_resource_manager.h"
 
 void FluxInit(Context* context) {
     context->world = (World*)PlatformAlloc(sizeof(World));
     *context->world = {};
-    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
     strcpy_s(context->world->name, array_count(context->world->name), "dummy_world");
-    context->meshes[(u32)EntityMesh::Backpack] = LoadMesh("../res/meshes/backpack_low.fbx");
+    auto begin = PlatformGetTimeStamp();
+
+//#define ASYNC
+#if defined (ASYNC)
+    auto oldMetal = context->materials + (u32)EntityMaterial::OldMetal;
+    auto backpack = context->materials + (u32)EntityMaterial::Backpack;
+
+    MaterialSpec oldMetalspec = {};
+    oldMetalspec.albedo = "../res/materials/oldmetal/greasy-metal-pan1-albedo.png";
+    oldMetalspec.roughness = "../res/materials/oldmetal/greasy-metal-pan1-roughness.png";
+    oldMetalspec.metallic = "../res/materials/oldmetal/greasy-metal-pan1-metal.png";
+    oldMetalspec.normals = "../res/materials/oldmetal/greasy-metal-pan1-normal.png";
+    oldMetalspec.result = oldMetal;
+
+    MaterialSpec backpackSpec = {};
+    backpackSpec.albedo = "../res/materials/backpack/albedo.png";
+    backpackSpec.roughness = "../res/materials/backpack/rough.png";
+    backpackSpec.metallic = "../res/materials/backpack/metallic.png";
+    backpackSpec.normals = "../res/materials/backpack/normal.png";
+    backpackSpec.result = backpack;
+
+    PlatformPushWork(GlobalPlaformWorkQueue, &oldMetalspec, LoadPbrMaterialJob);
+    PlatformPushWork(GlobalPlaformWorkQueue, &backpackSpec, LoadPbrMaterialJob);
+    PlatformCompleteAllWork(GlobalPlaformWorkQueue);
+    CompletePbrMaterialLoad(oldMetal);
+    CompletePbrMaterialLoad(backpack);
+#else
+    context->materials[(u32)EntityMaterial::OldMetal] = LoadMaterialPBRMetallic("../res/materials/oldmetal/greasy-metal-pan1-albedo.png", "../res/materials/oldmetal/greasy-metal-pan1-roughness.png", "../res/materials/oldmetal/greasy-metal-pan1-metal.png", "../res/materials/oldmetal/greasy-metal-pan1-normal.png");
+    context->materials[(u32)EntityMaterial::Backpack] = LoadMaterialPBRMetallic("../res/materials/backpack/albedo.png", "../res/materials/backpack/rough.png", "../res/materials/backpack/metallic.png", "../res/materials/backpack/normal.png");
+#endif
+    auto end = PlatformGetTimeStamp();
+    printf("[Info] Loading time: %f sec\n", end - begin);
+    //context->meshes[(u32)EntityMesh::Gizmos] = LoadMesh("../res/meshes/gizmos.obj");
+    //context->meshes[(u32)EntityMesh::Backpack] = LoadMesh("../res/meshes/backpack_low.fbx");
+    context->meshes[(u32)EntityMesh::Backpack] = LoadMeshFlux(L"../res/meshes/backpack_low.mesh");
+    RendererLoadMesh(context->meshes[(u32)EntityMesh::Backpack]);
     context->meshes[(u32)EntityMesh::Sphere] = LoadMeshAAB(L"../res/meshes/sphere.aab");
     context->meshes[(u32)EntityMesh::Plate] = LoadMeshAAB(L"../res/meshes/plate.aab");
     context->materials[(u32)EntityMaterial::Checkerboard] = LoadMaterialLegacy("../res/checkerboard.jpg");
-    context->materials[(u32)EntityMaterial::OldMetal] = LoadMaterialPBRMetallic("../res/materials/oldmetal/greasy-metal-pan1-albedo.png", "../res/materials/oldmetal/greasy-metal-pan1-roughness.png", "../res/materials/oldmetal/greasy-metal-pan1-metal.png", "../res/materials/oldmetal/greasy-metal-pan1-normal.png");
-    context->materials[(u32)EntityMaterial::Backpack] = LoadMaterialPBRMetallic("../res/materials/backpack/albedo.png", "../res/materials/backpack/rough.png", "../res/materials/backpack/metallic.png", "../res/materials/backpack/normal.png");
     context->skybox = LoadCubemap("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
     context->irradanceMap = MakeEmptyCubemap(64, 64, GL_RGB16F);
@@ -117,6 +144,7 @@ void FluxUpdate(Context* context) {
     auto group = &context->renderGroup;
 
     group->camera = &context->camera;
+    auto camera = &context->camera;
 
     DirectionalLight light = {};
     light.dir = Normalize(V3(0.0f, -1.0f, -1.0f));
@@ -135,6 +163,12 @@ void FluxUpdate(Context* context) {
         aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
         DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(0.0f, 0.0f, 1.0f), 2.0f);
     }
+
+    RenderCommandDrawMesh gizmosCommand = {};
+    gizmosCommand.transform = Scale(V3(0.1f, 0.1f, 0.1f));
+    gizmosCommand.mesh = context->meshes[(u32)EntityMesh::Gizmos];
+    gizmosCommand.material = context->materials[(u32)EntityMaterial::Checkerboard];
+    Push(group, &gizmosCommand);
 
     for (uint i = 0; i < array_count(context->world->entities); i++) {
         auto entity = context->world->entities + i;

@@ -75,7 +75,6 @@ struct CubeTexture {
 
 Renderer* InitializeRenderer(uv2 renderRes);
 Mesh* LoadMeshAAB(const wchar_t* filepath);
-Mesh* LoadMesh(const char* filepath);
 
 Material LoadMaterialPBRMetallic(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath);
 Material LoadMaterialLegacy(const char* diffusePath,  const char* specularPath = 0);
@@ -96,6 +95,17 @@ void ShadowPass(Renderer* renderer, RenderGroup* group);
 void MainPass(Renderer* renderer, RenderGroup* group);
 void End(Renderer* renderer);
 
+struct MaterialSpec {
+    const char* albedo;
+    const char* roughness;
+    const char* metallic;
+    const char* normals;
+    Material* result;
+};
 
+void LoadPbrMaterialJob(void* materialSpec, u32 threadIndex);
+void CompletePbrMaterialLoad(Material* material);
+
+void RendererLoadMesh(Mesh* mesh);
 
 void RecompileShaders(Renderer* renderer);

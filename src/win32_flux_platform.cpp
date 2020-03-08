@@ -150,7 +150,7 @@ u32 DebugGetFileSize(const wchar_t* filename)
 {
     u32 fileSize = 0;
     HANDLE handle = CreateFileW(filename, GENERIC_READ, FILE_SHARE_READ, 0,
-                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if (handle != INVALID_HANDLE_VALUE)
     {
         DWORD sz = (u32)GetFileSize(handle, 0);
@@ -227,7 +227,7 @@ u32 DebugReadTextFileToBuffer(void* buffer, u32 bufferSize, const wchar_t* filen
                                        (DWORD)fileSize.QuadPart, &read, 0);
                 if (!result && !(read == (DWORD)fileSize.QuadPart))
                 {
-                printf("[Warn] Failed to open file");
+                    printf("[Warn] Failed to open file");
                     return 0;
                 }
                 else
@@ -1061,9 +1061,7 @@ void LoadResourceLoader(Win32Context* context)
 {
     auto handle = LoadLibrary(L"flux_resource_loader.dll");
     assert(handle != INVALID_HANDLE_VALUE);
-    context->state.functions.ResourceLoaderLoadMesh = (ResourceLoaderLoadMeshFn*)GetProcAddress(handle, "ResourceLoaderLoadMesh");
     context->state.functions.ResourceLoaderLoadImage = (ResourceLoaderLoadImageFn*)GetProcAddress(handle, "ResourceLoaderLoadImage");
-    assert(context->state.functions.ResourceLoaderLoadMesh);
     assert(context->state.functions.ResourceLoaderLoadImage);
 }
 
@@ -1162,6 +1160,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
         CloseHandle(threadHandle);
     }
 
+#if 0
     PushString(workQueue, "String 0\n");
     PushString(workQueue, "String 1\n");
     PushString(workQueue, "String 2\n");
@@ -1172,6 +1171,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     PushString(workQueue, "String 7\n");
     PushString(workQueue, "String 8\n");
     PushString(workQueue, "String 9\n");
+#endif
 
     Win32CompleteAllWork(workQueue);
 

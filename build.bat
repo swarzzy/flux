@@ -8,7 +8,7 @@ goto end
 )
 
 set BuildShaderPreprocessor=false
-set BuildResourceLoader=false
+set BuildResourceLoader=true
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -26,8 +26,8 @@ set DebugCompilerFlags=/Od /RTC1 /MTd /Fd%BinOutDir% /DPBR_DEBUG
 set ReleaseCompilerFlags=/O2 /MT
 set PlatformLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /NOIMPLIB user32.lib gdi32.lib opengl32.lib winmm.lib /OUT:%BinOutDir%\win32_flux.exe /PDB:%BinOutDir%\win32_flux.pdb
 set GameLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutDir%\flux.dll  /PDB:%BinOutDir%\flux_%PdbMangleVal%.pdb
-set ResourceLoaderLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL ext\assimp\assimp-vc141-mtd.lib /OUT:%BinOutDir%\flux_resource_loader.dll  /PDB:%BinOutDir%\flux_resource_loader.pdb
-set ResourceLoaderFlags=%CommonCompilerFlags% %DebugCompilerFlags% /Iext/assimp/include
+set ResourceLoaderLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutDir%\flux_resource_loader.dll  /PDB:%BinOutDir%\flux_resource_loader.pdb
+set ResourceLoaderFlags=%CommonCompilerFlags% %ReleaseCompilerFlags%
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
 
