@@ -33,7 +33,6 @@ f64 GetTimeStamp() { return 0; }
 #endif
 
 extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator) {
-    printf("[Resource loader] Loading image %s ...", filename);
     auto startTime = GetTimeStamp();
 
     void* data = nullptr;
@@ -88,7 +87,7 @@ extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const ch
     }
 
     auto endTime = GetTimeStamp();
-    printf("   Time: %f ms\n", (endTime - startTime) * 1000.0f);
+    printf("[Resource loader] Loaded image %s. Time: %f ms\n", filename, (endTime - startTime) * 1000.0f);
 
     return header;
 }

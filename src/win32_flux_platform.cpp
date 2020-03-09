@@ -1057,6 +1057,11 @@ void* Reallocate(void* ptr, uptr newSize)
     return realloc(ptr, newSize);
 }
 
+void Win32Sleep(u32 ms)
+{
+    Sleep(ms);
+}
+
 void LoadResourceLoader(Win32Context* context)
 {
     auto handle = LoadLibrary(L"flux_resource_loader.dll");
@@ -1210,6 +1215,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
 
     app->state.functions.PushWork = Win32PushWork;
     app->state.functions.CompleteAllWork = Win32CompleteAllWork;
+    app->state.functions.Sleep = Win32Sleep;
 
     app->state.functions.GetTimeStamp = GetTimeStamp;
 

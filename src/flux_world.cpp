@@ -11,16 +11,19 @@ void Update(World* world) {
 }
 
 // TODO: Remove context
-Option<RaycastResult> Raycast(Context* context, World* world, v3 ro, v3 rd) {
+Option<RaycastResult> Raycast(AssetManager* manager, World* world, v3 ro, v3 rd) {
     auto result = Option<RaycastResult>::None();
     for (uint i = 0; i < array_count(world->entities); i++) {
         auto entity = world->entities + i;
         if (entity->id) {
             v3 roMesh = (entity->invTransform * V4(ro, 1.0f)).xyz;
             v3 rdMesh = (entity->invTransform * V4(rd, 0.0f)).xyz;
-            bool hit = IntersectFast(context->meshes[(u32)entity->mesh]->aabb, roMesh, rdMesh, 0.0f, F32::Max);
-            if (hit) {
-                result = Option<RaycastResult>::Some({entity->id});
+            auto mesh = Get(manager, entity->mesh);
+            if (mesh) {
+                bool hit = IntersectFast(mesh->aabb, roMesh, rdMesh, 0.0f, F32::Max);
+                if (hit) {
+                    result = Option<RaycastResult>::Some({entity->id});
+                }
             }
         }
     }

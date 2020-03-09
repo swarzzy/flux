@@ -42,12 +42,12 @@ b32 UpdateGameCode(LibraryData* lib)
                     }
                     else
                     {
-                        printf("[Error] Failed to get GameUpdateAndRender() address.");
+                        printf("[Error] Failed to get GameUpdateAndRender() address.\n");
                     }
                 }
                 else
                 {
-                    printf("[Error] Failed to load game library.");
+                    printf("[Error] Failed to load game library.\n");
                 }
             }
             else

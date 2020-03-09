@@ -29,6 +29,11 @@
 #define debug_break() __builtin_debugtrap()
 #endif
 
+// TODO: Define these on other platforms
+#include <intrin.h>
+#define WriteFence() (_WriteBarrier(), _mm_sfence())
+#define ReadFence() (_ReadBarrier(), _mm_lfence())
+
 #define assert(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
 // NOTE: Defined always
 #define panic(expr, ...) do { if (!(expr)) {LogAssert(__FILE__, __func__, __LINE__, #expr, __VA_ARGS__); debug_break();}} while(false)
@@ -173,6 +178,8 @@ typedef void(WorkFn)(void* data, u32 threadIndex);
 typedef b32(PushWorkFn)(WorkQueue* queue, void* data, WorkFn* fn);
 typedef void(CompleteAllWorkFn)(WorkQueue* queue);
 
+typedef void(SleepFn)(u32 ms);
+
 struct Mesh {
     char name[32];
     void* base;
@@ -230,6 +237,7 @@ struct PlatformCalls
     // Work queue
     PushWorkFn* PushWork;
     CompleteAllWorkFn* CompleteAllWork;
+    SleepFn* Sleep;
 
     GetTimeStampFn* GetTimeStamp;
 

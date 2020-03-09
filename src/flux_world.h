@@ -1,19 +1,5 @@
 #pragma once
-
-enum struct EntityMaterial {
-    Checkerboard = 0,
-    OldMetal,
-    Backpack,
-    _Count
-};
-
-enum struct EntityMesh {
-    Sphere = 0,
-    Plate,
-    Backpack,
-    Gizmos,
-    _Count
-};
+#include "flux_resource_manager.h"
 
 struct Entity {
     u32 id;
@@ -54,7 +40,7 @@ struct RaycastResult {
 struct Context ;
 
 void Update(World* world);
-Option<RaycastResult> Raycast(Context* context, World* world, v3 ro, v3 rd);
+Option<RaycastResult> Raycast(AssetManager* manager, World* world, v3 ro, v3 rd);
 Entity* AddEntity(World* world);
 Entity* GetEntity(World* world, u32 id);
 bool DeleteEntity(World* world, u32 id);

@@ -80,3 +80,208 @@ Mesh* LoadMeshFlux(const wchar_t* filename) {
     }
     return result;
 }
+
+// TODO: Asset names encoding
+struct LoadMeshWorkData {
+    const wchar_t* filename;
+    enum struct MeshType {AAB, Flux} meshType;
+    MeshSlot* result;
+};
+
+void LoadMeshWork(void* _data, u32 threadIndex) {
+    PlatformSleep(1000);
+    auto data = (LoadMeshWorkData*)_data;
+    wprintf(L"[Info] Thread %d: Loading mesh %s\n", (int)threadIndex, data->filename);
+    Mesh* mesh = nullptr;
+    switch (data->meshType)
+    {
+    case LoadMeshWorkData::MeshType::AAB: {
+        mesh = LoadMeshAABAsync(data->filename);
+    } break;
+    case LoadMeshWorkData::MeshType::Flux: {
+        mesh = LoadMeshFlux(data->filename);
+    } break;
+    invalid_default();
+    }
+
+    WriteFence();
+    // TODO: Fence
+    // TODO: volatile?
+    data->result->mesh = mesh;
+    data->result->state = MeshSlot::JustLoaded;
+    // TODO: Use arenas for this allocations
+    PlatformFree(data);
+}
+
+void LoadMesh(AssetManager* manager, EntityMesh id) {
+    switch (id) {
+    case EntityMesh::Backpack: {
+        auto slot = manager->meshes + (u32)EntityMesh::Backpack;
+        auto spec = (LoadMeshWorkData*)PlatformAlloc(sizeof(LoadMeshWorkData));
+        *spec = {};
+        spec->filename = L"../res/meshes/backpack_low.mesh";
+        spec->meshType = LoadMeshWorkData::MeshType::Flux;
+        spec->result = slot;
+        slot->state = MeshSlot::Loading;
+
+        PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
+    } break;
+    case EntityMesh::Sphere: {
+        auto slot = manager->meshes + (u32)EntityMesh::Sphere;
+        auto spec = (LoadMeshWorkData*)PlatformAlloc(sizeof(LoadMeshWorkData));
+        *spec = {};
+        spec->filename = L"../res/meshes/sphere.aab";
+        spec->meshType = LoadMeshWorkData::MeshType::AAB;
+        spec->result = slot;
+        slot->state = MeshSlot::Loading;
+
+        PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
+    } break;
+    case EntityMesh::Plate: {
+
+        auto slot = manager->meshes + (u32)EntityMesh::Plate;
+        auto spec = (LoadMeshWorkData*)PlatformAlloc(sizeof(LoadMeshWorkData));
+        *spec = {};
+        spec->filename = L"../res/meshes/plate.aab";
+        spec->meshType = LoadMeshWorkData::MeshType::AAB;
+        spec->result = slot;
+        slot->state = MeshSlot::Loading;
+
+        PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
+    } break;
+    invalid_default();
+    }
+}
+
+struct PbrMaterialSpec {
+    const char* albedo;
+    const char* roughness;
+    const char* metallic;
+    const char* normals;
+    MaterialSlot* result;
+};
+
+struct LegacyMaterialSpec {
+    const char* diffuse;
+    const char* specular;
+    MaterialSlot* result;
+};
+
+void LoadPbrMaterialWork(void* materialSpec, u32 threadIndex) {
+    PlatformSleep(1000);
+    auto spec = (PbrMaterialSpec*)materialSpec;
+    printf("[Info] Thread %d: Loading material %s\n", (int)threadIndex, spec->albedo);
+    auto material = LoadMaterialPBRMetallicAsync(spec->albedo, spec->roughness, spec->metallic, spec->normals);
+    // TODO: Fence
+    // TODO: volatile?
+    spec->result->material = material;
+    spec->result->state = MaterialSlot::JustLoaded;
+    // TODO: Use arenas for this allocations
+    PlatformFree(spec);
+}
+
+void LoadLegacyMaterialWork(void* materialSpec, u32 threadIndex) {
+    PlatformSleep(1000);
+    auto spec = (LegacyMaterialSpec*)materialSpec;
+    printf("[Info] Thread %d: Loading material %s\n", (int)threadIndex, spec->diffuse);
+    auto material = LoadMaterialLegacyAsync(spec->diffuse, spec->specular);
+    // TODO: Fence
+    // TODO: volatile?
+    spec->result->material = material;
+    spec->result->state = MaterialSlot::JustLoaded;
+    PlatformFree(spec);
+}
+
+void LoadMaterial(AssetManager* manager, EntityMaterial id) {
+    switch (id) {
+    case EntityMaterial::OldMetal: {
+        auto slot = manager->materials + (u32)EntityMaterial::OldMetal;
+
+        // TODO: Work with memory??? Use arenas
+        auto spec = (PbrMaterialSpec*)PlatformAlloc(sizeof(PbrMaterialSpec));
+        *spec = {};
+        spec->albedo = "../res/materials/oldmetal/greasy-metal-pan1-albedo.png";
+        spec->roughness = "../res/materials/oldmetal/greasy-metal-pan1-roughness.png";
+        spec->metallic = "../res/materials/oldmetal/greasy-metal-pan1-metal.png";
+        spec->normals = "../res/materials/oldmetal/greasy-metal-pan1-normal.png";
+        spec->result = slot;
+        slot->state = MaterialSlot::Loading;
+
+        PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadPbrMaterialWork);
+    } break;
+    case EntityMaterial::Backpack: {
+        auto slot = manager->materials + (u32)EntityMaterial::Backpack;
+
+        auto spec = (PbrMaterialSpec*)PlatformAlloc(sizeof(PbrMaterialSpec));
+        *spec = {};
+        spec->albedo = "../res/materials/backpack/albedo.png";
+        spec->roughness = "../res/materials/backpack/rough.png";
+        spec->metallic = "../res/materials/backpack/metallic.png";
+        spec->normals = "../res/materials/backpack/normal.png";
+        spec->result = slot;
+        slot->state = MaterialSlot::Loading;
+
+        PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadPbrMaterialWork);
+    } break;
+    case EntityMaterial::Checkerboard: {
+        auto slot = manager->materials + (u32)EntityMaterial::Checkerboard;
+
+        auto spec = (LegacyMaterialSpec*)PlatformAlloc(sizeof(LegacyMaterialSpec));
+        *spec = {};
+        spec->diffuse = "../res/checkerboard.jpg";
+        spec->result = slot;
+        slot->state = MaterialSlot::Loading;
+
+        PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadLegacyMaterialWork);
+    } break;
+    invalid_default();
+    }
+}
+
+Mesh* Get(AssetManager* manager, EntityMesh id) {
+    Mesh* result = nullptr;
+    auto mesh = manager->meshes + (u32)id;
+    switch (mesh->state) {
+    case MeshSlot::Ready: {
+        result = mesh->mesh;
+    } break;
+    case MeshSlot::JustLoaded: {
+        auto begin = PlatformGetTimeStamp();
+        RendererLoadMesh(mesh->mesh);
+        auto end = PlatformGetTimeStamp();
+        printf("[Info] Loaded mesh on gpu: %f ms\n", (end - begin) * 1000.0f);
+        result = mesh->mesh;
+        mesh->state = MeshSlot::Ready;
+    } break;
+    case MeshSlot::NotLoaded: {
+        LoadMesh(manager, id);
+    } break;
+    case MeshSlot::Loading: {} break;
+        invalid_default();
+    }
+    return result;
+}
+
+Material* Get(AssetManager* manager, EntityMaterial id) {
+    Material* result = nullptr;
+    auto material = &manager->materials[(u32)id];
+    switch (material->state) {
+    case MaterialSlot::Ready: {
+        result = &material->material;
+    } break;
+    case MaterialSlot::JustLoaded: {
+        auto begin = PlatformGetTimeStamp();
+        CompleteMaterialLoad(&material->material);
+        auto end = PlatformGetTimeStamp();
+        printf("[Info] Loaded material on gpu: %f ms\n", (end - begin) * 1000.0f);
+        result = &material->material;
+        material->state = MaterialSlot::Ready;
+    } break;
+    case MaterialSlot::NotLoaded: {
+        LoadMaterial(manager, id);
+    } break;
+    case MaterialSlot::Loading: {} break;
+    invalid_default();
+    }
+    return result;
+}

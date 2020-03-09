@@ -206,7 +206,7 @@ void UpdateUi(Context* context) {
     if (!IsMouseCapturedByUI() && !IsKeyboardCapturedByUI()) {
         if (MouseButtonPressed(MouseButton::Left)) {
             DEBUG_OVERLAY_TRACE(context->camera.position);
-            auto raycast = Raycast(context, world, ro, rd);
+            auto raycast = Raycast(&context->assetManager, world, ro, rd);
             if (raycast) {
                 ui->selectedEntity = raycast.Unwrap().entityId;
             }

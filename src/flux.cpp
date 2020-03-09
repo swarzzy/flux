@@ -3,16 +3,36 @@
 #include "flux_debug_overlay.h"
 #include "flux_resource_manager.h"
 
+void Work(void* data, u32 id) {
+    //while (true) {
+        printf("Thread %d does some work\n", (int)id);
+        //}
+}
+
+
 void FluxInit(Context* context) {
     context->world = (World*)PlatformAlloc(sizeof(World));
     *context->world = {};
     strcpy_s(context->world->name, array_count(context->world->name), "dummy_world");
     auto begin = PlatformGetTimeStamp();
 
+    auto assetManager = &context->assetManager;
+
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+    PlatformPushWork(GlobalPlaformWorkQueue, nullptr, Work);
+
 //#define ASYNC
 #if defined (ASYNC)
-    auto oldMetal = context->materials + (u32)EntityMaterial::OldMetal;
-    auto backpack = context->materials + (u32)EntityMaterial::Backpack;
+    auto oldMetal = assetManager->materials + (u32)EntityMaterial::OldMetal;
+    auto backpack = assetManager->materials + (u32)EntityMaterial::Backpack;
 
     MaterialSpec oldMetalspec = {};
     oldMetalspec.albedo = "../res/materials/oldmetal/greasy-metal-pan1-albedo.png";
@@ -33,19 +53,10 @@ void FluxInit(Context* context) {
     PlatformCompleteAllWork(GlobalPlaformWorkQueue);
     CompletePbrMaterialLoad(oldMetal);
     CompletePbrMaterialLoad(backpack);
-#else
-    context->materials[(u32)EntityMaterial::OldMetal] = LoadMaterialPBRMetallic("../res/materials/oldmetal/greasy-metal-pan1-albedo.png", "../res/materials/oldmetal/greasy-metal-pan1-roughness.png", "../res/materials/oldmetal/greasy-metal-pan1-metal.png", "../res/materials/oldmetal/greasy-metal-pan1-normal.png");
-    context->materials[(u32)EntityMaterial::Backpack] = LoadMaterialPBRMetallic("../res/materials/backpack/albedo.png", "../res/materials/backpack/rough.png", "../res/materials/backpack/metallic.png", "../res/materials/backpack/normal.png");
 #endif
     auto end = PlatformGetTimeStamp();
     printf("[Info] Loading time: %f sec\n", end - begin);
-    //context->meshes[(u32)EntityMesh::Gizmos] = LoadMesh("../res/meshes/gizmos.obj");
-    //context->meshes[(u32)EntityMesh::Backpack] = LoadMesh("../res/meshes/backpack_low.fbx");
-    context->meshes[(u32)EntityMesh::Backpack] = LoadMeshFlux(L"../res/meshes/backpack_low.mesh");
-    RendererLoadMesh(context->meshes[(u32)EntityMesh::Backpack]);
-    context->meshes[(u32)EntityMesh::Sphere] = LoadMeshAAB(L"../res/meshes/sphere.aab");
-    context->meshes[(u32)EntityMesh::Plate] = LoadMeshAAB(L"../res/meshes/plate.aab");
-    context->materials[(u32)EntityMaterial::Checkerboard] = LoadMaterialLegacy("../res/checkerboard.jpg");
+
     context->skybox = LoadCubemap("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
     context->irradanceMap = MakeEmptyCubemap(64, 64, GL_RGB16F);
@@ -145,6 +156,7 @@ void FluxUpdate(Context* context) {
 
     group->camera = &context->camera;
     auto camera = &context->camera;
+    auto assetManager = &context->assetManager;
 
     DirectionalLight light = {};
     light.dir = Normalize(V3(0.0f, -1.0f, -1.0f));
@@ -158,31 +170,40 @@ void FluxUpdate(Context* context) {
     if (ui->selectedEntity) {
         auto entity = GetEntity(world, ui->selectedEntity);
         assert(entity);
-        auto aabb = context->meshes[(u32)entity->mesh]->aabb;
-        aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
-        aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
-        DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(0.0f, 0.0f, 1.0f), 2.0f);
+        auto mesh = Get(assetManager, entity->mesh);
+        if (mesh) {
+            auto aabb = mesh->aabb;
+            aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
+            aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
+            DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(0.0f, 0.0f, 1.0f), 2.0f);
+        }
     }
 
+#if 0
     RenderCommandDrawMesh gizmosCommand = {};
     gizmosCommand.transform = Scale(V3(0.1f, 0.1f, 0.1f));
     gizmosCommand.mesh = context->meshes[(u32)EntityMesh::Gizmos];
     gizmosCommand.material = context->materials[(u32)EntityMaterial::Checkerboard];
     Push(group, &gizmosCommand);
+#endif
 
     for (uint i = 0; i < array_count(context->world->entities); i++) {
         auto entity = context->world->entities + i;
         if (entity->id) {
-            RenderCommandDrawMesh command = {};
-            command.transform = entity->transform;
-            command.mesh = context->meshes[(u32)entity->mesh];
-            command.material = context->materials[(u32)entity->material];
-            Push(group, &command);
-            if (context->ui.showBoundingVolumes) {
-                auto aabb = context->meshes[(u32)entity->mesh]->aabb;
-                aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
-                aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
-                DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(1.0f, 0.0f, 0.0f), 2.0f);
+            auto mesh = Get(assetManager, entity->mesh);
+            auto material = Get(assetManager, entity->material);
+            if (mesh && material) {
+                RenderCommandDrawMesh command = {};
+                command.transform = entity->transform;
+                command.mesh = mesh;
+                command.material = material;
+                Push(group, &command);
+                if (context->ui.showBoundingVolumes) {
+                    auto aabb = mesh->aabb;
+                    aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
+                    aabb.max = (entity->transform * V4(aabb.max, 1.0f)).xyz;
+                    DrawAlignedBoxOutline(&context->renderGroup, aabb.min, aabb.max, V3(1.0f, 0.0f, 0.0f), 2.0f);
+                }
             }
         }
     }

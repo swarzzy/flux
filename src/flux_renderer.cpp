@@ -391,19 +391,18 @@ Material LoadMaterialPBRMetallicAsync(const char* albedoPath, const char* roughn
     return material;
 }
 
-void LoadPbrMaterialJob(void* materialSpec, u32 threadIndex) {
-    auto spec = (MaterialSpec*)materialSpec;
-    printf("[Info] Thread %d: Loading material %s\n", (int)threadIndex, spec->albedo);
-    auto material = LoadMaterialPBRMetallicAsync(spec->albedo, spec->roughness, spec->metallic, spec->normals);
-    *spec->result = material;
-
-}
-
-void CompletePbrMaterialLoad(Material* material) {
-    RendererLoadTexture(&material->pbr.metallic.albedo);
-    RendererLoadTexture(&material->pbr.metallic.roughness);
-    RendererLoadTexture(&material->pbr.metallic.metalness);
-    RendererLoadTexture(&material->pbr.metallic.normals);
+void CompleteMaterialLoad(Material* material) {
+    if (material->type == Material::Type::PBR) {
+        RendererLoadTexture(&material->pbr.metallic.albedo);
+        RendererLoadTexture(&material->pbr.metallic.roughness);
+        RendererLoadTexture(&material->pbr.metallic.metalness);
+        RendererLoadTexture(&material->pbr.metallic.normals);
+    } else {
+        RendererLoadTexture(&material->legacy.diffMap);
+        if (material->legacy.specMap.data) {
+            RendererLoadTexture(&material->legacy.specMap);
+        }
+    }
 }
 
 Material LoadMaterialLegacy(const char* diffusePath, const char* specularPath) {
@@ -411,6 +410,21 @@ Material LoadMaterialLegacy(const char* diffusePath, const char* specularPath) {
     Texture specMap = {};
     if (specularPath) {
         Texture specMap = LoadTexture(specularPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
+    }
+
+    Material material = {};
+    material.type = Material::Type::Legacy;
+    material.legacy.diffMap = diffMap;
+    material.legacy.specMap = specMap;
+
+    return material;
+}
+
+Material LoadMaterialLegacyAsync(const char* diffusePath, const char* specularPath) {
+    Texture diffMap = LoadTextureAsync(diffusePath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
+    Texture specMap = {};
+    if (specularPath) {
+        Texture specMap = LoadTextureAsync(specularPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
     }
 
     Material material = {};
@@ -495,6 +509,8 @@ struct AABMeshHeaderV2 {
 #pragma pack(pop)
 
 Mesh* LoadMeshAAB(const wchar_t* filepath) {
+    // TODO: IMPORTANT: This funtions has bugs
+    // loaded mesh refers deleted memory from file
     // TODO: This is temporary
     auto mesh = (Mesh*)PlatformAlloc(sizeof(Mesh));
     *mesh = {};
@@ -521,6 +537,35 @@ Mesh* LoadMeshAAB(const wchar_t* filepath) {
             RendererLoadMesh(mesh);
             assert(mesh->gpuVertexBufferHandle);
             assert(mesh->gpuIndexBufferHandle);
+        }
+    }
+    return mesh;
+}
+
+Mesh* LoadMeshAABAsync(const wchar_t* filepath) {
+    // TODO: IMPORTANT: This garbage should be totally reworked
+    // TODO: This is temporary
+    auto mesh = (Mesh*)PlatformAlloc(sizeof(Mesh));
+    *mesh = {};
+    u32 fileSize = PlatformDebugGetFileSize(filepath);
+    if (fileSize) {
+        void* fileData = PlatformAlloc(fileSize);
+        //defer { PlatformFree(fileData); };
+        u32 result = PlatformDebugReadFile(fileData, fileSize, filepath);
+        if (result) {
+            auto header = (AABMeshHeaderV2*)fileData;
+            assert(header->magicValue == AAB_FILE_MAGIC_VALUE);
+
+            mesh->vertexCount = header->vertexCount;
+            mesh->indexCount = header->indexCount;
+
+            mesh->vertices = (v3*)((byte*)fileData + header->vertexOffset);
+            mesh->normals = (v3*)((byte*)fileData + header->normalsOffset);
+            mesh->uvs = (v2*)((byte*)fileData + header->uvOffset);
+            mesh->indices = (u32*)((byte*)fileData + header->indicesOffset);
+            mesh->tangents = (v3*)((byte*)fileData + header->tangentsOffset);
+
+            mesh->aabb = BBoxAligned::From(mesh);
         }
     }
     return mesh;
@@ -1159,7 +1204,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
             } break;
             case RenderCommand::DrawMesh: {
                 auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
-                if (data->material.type == Material::Type::Legacy) {
+                if (data->material->type == Material::Type::Legacy) {
                     auto meshProg = renderer->shaders.Mesh;
 
                     m3x3 normalMatrix = MakeNormalMatrix(data->transform);
@@ -1172,8 +1217,8 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     Unmap(renderer->meshUniformBuffer);
 
 
-                    glBindTextureUnit(MeshShader::DiffMap, data->material.legacy.diffMap.gpuHandle);
-                    glBindTextureUnit(MeshShader::SpecMap, data->material.legacy.specMap.gpuHandle);
+                    glBindTextureUnit(MeshShader::DiffMap, data->material->legacy.diffMap.gpuHandle);
+                    glBindTextureUnit(MeshShader::SpecMap, data->material->legacy.specMap.gpuHandle);
                     glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
 
                     auto* mesh = data->mesh;
@@ -1197,12 +1242,12 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
                         mesh = mesh->next;
                     }
-                } else if (data->material.type == Material::Type::PBR) {
+                } else if (data->material->type == Material::Type::PBR) {
                     assert(group->irradanceMapHandle);
                     auto meshProg = renderer->shaders.PbrMesh;
                     glUseProgram(meshProg);
 
-                    auto* m = &data->material;
+                    auto* m = data->material;
 
                     auto normalMatrix = MakeNormalMatrix(data->transform);
 

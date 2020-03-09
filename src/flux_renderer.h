@@ -95,17 +95,12 @@ void ShadowPass(Renderer* renderer, RenderGroup* group);
 void MainPass(Renderer* renderer, RenderGroup* group);
 void End(Renderer* renderer);
 
-struct MaterialSpec {
-    const char* albedo;
-    const char* roughness;
-    const char* metallic;
-    const char* normals;
-    Material* result;
-};
 
-void LoadPbrMaterialJob(void* materialSpec, u32 threadIndex);
-void CompletePbrMaterialLoad(Material* material);
+Material LoadMaterialPBRMetallicAsync(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath);
+Material LoadMaterialLegacyAsync(const char* diffusePath, const char* specularPath = nullptr);
+void CompleteMaterialLoad(Material* material);
 
 void RendererLoadMesh(Mesh* mesh);
+void RendererLoadTexture(Texture* texture);
 
 void RecompileShaders(Renderer* renderer);

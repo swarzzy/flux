@@ -52,6 +52,7 @@ bool MouseButtonPressed(MouseButton button) {
 
 #define PlatformPushWork platform_call(PushWork)
 #define PlatformCompleteAllWork platform_call(CompleteAllWork)
+#define PlatformSleep platform_call(Sleep)
 
 #if defined(COMPILER_MSVC)
 #define gl_call(func) GlobalPlatform.gl->functions.fn.##func

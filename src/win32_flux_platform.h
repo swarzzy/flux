@@ -68,9 +68,6 @@ struct Win32ThreadInfo {
     WorkQueue* queue;
 };
 
-#define WriteFence(...) (_WriteBarrier(), _mm_sfence())
-#define ReadFence(...) (_ReadBarrier(), _mm_lfence())
-
 struct Win32Context
 {
     HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
