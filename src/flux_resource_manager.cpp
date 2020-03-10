@@ -81,11 +81,178 @@ Mesh* LoadMeshFlux(const wchar_t* filename) {
     return result;
 }
 
+int STBDesiredBPPFromTextureFormat(TextureFormat format) {
+    int desiredBpp = 0;
+    switch (format) {
+    case TextureFormat::SRGBA8:
+    case TextureFormat::RGBA8: { desiredBpp = 4; } break;
+    case TextureFormat::SRGB8:
+    case TextureFormat::RGB8:
+    case TextureFormat::RGB16F: { desiredBpp = 3; } break;
+    case TextureFormat::RG16F: { desiredBpp = 2; } break;
+    case TextureFormat::R8: { desiredBpp = 1; } break;
+        invalid_default();
+    }
+    return desiredBpp;
+}
+
+TextureFormat GuessTexFormatFromNumChannels(u32 num) {
+    TextureFormat format;
+    switch (num) {
+    case 1: { format = TextureFormat::R8; } break;
+    case 2: { format = TextureFormat::RG8; } break; // TODO: Implement in renderer
+    case 3: { format = TextureFormat::RGB8; } break;
+    case 4: { format = TextureFormat::SRGBA8; } break;
+        invalid_default();
+    }
+    return format;
+}
+
+Texture LoadTexture(const char* filename, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, DynamicRange range) {
+    Texture t = {};
+
+    i32 desiredBpp = 0;
+
+    if (format != TextureFormat::Unknown) {
+        desiredBpp = STBDesiredBPPFromTextureFormat(format);
+    }
+
+    auto image = ResourceLoaderLoadImage(filename, range, true, desiredBpp, PlatformAlloc);
+    assert(image);
+
+    if (format == TextureFormat::Unknown) {
+        format = GuessTexFormatFromNumChannels(image->channels);
+    }
+
+    t.format = format;
+    t.width = image->width;
+    t.height = image->height;
+    t.wrapMode = wrapMode;
+    t.filter = filter;
+    t.data = image->bits;
+
+    return t;
+}
+
+Texture CreateTexture(i32 width, i32 height, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, void* data) {
+    Texture t = {};
+
+    t.format = format;
+    t.width = width;
+    t.height = height;
+    t.filter = filter;
+    t.wrapMode = wrapMode;
+    t.data = data;
+
+    return t;
+}
+
+CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* frontPath,
+                        const char* leftPath, const char* rightPath, const char* upPath,
+                        DynamicRange range, TextureFormat format, TextureFilter filter, TextureWrapMode wrapMode) {
+    CubeTexture texture = {};
+
+    // TODO: Use memory arena
+    // TODO: Free memory
+    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc);
+    //defer { PlatformFree(back->base); };
+    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc);
+    //defer { PlatformFree(down->base); };
+    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc);
+    //defer { PlatformFree(front->base); };
+    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc);
+    //defer { PlatformFree(left->base); };
+    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc);
+    //defer { PlatformFree(right->base); };
+    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc);
+    //defer { PlatformFree(up->base); };
+
+    assert(back->width == down->width);
+    assert(back->width == front->width);
+    assert(back->width == left->width);
+    assert(back->width == right->width);
+    assert(back->width == up->width);
+
+    assert(back->height == down->height);
+    assert(back->height == front->height);
+    assert(back->height == left->height);
+    assert(back->height == right->height);
+    assert(back->height == up->height);
+
+    texture.format = format;
+    texture.width = back->width;
+    texture.height = back->height;
+    texture.backData = back->bits;
+    texture.downData = down->bits;
+    texture.frontData = front->bits;
+    texture.leftData = left->bits;
+    texture.rightData = right->bits;
+    texture.upData = up->bits;
+
+    return texture;
+}
+
+CubeTexture MakeEmptyCubemap(u32 w, u32 h, TextureFormat format, TextureFilter filter, bool useMips) {
+    CubeTexture texture = {};
+    texture.useMips = useMips;
+    texture.filter = filter;
+    texture.format = format;
+    texture.width = w;
+    texture.height = h;
+    return texture;
+}
+
+Material LoadMaterialPBR(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath) {
+    Texture albedo = LoadTexture(albedoPath, TextureFormat::SRGBA8, TextureWrapMode::Repeat, TextureFilter::Anisotropic);
+    Texture roughness = LoadTexture(roughnessPath, TextureFormat::R8, TextureWrapMode::Repeat, TextureFilter::Anisotropic);
+    Texture metalness = LoadTexture(metalnessPath, TextureFormat::R8, TextureWrapMode::Repeat, TextureFilter::Anisotropic);
+    Texture normals = LoadTexture(normalsPath, TextureFormat::RGB8, TextureWrapMode::Repeat, TextureFilter::Anisotropic);
+
+    Material material = {};
+    material.type = Material::Type::PBR;
+    material.workflow = Material::Workflow::Metallic;
+    material.pbr.metallic.albedo = albedo;
+    material.pbr.metallic.roughness = roughness;
+    material.pbr.metallic.metalness = metalness;
+    material.pbr.metallic.normals = normals;
+
+    return material;
+}
+
+Material LoadMaterialLegacy(const char* diffusePath, const char* specularPath) {
+    Texture diffMap = LoadTexture(diffusePath, TextureFormat::SRGB8, TextureWrapMode::Repeat, TextureFilter::Anisotropic);
+    Texture specMap = {};
+    if (specularPath) {
+        Texture specMap = LoadTexture(specularPath, TextureFormat::SRGB8, TextureWrapMode::Repeat, TextureFilter::Anisotropic);
+    }
+
+    Material material = {};
+    material.type = Material::Type::Legacy;
+    material.legacy.diffMap = diffMap;
+    material.legacy.specMap = specMap;
+
+    return material;
+}
+
+void CompleteMaterialLoad(Material* material) {
+    if (material->type == Material::Type::PBR) {
+        UploadToGPU(&material->pbr.metallic.albedo);
+        UploadToGPU(&material->pbr.metallic.roughness);
+        UploadToGPU(&material->pbr.metallic.metalness);
+        UploadToGPU(&material->pbr.metallic.normals);
+    } else {
+        UploadToGPU(&material->legacy.diffMap);
+        if (material->legacy.specMap.data) {
+            UploadToGPU(&material->legacy.specMap);
+        }
+    }
+}
+
 // TODO: Asset names encoding
 struct LoadMeshWorkData {
     const wchar_t* filename;
     enum struct MeshType {AAB, Flux} meshType;
-    MeshSlot* result;
+    AssetSlot<Mesh*>* result;
 };
 
 void LoadMeshWork(void* _data, u32 threadIndex) {
@@ -104,11 +271,10 @@ void LoadMeshWork(void* _data, u32 threadIndex) {
     invalid_default();
     }
 
-    WriteFence();
-    // TODO: Fence
-    // TODO: volatile?
-    data->result->mesh = mesh;
-    data->result->state = MeshSlot::JustLoaded;
+    data->result->asset = mesh;
+
+    auto prevState = AtomicExchange((u32 volatile*)&data->result->state, (u32)AssetState::JustLoaded);
+    assert(prevState == (u32)AssetState::Queued);
     // TODO: Use arenas for this allocations
     PlatformFree(data);
 }
@@ -122,7 +288,6 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
         spec->filename = L"../res/meshes/backpack_low.mesh";
         spec->meshType = LoadMeshWorkData::MeshType::Flux;
         spec->result = slot;
-        slot->state = MeshSlot::Loading;
 
         PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
     } break;
@@ -133,7 +298,6 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
         spec->filename = L"../res/meshes/sphere.aab";
         spec->meshType = LoadMeshWorkData::MeshType::AAB;
         spec->result = slot;
-        slot->state = MeshSlot::Loading;
 
         PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
     } break;
@@ -145,7 +309,6 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
         spec->filename = L"../res/meshes/plate.aab";
         spec->meshType = LoadMeshWorkData::MeshType::AAB;
         spec->result = slot;
-        slot->state = MeshSlot::Loading;
 
         PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
     } break;
@@ -158,37 +321,37 @@ struct PbrMaterialSpec {
     const char* roughness;
     const char* metallic;
     const char* normals;
-    MaterialSlot* result;
+    AssetSlot<Material>* result;
 };
 
 struct LegacyMaterialSpec {
     const char* diffuse;
     const char* specular;
-    MaterialSlot* result;
+    AssetSlot<Material>* result;
 };
 
 void LoadPbrMaterialWork(void* materialSpec, u32 threadIndex) {
-    PlatformSleep(1000);
+    //PlatformSleep(1000);
     auto spec = (PbrMaterialSpec*)materialSpec;
     printf("[Info] Thread %d: Loading material %s\n", (int)threadIndex, spec->albedo);
-    auto material = LoadMaterialPBRMetallicAsync(spec->albedo, spec->roughness, spec->metallic, spec->normals);
-    // TODO: Fence
-    // TODO: volatile?
-    spec->result->material = material;
-    spec->result->state = MaterialSlot::JustLoaded;
+    auto material = LoadMaterialPBR(spec->albedo, spec->roughness, spec->metallic, spec->normals);
+    spec->result->asset = material;
+    // NOTE: AtomicExchange provides rw fence here
+    auto prevState = AtomicExchange((u32 volatile*)&spec->result->state, (u32)AssetState::JustLoaded);
+    assert(prevState == (u32)AssetState::Queued);
     // TODO: Use arenas for this allocations
     PlatformFree(spec);
 }
 
 void LoadLegacyMaterialWork(void* materialSpec, u32 threadIndex) {
-    PlatformSleep(1000);
+    //PlatformSleep(1000);
     auto spec = (LegacyMaterialSpec*)materialSpec;
     printf("[Info] Thread %d: Loading material %s\n", (int)threadIndex, spec->diffuse);
-    auto material = LoadMaterialLegacyAsync(spec->diffuse, spec->specular);
-    // TODO: Fence
-    // TODO: volatile?
-    spec->result->material = material;
-    spec->result->state = MaterialSlot::JustLoaded;
+    auto material = LoadMaterialLegacy(spec->diffuse, spec->specular);
+    spec->result->asset = material;
+    // NOTE: AtomicExchange provides rw fence here
+    auto prevState = AtomicExchange((u32 volatile*)&spec->result->state, (u32)AssetState::JustLoaded);
+    assert(prevState == (u32)AssetState::Queued);
     PlatformFree(spec);
 }
 
@@ -205,7 +368,6 @@ void LoadMaterial(AssetManager* manager, EntityMaterial id) {
         spec->metallic = "../res/materials/oldmetal/greasy-metal-pan1-metal.png";
         spec->normals = "../res/materials/oldmetal/greasy-metal-pan1-normal.png";
         spec->result = slot;
-        slot->state = MaterialSlot::Loading;
 
         PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadPbrMaterialWork);
     } break;
@@ -219,7 +381,6 @@ void LoadMaterial(AssetManager* manager, EntityMaterial id) {
         spec->metallic = "../res/materials/backpack/metallic.png";
         spec->normals = "../res/materials/backpack/normal.png";
         spec->result = slot;
-        slot->state = MaterialSlot::Loading;
 
         PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadPbrMaterialWork);
     } break;
@@ -230,7 +391,6 @@ void LoadMaterial(AssetManager* manager, EntityMaterial id) {
         *spec = {};
         spec->diffuse = "../res/checkerboard.jpg";
         spec->result = slot;
-        slot->state = MaterialSlot::Loading;
 
         PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadLegacyMaterialWork);
     } break;
@@ -242,21 +402,22 @@ Mesh* Get(AssetManager* manager, EntityMesh id) {
     Mesh* result = nullptr;
     auto mesh = manager->meshes + (u32)id;
     switch (mesh->state) {
-    case MeshSlot::Ready: {
-        result = mesh->mesh;
+    case AssetState::Loaded: {
+        result = mesh->asset;
     } break;
-    case MeshSlot::JustLoaded: {
+    case AssetState::JustLoaded: {
         auto begin = PlatformGetTimeStamp();
-        RendererLoadMesh(mesh->mesh);
+        UploadToGPU(mesh->asset);
         auto end = PlatformGetTimeStamp();
         printf("[Info] Loaded mesh on gpu: %f ms\n", (end - begin) * 1000.0f);
-        result = mesh->mesh;
-        mesh->state = MeshSlot::Ready;
+        result = mesh->asset;
+        mesh->state = AssetState::Loaded;
     } break;
-    case MeshSlot::NotLoaded: {
+    case AssetState::Unloaded: {
+        mesh->state = AssetState::Queued;
         LoadMesh(manager, id);
     } break;
-    case MeshSlot::Loading: {} break;
+    case AssetState::Queued: {} break;
         invalid_default();
     }
     return result;
@@ -266,21 +427,22 @@ Material* Get(AssetManager* manager, EntityMaterial id) {
     Material* result = nullptr;
     auto material = &manager->materials[(u32)id];
     switch (material->state) {
-    case MaterialSlot::Ready: {
-        result = &material->material;
+    case AssetState::Loaded: {
+        result = &material->asset;
     } break;
-    case MaterialSlot::JustLoaded: {
+    case AssetState::JustLoaded: {
         auto begin = PlatformGetTimeStamp();
-        CompleteMaterialLoad(&material->material);
+        CompleteMaterialLoad(&material->asset);
         auto end = PlatformGetTimeStamp();
         printf("[Info] Loaded material on gpu: %f ms\n", (end - begin) * 1000.0f);
-        result = &material->material;
-        material->state = MaterialSlot::Ready;
+        result = &material->asset;
+        material->state = AssetState::Loaded;
     } break;
-    case MaterialSlot::NotLoaded: {
+    case AssetState::Unloaded: {
+        material->state = AssetState::Queued;
         LoadMaterial(manager, id);
     } break;
-    case MaterialSlot::Loading: {} break;
+    case AssetState::Queued: {} break;
     invalid_default();
     }
     return result;

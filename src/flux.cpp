@@ -57,10 +57,14 @@ void FluxInit(Context* context) {
     auto end = PlatformGetTimeStamp();
     printf("[Info] Loading time: %f sec\n", end - begin);
 
-    context->skybox = LoadCubemap("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
+    context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
+    UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
-    context->irradanceMap = MakeEmptyCubemap(64, 64, GL_RGB16F);
-    context->enviromentMap = MakeEmptyCubemap(256, 256, GL_RGB16F, TextureFilter::Trilinear, true);
+    UploadToGPU(&context->hdrMap);
+    context->irradanceMap = MakeEmptyCubemap(64, 64, TextureFormat::RGB16F, TextureFilter::Bilinear, false);
+    UploadToGPU(&context->irradanceMap);
+    context->enviromentMap = MakeEmptyCubemap(256, 256, TextureFormat::RGB16F, TextureFilter::Trilinear, true);
+    UploadToGPU(&context->enviromentMap);
 
     context->renderGroup.drawSkybox = true;
     context->renderGroup.skyboxHandle = context->enviromentMap.gpuHandle;

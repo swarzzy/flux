@@ -222,6 +222,10 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         FluxInit(context);
     } break;
     case GameInvoke::Reload: {
+#if defined(DEBUG_OPENGL)
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(OpenglDebugCallback, 0);
+#endif
         auto context = (Context*)(*data);
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
@@ -289,6 +293,14 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_world.cpp"
 #include "flux_ui.cpp"
 #include "flux_resource_manager.cpp"
+
+// NOTE: Platform specific intrinsics implementation begins here
+#if defined(PLATFORM_WINDOWS)
+#include <windows.h>
+#else
+#error Unsupported OS
+#endif
+#include "flux_intrinsics.cpp"
 
 #include "../ext/imgui/imconfig.h"
 #include "../ext/imgui/imgui.cpp"

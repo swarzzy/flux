@@ -61,50 +61,79 @@ struct Renderer {
     UniformBuffer<ShaderMeshData, ShaderMeshData::Binding> meshUniformBuffer;
 };
 
-// TODO: Refactor these
-void RendererLoadTexture(Texture* texture) {
+GLenum ToOpenGL(TextureWrapMode mode) {
+    GLenum result;
+    switch (mode) {
+    case TextureWrapMode::Repeat: { result = GL_REPEAT; } break;
+    case TextureWrapMode::ClampToEdge: { result = GL_CLAMP_TO_EDGE; } break;
+    invalid_default();
+    }
+    return result;
+}
+
+struct GLTextureFormat {
+    GLenum internal;
+    GLenum format;
+    GLenum type;
+};
+
+GLTextureFormat ToOpenGL(TextureFormat format) {
+    GLTextureFormat result;
+    switch (format) {
+    case TextureFormat::SRGBA8: { result.internal = GL_SRGB8_ALPHA8; result.format = GL_RGBA; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::SRGB8: { result.internal = GL_SRGB8; result.format = GL_RGB; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RGBA8: { result.internal = GL_RGBA8; result.format = GL_RGBA; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RGB8: { result.internal = GL_RGB8; result.format = GL_RGB; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RGB16F: { result.internal = GL_RGB16F; result.format = GL_RGB; result.type = GL_FLOAT; } break;
+    case TextureFormat::RG16F: { result.internal = GL_RG16F; result.format = GL_RG; result.type = GL_FLOAT; } break;
+    case TextureFormat::R8: { result.internal = GL_R8; result.format = GL_RED; result.type = GL_UNSIGNED_BYTE; } break;
+    case TextureFormat::RG8: { result.internal = GL_RG8; result.format = GL_RG; result.type = GL_UNSIGNED_BYTE; } break;
+    invalid_default();
+    }
+    return result;
+}
+
+struct GLTextureFilter {
+    GLenum min;
+    GLenum mag;
+    bool anisotropic;
+};
+
+GLTextureFilter ToOpenGL(TextureFilter filter) {
+    GLTextureFilter result = {};
+    switch (filter) {
+    case TextureFilter::None: { result.min = GL_NEAREST; result.mag = GL_NEAREST; } break;
+    case TextureFilter::Bilinear: { result.min = GL_LINEAR; result.mag = GL_LINEAR; } break;
+    case TextureFilter::Trilinear: { result.min = GL_LINEAR_MIPMAP_LINEAR; result.mag = GL_LINEAR; } break;
+    case TextureFilter::Anisotropic: { result.min = GL_LINEAR_MIPMAP_LINEAR; result.mag = GL_LINEAR; result.anisotropic = true; } break;
+    }
+    return result;
+}
+
+void UploadToGPU(Texture* texture) {
     if (!texture->gpuHandle) {
         GLuint handle;
         glGenTextures(1, &handle);
         if (handle) {
             glBindTexture(GL_TEXTURE_2D, handle);
-            //glEnable(GL_TEXTURE_2D);
-            GLenum format;
-            GLenum type;
-            GLenum minFilter = GL_NEAREST;
-            GLenum magFilter = GL_NEAREST;
-            bool anisotropic = false;
-            GLenum wrapMode = texture->wrapMode;
 
-            switch (texture->format) {
-            case GL_SRGB8_ALPHA8: { format = GL_RGBA; type = GL_UNSIGNED_BYTE; } break;
-            case GL_SRGB8: { format = GL_RGB; type = GL_UNSIGNED_BYTE; } break;
-            case GL_RGB8: { format = GL_RGB; type = GL_UNSIGNED_BYTE; } break;
-            case GL_RGB16F: { format = GL_RGB; type = GL_FLOAT; } break;
-            case GL_RG16F: { format = GL_RG, type = GL_FLOAT; } break;
-            case GL_R8: {format = GL_RED, type = GL_UNSIGNED_BYTE; } break;
-                invalid_default();
-            }
+            auto wrapMode = ToOpenGL(texture->wrapMode);
+            auto format = ToOpenGL(texture->format);
+            auto filter = ToOpenGL(texture->filter);
 
-            switch (texture->filter) {
-            case TextureFilter::Bilinear: { minFilter = GL_LINEAR; magFilter = GL_LINEAR; } break;
-            case TextureFilter::Trilinear: { minFilter = GL_LINEAR_MIPMAP_LINEAR; magFilter = GL_LINEAR; } break;
-            case TextureFilter::Anisotropic: {minFilter = GL_LINEAR_MIPMAP_LINEAR; magFilter = GL_LINEAR; anisotropic = true; } break;
-                invalid_default();
-            }
-
-            glTexImage2D(GL_TEXTURE_2D, 0, texture->format, texture->width,
-                         texture->height, 0, format, type, texture->data);
+            glTexImage2D(GL_TEXTURE_2D, 0, format.internal, texture->width,
+                         texture->height, 0, format.format, format.type, texture->data);
 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapMode);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapMode);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-            if (anisotropic) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter.mag);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter.min);
+            if (filter.anisotropic) {
                 // TODO: Anisotropy value
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_ARB, 8.0f);
             }
 
+            // TODO: Mips control
             glGenerateMipmap(GL_TEXTURE_2D);
 
             glBindTexture(GL_TEXTURE_2D, 0);
@@ -114,49 +143,33 @@ void RendererLoadTexture(Texture* texture) {
     }
 }
 
-void RendererLoadCubeTexture(CubeTexture* texture) {
+void UploadToGPU(CubeTexture* texture) {
     if (!texture->gpuHandle) {
         GLuint handle;
         glGenTextures(1, &handle);
         if (handle) {
             glBindTexture(GL_TEXTURE_CUBE_MAP, handle);
 
-            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+            auto wrapMode = ToOpenGL(texture->wrapMode);
+            auto filter = ToOpenGL(texture->filter);
+            auto format = ToOpenGL(texture->format);
 
-            auto minFilter = GL_NEAREST;
-            auto magFilter = GL_NEAREST;
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, wrapMode);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, wrapMode);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, wrapMode);
 
-            switch (texture->filter) {
-            case TextureFilter::None: {} break;
-            case TextureFilter::Bilinear: { minFilter = GL_LINEAR; magFilter = GL_LINEAR; } break;
-            case TextureFilter::Trilinear: { if (texture->useMips) minFilter = GL_LINEAR_MIPMAP_LINEAR; else minFilter = GL_LINEAR; magFilter = GL_LINEAR; } break;
-                invalid_default();
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, filter.mag);
+            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, filter.min);
+            if (filter.anisotropic) {
+                // TODO: Anisotropy value
+                glTexParameterf(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAX_ANISOTROPY_ARB, 8.0f);
             }
 
-            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, magFilter);
-            glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, minFilter);
-
             for (u32 i = 0; i < 6; i++) {
-                GLenum internalFormat = texture->images[i].format;
-                GLenum format;
-                GLenum type;
-
-                u32 width = texture->images[i].width;
-                u32 height = texture->images[i].height;
-                void* data = texture->images[i].data;
-
-                switch (internalFormat) {
-                case GL_SRGB8_ALPHA8: { format = GL_RGBA; type = GL_UNSIGNED_BYTE; } break;
-                case GL_SRGB8: { format = GL_RGB; type = GL_UNSIGNED_BYTE; } break;
-                case GL_RGB16F: {format = GL_RGB; type = GL_FLOAT; } break;
-                    invalid_default();
-                }
-
+                void* data = texture->data[i];
                 glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
-                             internalFormat, width, height, 0,
-                             format, type, data);
+                             format.internal, texture->width, texture->height, 0,
+                             format.format, format.type, data);
             }
 
             if (texture->useMips) {
@@ -170,7 +183,7 @@ void RendererLoadCubeTexture(CubeTexture* texture) {
     }
 }
 
-void RendererLoadMesh(Mesh* mesh) {
+void UploadToGPU(Mesh* mesh) {
     while (mesh) {
         if (!mesh->gpuVertexBufferHandle && !mesh->gpuIndexBufferHandle) {
             GLuint vboHandle;
@@ -209,285 +222,6 @@ void RendererLoadMesh(Mesh* mesh) {
         }
         mesh = mesh->next;
     }
-}
-
-CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* frontPath,
-                        const char* leftPath, const char* rightPath, const char* upPath,
-                        DynamicRange range, GLenum glFormat) {
-    CubeTexture texture = {};
-
-    // TODO: Use memory arena
-    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc);
-    defer { PlatformFree(back->base); };
-    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc);
-    defer { PlatformFree(down->base); };
-    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc);
-    defer { PlatformFree(front->base); };
-    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc);
-    defer { PlatformFree(left->base); };
-    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc);
-    defer { PlatformFree(right->base); };
-    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc);
-    defer { PlatformFree(up->base); };
-
-    texture.back.format = glFormat;
-    texture.back.width = back->width;
-    texture.back.height = back->height;
-    texture.back.data = back->bits;
-
-    texture.down.format = glFormat;
-    texture.down.width = down->width;
-    texture.down.height = down->height;
-    texture.down.data = down->bits;
-
-    texture.front.format = glFormat;
-    texture.front.width = front->width;
-    texture.front.height = front->height;
-    texture.front.data = front->bits;
-
-    texture.left.format = glFormat;
-    texture.left.width = left->width;
-    texture.left.height = left->height;
-    texture.left.data = left->bits;
-
-    texture.right.format = glFormat;
-    texture.right.width = right->width;
-    texture.right.height = right->height;
-    texture.right.data = right->bits;
-
-    texture.up.format = glFormat;
-    texture.up.width = up->width;
-    texture.up.height = up->height;
-    texture.up.data = up->bits;
-
-    RendererLoadCubeTexture(&texture);
-    assert(texture.gpuHandle);
-
-    return texture;
-}
-
-CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* frontPath,
-                        const char* leftPath, const char* rightPath, const char* upPath) {
-    return LoadCubemap(backPath, downPath, frontPath, leftPath, rightPath, upPath, DynamicRange::LDR, GL_SRGB8);
-}
-
-CubeTexture LoadCubemapHDR(const char* backPath, const char* downPath, const char* frontPath,
-                           const char* leftPath, const char* rightPath, const char* upPath) {
-    return LoadCubemap(backPath, downPath, frontPath, leftPath, rightPath, upPath, DynamicRange::HDR, GL_RGB16F);
-}
-
-
-CubeTexture MakeEmptyCubemap(int w, int h, GLenum format, TextureFilter filter, bool useMips) {
-    CubeTexture texture = {};
-    texture.useMips = useMips;
-    texture.filter = filter;
-    for (u32 i = 0; i < 6; i++) {
-        texture.images[i].format = format;
-        texture.images[i].width = w;
-        texture.images[i].height = h;
-        texture.images[i].data = 0;
-    }
-    RendererLoadCubeTexture(&texture);
-    assert(texture.gpuHandle);
-    return texture;
-}
-
-int STBDesiredBPPFromGLFormat(GLenum format) {
-    int desiredBpp = 0;
-    switch (format) {
-    case GL_SRGB8_ALPHA8:
-    case GL_RGBA: { desiredBpp = 4; } break;
-    case GL_SRGB8:
-    case GL_RGB8:
-    case GL_RGB16F: { desiredBpp = 3; } break;
-    case GL_RG16F: { desiredBpp = 2; } break;
-    case GL_R8: { desiredBpp = 1; } break;
-        invalid_default();
-    }
-    return desiredBpp;
-}
-
-GLenum GLTexFormatFromNumChannels(u32 num) {
-    GLenum format = 0;
-    switch (num) {
-    case 1: { format = GL_R8; } break;
-    case 2: { format = GL_RG8; } break; // TODO: Implement in renderer
-    case 3: { format = GL_RGB8; } break;
-    case 4: { format = GL_SRGB8_ALPHA8; } break;
-        invalid_default();
-    }
-    return format;
-}
-
-Texture LoadTexture(const char* filename,
-                    GLenum format = 0,
-                    GLenum wrapMode = GL_REPEAT,
-                    TextureFilter filter = TextureFilter::Bilinear) {
-    Texture t = {};
-
-    i32 desiredBpp = 0;
-
-    if (format) {
-        desiredBpp = STBDesiredBPPFromGLFormat(format);
-    }
-
-    auto image = ResourceLoaderLoadImage(filename, DynamicRange::LDR, true, desiredBpp, PlatformAlloc);
-    assert(image);
-
-    if (!format) {
-        format = GLTexFormatFromNumChannels(image->channels);
-    }
-
-    t.format = format;
-    t.width = image->width;
-    t.height = image->height;
-    t.wrapMode = wrapMode;
-    t.filter = filter;
-
-    t.data = image->bits;
-    RendererLoadTexture(&t);
-    assert(t.gpuHandle);
-
-    return t;
-}
-
-Texture LoadTextureAsync(const char* filename, GLenum format = 0, GLenum wrapMode = GL_REPEAT, TextureFilter filter = TextureFilter::Bilinear) {
-    Texture t = {};
-    i32 desiredBpp = 0;
-    if (format) {
-        desiredBpp = STBDesiredBPPFromGLFormat(format);
-    }
-
-    auto image = ResourceLoaderLoadImage(filename, DynamicRange::LDR, true, desiredBpp, PlatformAlloc);
-    assert(image);
-
-    if (!format) {
-        format = GLTexFormatFromNumChannels(image->channels);
-    }
-
-    t.format = format;
-    t.width = image->width;
-    t.height = image->height;
-    t.wrapMode = wrapMode;
-    t.filter = filter;
-    t.data = image->bits;
-    return t;
-}
-
-Material LoadMaterialPBRMetallicAsync(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath) {
-    Texture albedo = LoadTextureAsync(albedoPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture roughness = LoadTextureAsync(roughnessPath, GL_R8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture metalness = LoadTextureAsync(metalnessPath, GL_R8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture normals = LoadTextureAsync(normalsPath, GL_RGB8, GL_REPEAT, TextureFilter::Anisotropic);
-
-    Material material = {};
-    material.type = Material::Type::PBR;
-    material.workflow = Material::Workflow::Metallic;
-    material.pbr.metallic.albedo = albedo;
-    material.pbr.metallic.roughness = roughness;
-    material.pbr.metallic.metalness = metalness;
-    material.pbr.metallic.normals = normals;
-
-    return material;
-}
-
-void CompleteMaterialLoad(Material* material) {
-    if (material->type == Material::Type::PBR) {
-        RendererLoadTexture(&material->pbr.metallic.albedo);
-        RendererLoadTexture(&material->pbr.metallic.roughness);
-        RendererLoadTexture(&material->pbr.metallic.metalness);
-        RendererLoadTexture(&material->pbr.metallic.normals);
-    } else {
-        RendererLoadTexture(&material->legacy.diffMap);
-        if (material->legacy.specMap.data) {
-            RendererLoadTexture(&material->legacy.specMap);
-        }
-    }
-}
-
-Material LoadMaterialLegacy(const char* diffusePath, const char* specularPath) {
-    Texture diffMap = LoadTexture(diffusePath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture specMap = {};
-    if (specularPath) {
-        Texture specMap = LoadTexture(specularPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    }
-
-    Material material = {};
-    material.type = Material::Type::Legacy;
-    material.legacy.diffMap = diffMap;
-    material.legacy.specMap = specMap;
-
-    return material;
-}
-
-Material LoadMaterialLegacyAsync(const char* diffusePath, const char* specularPath) {
-    Texture diffMap = LoadTextureAsync(diffusePath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture specMap = {};
-    if (specularPath) {
-        Texture specMap = LoadTextureAsync(specularPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    }
-
-    Material material = {};
-    material.type = Material::Type::Legacy;
-    material.legacy.diffMap = diffMap;
-    material.legacy.specMap = specMap;
-
-    return material;
-}
-
-Material LoadMaterialPBRMetallic(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath) {
-    Texture albedo = LoadTexture(albedoPath, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture roughness = LoadTexture(roughnessPath, GL_R8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture metalness = LoadTexture(metalnessPath, GL_R8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture normals = LoadTexture(normalsPath, GL_RGB8, GL_REPEAT, TextureFilter::Anisotropic);
-
-
-    Material material = {};
-    material.type = Material::Type::PBR;
-    material.workflow = Material::Workflow::Metallic;
-    material.pbr.metallic.albedo = albedo;
-    material.pbr.metallic.roughness = roughness;
-    material.pbr.metallic.metalness = metalness;
-    material.pbr.metallic.normals = normals;
-
-    return material;
-}
-
-Material LoadMaterialPBRSpecular(const char* albedo, const char* specular, const char* gloss, const char* normals) {
-    Texture albedoTex = LoadTexture(albedo, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture specularTex = LoadTexture(specular, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture glossTex = LoadTexture(gloss, 0, GL_REPEAT, TextureFilter::Anisotropic);
-    Texture normalsTex = LoadTexture(normals, GL_RGB8, GL_REPEAT, TextureFilter::Anisotropic);
-
-
-    Material material = {};
-    material.type = Material::Type::PBR;
-    material.workflow = Material::Workflow::Specular;
-    material.pbr.specular.albedo = albedoTex;
-    material.pbr.specular.specular = specularTex;
-    material.pbr.specular.gloss = glossTex;
-    material.pbr.specular.normals = normalsTex;
-
-    return material;
-}
-
-Texture LoadTexture(i32 width, i32 height, void* data = 0,
-                    GLenum format = GL_SRGB8,
-                    GLenum wrapMode = GL_REPEAT,
-                    TextureFilter filter = TextureFilter::Bilinear) {
-    Texture t = {};
-
-    t.format = format;
-    t.width = width;
-    t.height = height;
-    t.filter = filter;
-    t.wrapMode = wrapMode;
-    t.data = data;
-
-    RendererLoadTexture(&t);
-    assert(t.gpuHandle);
-
-    return t;
 }
 
 const u32 AAB_FILE_MAGIC_VALUE = 0xaabaabaa;
@@ -534,7 +268,7 @@ Mesh* LoadMeshAAB(const wchar_t* filepath) {
 
             mesh->aabb = BBoxAligned::From(mesh);
 
-            RendererLoadMesh(mesh);
+            UploadToGPU(mesh);
             assert(mesh->gpuVertexBufferHandle);
             assert(mesh->gpuIndexBufferHandle);
         }
@@ -571,6 +305,7 @@ Mesh* LoadMeshAABAsync(const wchar_t* filepath) {
     return mesh;
 }
 
+#if 0
 // NOTE: Diffise only
 Material LoadMaterialLegacy(i32 width, i32 height, void* bitmap) {
     Texture diffMap = LoadTexture(width, height, bitmap, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
@@ -581,12 +316,13 @@ Material LoadMaterialLegacy(i32 width, i32 height, void* bitmap) {
 
     return material;
 }
+#endif
 
 void GenBRDFLut(const Renderer* renderer, Texture* t) {
     assert(t->gpuHandle);
-    assert(t->wrapMode == GL_CLAMP_TO_EDGE);
+    assert(t->wrapMode == TextureWrapMode::ClampToEdge);
     assert(t->filter == TextureFilter::Bilinear);
-    assert(t->format = GL_RGB16F);
+    assert(t->format == TextureFormat::RG16F);
 
     glUseProgram(renderer->shaders.BRDFIntegrator);
 
@@ -775,6 +511,7 @@ Renderer* InitializeRenderer(uv2 renderRes) {
     }
 
 
+#if 0
     u32 brdfLUTSize = PlatformDebugGetFileSize(L"brdf_lut.aab");
     if (brdfLUTSize) {
         assert(brdfLUTSize == sizeof(f32) * 2 * 512 * 512);
@@ -788,9 +525,10 @@ Renderer* InitializeRenderer(uv2 renderRes) {
             }
         }
     }
-
+#endif
     if (!renderer->BRDFLutHandle) {
-        Texture t = LoadTexture(512, 512, 0, GL_RG16F, GL_CLAMP_TO_EDGE, TextureFilter::Bilinear);
+        Texture t = CreateTexture(512, 512, TextureFormat::RG16F, TextureWrapMode::ClampToEdge, TextureFilter::Bilinear);
+        UploadToGPU(&t);
         assert(t.gpuHandle);
         GenBRDFLut(renderer, &t);
         renderer->BRDFLutHandle = t.gpuHandle;
@@ -836,7 +574,7 @@ void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHand
     glBindTextureUnit(IrradanceConvolver::SourceCubemap, sourceHandle);
 
     for (u32 i = 0; i < 6; i++) {
-        glViewport(0, 0, t->images[i].width, t->images[i].height);
+        glViewport(0, 0, t->width, t->height);
         auto buffer = Map(renderer->frameUniformBuffer);
         buffer->invViewMatrix = M4x4(capViews[i]);
         Unmap(renderer->frameUniformBuffer);
@@ -877,8 +615,8 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
     glDisable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->captureFramebuffer);
 
-    assert(t->images[0].width == t->images[0].height);
-    glUniform1i(EnvMapPrefilterShader::Resolution, t->images[0].width);
+    assert(t->width == t->height);
+    glUniform1i(EnvMapPrefilterShader::Resolution, t->width);
 
     auto buffer = Map(renderer->frameUniformBuffer);
     buffer->invProjMatrix = capProj;
@@ -891,8 +629,8 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
     for (u32 mipLevel = 0; mipLevel < mipLevels; mipLevel++) {
         // TODO: Pull texture size out of imges and put to a cubemap itself
         // all sides should havethe same size
-        u32 w = (u32)(t->images[0].width * Pow(0.5f, (f32)mipLevel));
-        u32 h = (u32)(t->images[0].height * Pow(0.5f, (f32)mipLevel));
+        u32 w = (u32)(t->width * Pow(0.5f, (f32)mipLevel));
+        u32 h = (u32)(t->height * Pow(0.5f, (f32)mipLevel));
 
         glViewport(0, 0, w, h);
         f32 roughness = (f32)mipLevel / (f32)(mipLevels - 1);
@@ -1128,13 +866,13 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
     auto camera = group->camera;
     auto dirLight = group->dirLight;
 
-    if (group->commandQueueAt) {
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->offscreenBufferHandle);
-        glViewport(0, 0, renderer->renderRes.x, renderer->renderRes.y);
-        glClearColor(renderer->clearColor.r, renderer->clearColor.g, renderer->clearColor.b, renderer->clearColor.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->offscreenBufferHandle);
+    glViewport(0, 0, renderer->renderRes.x, renderer->renderRes.y);
+    glClearColor(renderer->clearColor.r, renderer->clearColor.g, renderer->clearColor.b, renderer->clearColor.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
 
+    if (group->commandQueueAt) {
         for (u32 i = 0; i < group->commandQueueAt; i++) {
             CommandQueueEntry* command = group->commandQueue + i;
 
@@ -1445,60 +1183,3 @@ void End(Renderer* renderer) {
                           0, 0, 512, 512, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     }
 }
-
-#if 0
-GLenum GetGLTextureFormatFromInternalFormat(GLenum internalFormat) {
-    GLenum result = 0;
-    switch (internalFormat) {
-    case GL_SRGB8_ALPHA8: { result = GL_RGBA; } break;
-    case GL_SRGB8: { result = GL_RGB; } break;
-    case GL_RGB8: { result = GL_RGB; } break;
-    case GL_RGB16F: { result = GL_RGB; } break;
-    case GL_RG16F: { result = GL_RG; } break;
-    case GL_R8: { result = GL_RED; } break;
-    case GL_DEPTH_COMPONENT32F: { result = GL_DEPTH_COMPONENT; } break;
-    case GL_DEPTH_COMPONENT32: { result = GL_DEPTH_COMPONENT; } break;
-    case GL_DEPTH_COMPONENT24: { result = GL_DEPTH_COMPONENT; } break;
-    case GL_DEPTH_COMPONENT16: { result = GL_DEPTH_COMPONENT; } break;
-        invalid_default();
-    }
-    return result;
-}
-
-GLenum GetGLTextureTypeForInternalFormat(GLenum internalFormat) {
-    GLenum type = 0;
-    switch (internalFormat) {
-    case GL_SRGB8_ALPHA8: { type = GL_UNSIGNED_BYTE; } break;
-    case GL_SRGB8: { type = GL_UNSIGNED_BYTE; } break;
-    case GL_RGB8: { type = GL_UNSIGNED_BYTE; } break;
-    case GL_RGB16F: { type = GL_FLOAT; } break;
-    case GL_RG16F: { type = GL_FLOAT; } break;
-    case GL_R8: { type = GL_UNSIGNED_BYTE; } break;
-    case GL_DEPTH_COMPONENT32F: { type = GL_FLOAT; } break;
-    case GL_DEPTH_COMPONENT32: { type = GL_FLOAT; } break;
-    case GL_DEPTH_COMPONENT24: { type = GL_FLOAT; } break;
-    case GL_DEPTH_COMPONENT16: { type = GL_FLOAT; } break;
-        invalid_default();
-    }
-    return type;
-}
-
-void AllocTexture2D(GLuint handle, u32x width, u32x height, u32x mipLevel, GLenum format, void* data = 0, GLenum customType = 0)
-{
-    GLenum secondaryFormat = GetGLTextureFormatFromInternalFormat(format);
-    GLenum type;
-    if (customType)
-    {
-        type = customType;
-    }
-    else
-    {
-        type = GetGLTextureTypeForInternalFormat(format);
-    }
-
-    glBindTexture(GL_TEXTURE_2D, handle);
-    defer { glBindTexture(GL_TEXTURE_2D, 0); };
-
-    glTexImage2D(GL_TEXTURE_2D, mipLevel, format, width, height, 0, secondaryFormat, type, data);
-}
-#endif

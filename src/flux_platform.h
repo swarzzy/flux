@@ -104,7 +104,7 @@ namespace F32 {
     constexpr f32 Min = FLT_MIN;
 };
 
-#include "flux_intrinsics.cpp"
+#include "flux_intrinsics.h"
 #include "flux_math.h"
 #include "flux_opengl.h"
 
