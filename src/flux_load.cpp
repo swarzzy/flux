@@ -222,16 +222,15 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         FluxInit(context);
     } break;
     case GameInvoke::Reload: {
-#if defined(DEBUG_OPENGL)
-        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(OpenglDebugCallback, 0);
-#endif
         auto context = (Context*)(*data);
         IMGUI_CHECKVERSION();
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
         _GlobalPlatform = platform;
+#if defined(DEBUG_OPENGL)
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(OpenglDebugCallback, 0);
+#endif
         RecompileShaders(context->renderer);
         printf("[Info] Game was hot-reloaded\n");
         FluxReload(context);
@@ -293,6 +292,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_world.cpp"
 #include "flux_ui.cpp"
 #include "flux_resource_manager.cpp"
+#include "flux_memory.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)

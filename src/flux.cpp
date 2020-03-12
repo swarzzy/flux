@@ -97,6 +97,10 @@ void FluxUpdate(Context* context) {
     auto ui = &context->ui;
     auto world = context->world;
     auto renderer = context->renderer;
+    auto assetManager = &context->assetManager;
+
+    DEBUG_OVERLAY_TRACE(assetManager->assetQueueAt);
+    CompletePendingLoads(assetManager);
 
     auto renderRes = GetRenderResolution(renderer);
     if (renderRes.x != GlobalPlatform.windowWidth ||
@@ -160,7 +164,6 @@ void FluxUpdate(Context* context) {
 
     group->camera = &context->camera;
     auto camera = &context->camera;
-    auto assetManager = &context->assetManager;
 
     DirectionalLight light = {};
     light.dir = Normalize(V3(0.0f, -1.0f, -1.0f));

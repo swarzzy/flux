@@ -6,7 +6,6 @@ struct Renderer;
 
 
 Renderer* InitializeRenderer(uv2 renderRes);
-Mesh* LoadMeshAAB(const wchar_t* filepath);
 
 void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle);
 void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels);

@@ -9,7 +9,7 @@ struct Ui {
     b32 wantsLoadLoadFrom;
     b32 wantsSaveAs;
     u32 showBoundingVolumes;
-    u32 showDebugOverlay;
+    u32 showDebugOverlay = 1;
     u32 selectedEntity;
     char worldNameBuffer[128];
     wchar_t worldNameBufferW[128];

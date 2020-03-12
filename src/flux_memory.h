@@ -31,6 +31,8 @@ struct TempMemory
     uptr offset;
 };
 
+MemoryArena* AllocateArena(uptr size, bool isTemp);
+
 inline TempMemory
 BeginTemporaryMemory(MemoryArena* arena, MemoryArenaFlags flags = MemoryArenaFlag_None)
 {
@@ -139,3 +141,5 @@ inline MemoryArena* AllocateSubArena(MemoryArena* arena, uptr size, bool isTempo
     }
     return result;
 }
+
+MemoryArena* AllocateArena(uptr size, bool isTemp);

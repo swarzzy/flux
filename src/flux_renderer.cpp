@@ -224,100 +224,6 @@ void UploadToGPU(Mesh* mesh) {
     }
 }
 
-const u32 AAB_FILE_MAGIC_VALUE = 0xaabaabaa;
-#pragma pack(push, 1)
-struct AABMeshHeaderV2 {
-    u32 magicValue;
-    u32 version = 2;
-    u64 assetSize;
-    u32 assetType;
-
-    u32 vertexCount;
-    u32 indexCount;
-    u64 vertexOffset;
-    u64 normalsOffset;
-    u64 uvOffset;
-    u64 indicesOffset;
-    u64 tangentsOffset;
-};
-#pragma pack(pop)
-
-Mesh* LoadMeshAAB(const wchar_t* filepath) {
-    // TODO: IMPORTANT: This funtions has bugs
-    // loaded mesh refers deleted memory from file
-    // TODO: This is temporary
-    auto mesh = (Mesh*)PlatformAlloc(sizeof(Mesh));
-    *mesh = {};
-    u32 fileSize = PlatformDebugGetFileSize(filepath);
-    if (fileSize) {
-        void* fileData = PlatformAlloc(fileSize);
-        defer { PlatformFree(fileData); };
-        u32 result = PlatformDebugReadFile(fileData, fileSize, filepath);
-        if (result) {
-            auto header = (AABMeshHeaderV2*)fileData;
-            assert(header->magicValue == AAB_FILE_MAGIC_VALUE);
-
-            mesh->vertexCount = header->vertexCount;
-            mesh->indexCount = header->indexCount;
-
-            mesh->vertices = (v3*)((byte*)fileData + header->vertexOffset);
-            mesh->normals = (v3*)((byte*)fileData + header->normalsOffset);
-            mesh->uvs = (v2*)((byte*)fileData + header->uvOffset);
-            mesh->indices = (u32*)((byte*)fileData + header->indicesOffset);
-            mesh->tangents = (v3*)((byte*)fileData + header->tangentsOffset);
-
-            mesh->aabb = BBoxAligned::From(mesh);
-
-            UploadToGPU(mesh);
-            assert(mesh->gpuVertexBufferHandle);
-            assert(mesh->gpuIndexBufferHandle);
-        }
-    }
-    return mesh;
-}
-
-Mesh* LoadMeshAABAsync(const wchar_t* filepath) {
-    // TODO: IMPORTANT: This garbage should be totally reworked
-    // TODO: This is temporary
-    auto mesh = (Mesh*)PlatformAlloc(sizeof(Mesh));
-    *mesh = {};
-    u32 fileSize = PlatformDebugGetFileSize(filepath);
-    if (fileSize) {
-        void* fileData = PlatformAlloc(fileSize);
-        //defer { PlatformFree(fileData); };
-        u32 result = PlatformDebugReadFile(fileData, fileSize, filepath);
-        if (result) {
-            auto header = (AABMeshHeaderV2*)fileData;
-            assert(header->magicValue == AAB_FILE_MAGIC_VALUE);
-
-            mesh->vertexCount = header->vertexCount;
-            mesh->indexCount = header->indexCount;
-
-            mesh->vertices = (v3*)((byte*)fileData + header->vertexOffset);
-            mesh->normals = (v3*)((byte*)fileData + header->normalsOffset);
-            mesh->uvs = (v2*)((byte*)fileData + header->uvOffset);
-            mesh->indices = (u32*)((byte*)fileData + header->indicesOffset);
-            mesh->tangents = (v3*)((byte*)fileData + header->tangentsOffset);
-
-            mesh->aabb = BBoxAligned::From(mesh);
-        }
-    }
-    return mesh;
-}
-
-#if 0
-// NOTE: Diffise only
-Material LoadMaterialLegacy(i32 width, i32 height, void* bitmap) {
-    Texture diffMap = LoadTexture(width, height, bitmap, GL_SRGB8, GL_REPEAT, TextureFilter::Anisotropic);
-
-    Material material = {};
-    material.type = Material::Type::Legacy;
-    material.legacy.diffMap = diffMap;
-
-    return material;
-}
-#endif
-
 void GenBRDFLut(const Renderer* renderer, Texture* t) {
     assert(t->gpuHandle);
     assert(t->wrapMode == TextureWrapMode::ClampToEdge);
@@ -942,7 +848,7 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
             } break;
             case RenderCommand::DrawMesh: {
                 auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
-                if (data->material->type == Material::Type::Legacy) {
+                if (data->material->workflow == Material::Phong) {
                     auto meshProg = renderer->shaders.Mesh;
 
                     m3x3 normalMatrix = MakeNormalMatrix(data->transform);
@@ -955,8 +861,8 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     Unmap(renderer->meshUniformBuffer);
 
 
-                    glBindTextureUnit(MeshShader::DiffMap, data->material->legacy.diffMap.gpuHandle);
-                    glBindTextureUnit(MeshShader::SpecMap, data->material->legacy.specMap.gpuHandle);
+                    glBindTextureUnit(MeshShader::DiffMap, data->material->phong.diffMap.gpuHandle);
+                    glBindTextureUnit(MeshShader::SpecMap, data->material->phong.specMap.gpuHandle);
                     glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
 
                     auto* mesh = data->mesh;
@@ -980,7 +886,9 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
                         mesh = mesh->next;
                     }
-                } else if (data->material->type == Material::Type::PBR) {
+                } else if (data->material->workflow == Material::PBRMetallic ||
+                           data->material->workflow == Material::PBRSpecular ||
+                           data->material->workflow == Material::PBRMetallicCustom) {
                     assert(group->irradanceMapHandle);
                     auto meshProg = renderer->shaders.PbrMesh;
                     glUseProgram(meshProg);
@@ -993,29 +901,35 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     meshBuffer->modelMatrix = data->transform;
                     meshBuffer->normalMatrix = normalMatrix;
 
-                    if (m->workflow == Material::Workflow::Custom) {
+                    if (m->workflow == Material::PBRMetallicCustom) {
                         meshBuffer->metallicWorkflow = 1;
                         meshBuffer->customMaterial = 1;
-                        meshBuffer->customAlbedo = m->pbr.custom.albedo;
-                        meshBuffer->customRoughness = m->pbr.custom.roughness;
-                        meshBuffer->customMetalness = m->pbr.custom.metalness;
+                        meshBuffer->customAlbedo = m->pbrMetallicCustom.albedo;
+                        meshBuffer->customRoughness = m->pbrMetallicCustom.roughness;
+                        meshBuffer->customMetalness = m->pbrMetallicCustom.metalness;
                     } else {
                         meshBuffer->customMaterial = 0;
-                        if (m->workflow == Material::Workflow::Metallic) {
+                        if (m->workflow == Material::PBRMetallic) {
                             meshBuffer->metallicWorkflow = 1;
-                            glBindTextureUnit(MeshPBRShader::RoughnessMap, m->pbr.metallic.roughness.gpuHandle);
-                            glBindTextureUnit(MeshPBRShader::MetalnessMap, m->pbr.metallic.metalness.gpuHandle);
-                        } else if (m->workflow == Material::Workflow::Specular) {
+                            glBindTextureUnit(MeshPBRShader::RoughnessMap, m->pbrMetallic.roughness.gpuHandle);
+                            glBindTextureUnit(MeshPBRShader::MetalnessMap, m->pbrMetallic.metallic.gpuHandle);
+                        } else if (m->workflow == Material::PBRSpecular) {
                             meshBuffer->metallicWorkflow = 0;
-                            glBindTextureUnit(MeshPBRShader::SpecularMap, m->pbr.specular.specular.gpuHandle);
-                            glBindTextureUnit(MeshPBRShader::GlossMap, m->pbr.specular.gloss.gpuHandle);
+                            glBindTextureUnit(MeshPBRShader::SpecularMap, m->pbrSpecular.specular.gpuHandle);
+                            glBindTextureUnit(MeshPBRShader::GlossMap, m->pbrSpecular.gloss.gpuHandle);
                         } else {
                             unreachable();
                         }
 
+                        if (m->workflow == Material::PBRMetallic) {
+                            glBindTextureUnit(MeshPBRShader::AlbedoMap, m->pbrMetallic.albedo.gpuHandle);
+                            glBindTextureUnit(MeshPBRShader::NormalMap, m->pbrMetallic.normals.gpuHandle);
+                        } else if (m->workflow == Material::PBRSpecular) {
+                            glBindTextureUnit(MeshPBRShader::AlbedoMap, m->pbrSpecular.albedo.gpuHandle);
+                            glBindTextureUnit(MeshPBRShader::NormalMap, m->pbrSpecular.normals.gpuHandle);
+                        }
+
                         glBindTextureUnit(MeshPBRShader::BRDFLut, renderer->BRDFLutHandle);
-                        glBindTextureUnit(MeshPBRShader::AlbedoMap, m->pbr.metallic.albedo.gpuHandle);
-                        glBindTextureUnit(MeshPBRShader::NormalMap, m->pbr.metallic.normals.gpuHandle);
 
                     }
                     Unmap(renderer->meshUniformBuffer);
