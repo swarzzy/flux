@@ -1,46 +1,26 @@
 #include "flux_world.h"
 
 void Update(World* world) {
-    for (uint i = 0; i < array_count(world->entities); i++) {
-        auto entity = world->entities + i;
-        if (entity->id) {
-            entity->transform = Translate(entity->p) * Scale(entity->scale);
-            entity->invTransform = Inverse(entity->transform).Unwrap();
+    for (Entity& entity : world->entityTable) {
+        if (entity.id) {
+            entity.transform = Translate(entity.p) * Scale(entity.scale);
+            entity.invTransform = Inverse(entity.transform).Unwrap();
         }
     }
 }
 
 // TODO: Remove context
-Option<RaycastResult> Raycast(AssetManager* manager, World* world, v3 ro, v3 rd) {
+Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* world, v3 ro, v3 rd) {
     auto result = Option<RaycastResult>::None();
-    for (uint i = 0; i < array_count(world->entities); i++) {
-        auto entity = world->entities + i;
-        if (entity->id) {
-            v3 roMesh = (entity->invTransform * V4(ro, 1.0f)).xyz;
-            v3 rdMesh = (entity->invTransform * V4(rd, 0.0f)).xyz;
-            auto mesh = Get(manager, entity->mesh);
-            if (mesh) {
-                bool hit = IntersectFast(mesh->aabb, roMesh, rdMesh, 0.0f, F32::Max);
-                if (hit) {
-                    result = Option<RaycastResult>::Some({entity->id});
-                }
+    for (Entity& entity : world->entityTable) {
+        v3 roMesh = (entity.invTransform * V4(ro, 1.0f)).xyz;
+        v3 rdMesh = (entity.invTransform * V4(rd, 0.0f)).xyz;
+        auto mesh = GetMesh(manager, context->meshIDs[entity.mesh]);
+        if (mesh) {
+            bool hit = IntersectFast(mesh->aabb, roMesh, rdMesh, 0.0f, F32::Max);
+            if (hit) {
+                result = Option<RaycastResult>::Some({entity.id});
             }
-        }
-    }
-    return result;
-}
-
-Entity* FindEntry(World* world, u32 id, bool searchForEmpty) {
-    Entity* result = nullptr;
-    u32 cmp = searchForEmpty ? 0 : id;
-    u32 hashMask = array_count(world->entities) - 1;
-    auto hash = id & hashMask;
-    for (u32 offset = 0; offset < array_count(world->entities); offset++) {
-        u32 index = (hash + offset) & hashMask;
-        auto entry = world->entities + index;
-        if (entry->id == cmp) {
-            result = entry;
-            break;
         }
     }
     return result;
@@ -49,43 +29,18 @@ Entity* FindEntry(World* world, u32 id, bool searchForEmpty) {
 Entity* AddEntity(World* world) {
     Entity* result = nullptr;
     auto id = world->nextEntitySerialNumber;
-    auto entry = FindEntry(world, id, true);
-    if (entry) {
+    auto entity = Add(&world->entityTable, id);
+    if (entity) {
         world->nextEntitySerialNumber++;
-        *entry = {};
-        entry->id = id;
+        *entity = {};
+        entity->id = id;
         world->entityCount++;
-        result = entry;
+        result = entity;
     }
     return result;
 }
 
-Entity* GetEntity(World* world, u32 id) {
-    Entity* result = nullptr;
-    if (id) {
-        auto entry = FindEntry(world, id, false);
-        if (entry) {
-            result = entry;
-        }
-    }
-    return result;
-}
-
-bool DeleteEntity(World* world, u32 id) {
-    bool result = false;
-    if (id) {
-        auto entry = FindEntry(world, id, false);
-        if (entry) {
-            assert(world->entityCount);
-            world->entityCount--;
-            entry->id = 0;
-            result = true;
-        }
-    }
-    return result;
-}
-
-bool SaveToDisk(const World* world, const wchar_t* filename) {
+bool SaveToDisk(World* world, const wchar_t* filename) {
     u32 fileSize = sizeof(World) + sizeof(StoredEntity) * world->entityCount;
     void* memory = PlatformAlloc(fileSize);
     defer { PlatformFree(memory); };
@@ -97,17 +52,14 @@ bool SaveToDisk(const World* world, const wchar_t* filename) {
     header->firstEntityOffset = (u32)((uptr)entities - (uptr)memory);
 
     u32 at = 0;
-    for (u32 i = 0; i < array_count(world->entities); i++) {
-        auto entity = world->entities + i;
-        if (entity->id) {
-            assert(at < world->entityCount);
-            auto out = entities + at++;
-            out->id = entity->id;
-            out->p = entity->p;
-            out->scale = entity->scale;
-            out->meshId = (u32)entity->mesh;
-            out->materialId = (u32)entity->material;
-        }
+    for (Entity& entity : world->entityTable) {
+        assert(at < world->entityCount);
+        auto out = entities + at++;
+        out->id = entity.id;
+        out->p = entity.p;
+        out->scale = entity.scale;
+        out->meshId = (u32)entity.mesh;
+        out->materialId = (u32)entity.material;
     }
 
     auto result = PlatformDebugWriteFile(filename, memory, fileSize);
@@ -134,12 +86,12 @@ World* LoadWorldFromDisc(const wchar_t* filename) {
         auto fileEntities = (StoredEntity*)((byte*)fileBuffer + header->firstEntityOffset);
         for (u32 i = 0; i < world->entityCount; i++) {
             auto stored = fileEntities + i;
-            auto entry = FindEntry(world, stored->id, true);
+            auto entry = Add(&world->entityTable, stored->id);
             assert(entry);
             entry->id = stored->id;
             entry->p = stored->p;
             entry->scale = stored->scale;
-            entry->mesh = (EntityMesh)stored->meshId;
+            entry->mesh = stored->meshId;
             entry->material = (EntityMaterial)stored->materialId;
         }
     }

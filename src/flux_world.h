@@ -1,11 +1,12 @@
 #pragma once
 #include "flux_resource_manager.h"
+#include "flux_hash_map.h"
 
 struct Entity {
     u32 id;
     v3 p;
     v3 scale = V3(1.0f);
-    EntityMesh mesh;
+    u32 mesh;
     EntityMaterial material;
     m4x4 transform;
     m4x4 invTransform;
@@ -15,7 +16,7 @@ struct Entity {
 struct World {
     u32 nextEntitySerialNumber = 1;
     u32 entityCount;
-    Entity entities[32];
+    HashMap<Entity> entityTable;
     char name[128];
 };
 
@@ -40,9 +41,7 @@ struct RaycastResult {
 struct Context ;
 
 void Update(World* world);
-Option<RaycastResult> Raycast(AssetManager* manager, World* world, v3 ro, v3 rd);
+Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* world, v3 ro, v3 rd);
 Entity* AddEntity(World* world);
-Entity* GetEntity(World* world, u32 id);
-bool DeleteEntity(World* world, u32 id);
-bool SaveToDisk(const World* world, const wchar_t* filename);
+bool SaveToDisk(World* world, const wchar_t* filename);
 World* LoadWorldFromDisc(const wchar_t* filename);

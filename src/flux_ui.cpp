@@ -36,17 +36,13 @@ void DrawEntityLister(Context* context) {
     auto windowFlags = ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
     if (ImGui::Begin("Entity lister", (bool*)&ui->entityListerOpen, windowFlags)) {
         ImGui::BeginChild("Entity lister list");
-        for (u32 i = 0 ; i < array_count(context->world->entities); i++)
-        {
-            auto e = context->world->entities + i;
-            if (e->id) {
-                bool wasSelected = (e->id == ui->selectedEntity);
-                char buffer[128];
-                sprintf_s(buffer, 128, "id: %lu", (uint)e->id);
-                bool selected = ImGui::Selectable(buffer, wasSelected);
-                if (selected) {
-                    ui->selectedEntity = e->id;
-                }
+        for (Entity& e : context->world->entityTable) {
+            bool wasSelected = (e.id == ui->selectedEntity);
+            char buffer[128];
+            sprintf_s(buffer, 128, "id: %lu", (uint)e.id);
+            bool selected = ImGui::Selectable(buffer, wasSelected);
+            if (selected) {
+                ui->selectedEntity = e.id;
             }
         }
         ImGui::EndChild();
@@ -66,7 +62,7 @@ void DrawEntityInspector(Ui* ui, World* world) {
         if (!ui->selectedEntity)  {
             ImGui::Text("No entity selected");
         } else {
-            auto entity = GetEntity(world, ui->selectedEntity);
+            auto entity = Get(&world->entityTable, ui->selectedEntity);
 
             char buffer[16];
             sprintf_s(buffer, 16, "%lu", (uint)ui->selectedEntity);
@@ -74,7 +70,7 @@ void DrawEntityInspector(Ui* ui, World* world) {
             ImGui::SameLine();
             if (ImGui::Button("Delete")) {
                 ui->selectedEntity = 0;
-                DeleteEntity(world, entity->id);
+                Delete(&world->entityTable, entity->id);
             } else {
                 ImGui::Separator();
                 ImGui::Text("Position");
@@ -206,7 +202,7 @@ void UpdateUi(Context* context) {
     if (!IsMouseCapturedByUI() && !IsKeyboardCapturedByUI()) {
         if (MouseButtonPressed(MouseButton::Left)) {
             DEBUG_OVERLAY_TRACE(context->camera.position);
-            auto raycast = Raycast(&context->assetManager, world, ro, rd);
+            auto raycast = Raycast(context, &context->assetManager, world, ro, rd);
             if (raycast) {
                 ui->selectedEntity = raycast.Unwrap().entityId;
             }

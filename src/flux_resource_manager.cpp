@@ -1,6 +1,58 @@
 #include "flux_resource_manager.h"
 #include "flux_file_formats.h"
 
+u32 StringHash(const char* string) {
+    // TODO: Better hash
+    const char* at = string;
+    u32 hash = 0;
+    while (*at) {
+        hash += *at * 31;
+        at++;
+    }
+    return hash;
+}
+
+u32 AddName(AssetNameTable* table, u32 nameHash) {
+    u32 result = 0;
+    u32* guid = Add(&table->table, nameHash);
+    if (guid) {
+        *guid = table->serialCount++;
+        result = *guid;
+    }
+    return result;
+}
+
+u32 AddName(AssetNameTable* table, const char* name) {
+    u32 hash = StringHash(name);
+    u32 result = AddName(table, hash);
+    return result;
+}
+
+void RemoveName(AssetNameTable* table, u32 stringHash) {
+    auto result = Delete(&table->table, stringHash);
+    assert(result);
+}
+
+void RemoveName(AssetNameTable* table, const char* name) {
+    u32 hash = StringHash(name);
+    RemoveName(table, hash);
+}
+
+u32 GetID(AssetNameTable* table, u32 nameHash) {
+    u32 result = 0;
+    u32* id = Get(&table->table, nameHash);
+    if (id) {
+        result = *id;
+    }
+    return result;
+}
+
+u32 GetID(AssetNameTable* table, const char* name) {
+    u32 hash = StringHash(name);
+    u32 result = GetID(table, hash);
+    return result;
+}
+
 Mesh* ReadMeshFile(void* file, u32 fileSize) {
     auto header = (FluxMeshHeader*)file;
     uptr memorySize = header->dataSize + sizeof(Mesh) * header->entryCount;
@@ -334,36 +386,52 @@ void AssetQueueRemove(AssetManager* manager, u32 index) {
     }
 }
 
-struct LoadMeshWorkData {
-    const char* filename;
-    enum struct MeshType {AAB, Flux} meshType;
-    AssetSlot<Mesh*>* result;
-};
-
 void LoadMeshWork(void* _data, u32 threadIndex) {
     PlatformSleep(1000);
-    auto data = (LoadMeshWorkData*)_data;
+    auto data = (AssetSlot<Mesh*>*)_data;
     printf("[Info] Thread %d: Loading mesh %s\n", (int)threadIndex, data->filename);
     Mesh* mesh = nullptr;
-    switch (data->meshType)
+    switch (data->format)
     {
-    case LoadMeshWorkData::MeshType::AAB: {
+    case MeshFileFormat::AAB: {
         mesh = LoadMeshAAB(data->filename);
     } break;
-    case LoadMeshWorkData::MeshType::Flux: {
+    case MeshFileFormat::Flux: {
         mesh = LoadMeshFlux(data->filename);
     } break;
         invalid_default();
     }
 
-    data->result->asset = mesh;
+    data->asset = mesh;
 
-    auto prevState = AtomicExchange((u32 volatile*)&data->result->state, (u32)AssetState::JustLoaded);
+    auto prevState = AtomicExchange((u32 volatile*)&data->state, (u32)AssetState::JustLoaded);
     assert(prevState == (u32)AssetState::Queued);
-    // TODO: Use arenas for this allocations
-    PlatformFree(data);
 }
 
+u32 AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format) {
+    u32 id = AddName(&manager->nameTable, filename);
+    assert(id);
+    auto slot = Add(&manager->meshTable, id);
+    assert(slot);
+    strcpy_s(slot->filename, array_count(slot->filename), filename);
+    slot->format = format;
+    return id;
+}
+
+void LoadMesh(AssetManager* manager, u32 id) {
+    auto slot = Get(&manager->meshTable, id);
+    if (slot) {
+        auto queueEntry = AssetQueuePush(manager);
+        if (queueEntry) {
+            queueEntry->id = id;
+            queueEntry->type = AssetType::Mesh;
+
+            PlatformPushWork(GlobalPlaformWorkQueue, slot, LoadMeshWork);
+        }
+    }
+}
+
+#if 0
 void LoadMesh(AssetManager* manager, EntityMesh id) {
     auto queueEntry = AssetQueuePush(manager);
     if (queueEntry) {
@@ -376,7 +444,7 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
             auto spec = (LoadMeshWorkData*)PlatformAlloc(sizeof(LoadMeshWorkData));
             *spec = {};
             spec->filename = "../res/meshes/backpack_low.mesh";
-            spec->meshType = LoadMeshWorkData::MeshType::Flux;
+            spec->meshFormat = MeshFileFormat::Flux;
             spec->result = slot;
 
             PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
@@ -386,7 +454,7 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
             auto spec = (LoadMeshWorkData*)PlatformAlloc(sizeof(LoadMeshWorkData));
             *spec = {};
             spec->filename = "../res/meshes/sphere.aab";
-            spec->meshType = LoadMeshWorkData::MeshType::AAB;
+            spec->meshFormat = MeshFileFormat::AAB;
             spec->result = slot;
 
             PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
@@ -396,7 +464,7 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
             auto spec = (LoadMeshWorkData*)PlatformAlloc(sizeof(LoadMeshWorkData));
             *spec = {};
             spec->filename = "../res/meshes/plate.aab";
-            spec->meshType = LoadMeshWorkData::MeshType::AAB;
+            spec->meshFormat = MeshFileFormat::AAB;
             spec->result = slot;
 
             PlatformPushWork(GlobalPlaformWorkQueue, spec, LoadMeshWork);
@@ -407,6 +475,8 @@ void LoadMesh(AssetManager* manager, EntityMesh id) {
         printf("[Asset manager] Unable to queue asset load. Queue is full\n");
     }
 }
+
+#endif
 
 struct PbrMaterialSpec {
     const char* albedo;
@@ -498,8 +568,9 @@ void LoadMaterial(AssetManager* manager, EntityMaterial id) {
     }
 }
 
-void CompleteAssetLoad(AssetManager* manager, u32 queueIndex, EntityMesh id) {
-    auto slot = manager->meshes + (u32)id;
+void CompleteMeshLoad(AssetManager* manager, u32 queueIndex, u32 id) {
+    auto slot = Get(&manager->meshTable, id);
+    assert(slot);
     assert(slot->state == AssetState::Queued || slot->state == AssetState::JustLoaded);
     if (slot->state == AssetState::JustLoaded) {
         assert(manager->assetQueue[queueIndex].id == (u32)id);
@@ -532,26 +603,28 @@ void CompletePendingLoads(AssetManager* manager) {
         auto entry = manager->assetQueue + i;
         switch (entry->type) {
         case AssetType::Material: { CompleteAssetLoad(manager, i, (EntityMaterial)entry->id); } break;
-        case AssetType::Mesh: { CompleteAssetLoad(manager, i, (EntityMesh)entry->id); } break;
+        case AssetType::Mesh: { CompleteMeshLoad(manager, i, entry->id); } break;
         invalid_default();
         }
     }
 }
 
-Mesh* Get(AssetManager* manager, EntityMesh id) {
+Mesh* GetMesh(AssetManager* manager, u32 id) {
     Mesh* result = nullptr;
-    auto mesh = manager->meshes + (u32)id;
-    switch (mesh->state) {
-    case AssetState::Loaded: {
-        result = mesh->asset;
-    } break;
-    case AssetState::Unloaded: {
-        mesh->state = AssetState::Queued;
-        LoadMesh(manager, id);
-    } break;
-    case AssetState::JustLoaded: {} break;
-    case AssetState::Queued: {} break;
-        invalid_default();
+    auto mesh = Get(&manager->meshTable, id);
+    if (mesh) {
+        switch (mesh->state) {
+        case AssetState::Loaded: {
+            result = mesh->asset;
+        } break;
+        case AssetState::Unloaded: {
+            mesh->state = AssetState::Queued;
+            LoadMesh(manager, id);
+        } break;
+        case AssetState::JustLoaded: {} break;
+        case AssetState::Queued: {} break;
+            invalid_default();
+        }
     }
     return result;
 }
@@ -573,3 +646,9 @@ Material* Get(AssetManager* manager, EntityMaterial id) {
     }
     return result;
 }
+
+#if 0
+u32 AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format) {
+
+}
+#endif

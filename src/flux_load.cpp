@@ -293,6 +293,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_ui.cpp"
 #include "flux_resource_manager.cpp"
 #include "flux_memory.cpp"
+#include "flux_hash_map.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)

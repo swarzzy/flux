@@ -2,6 +2,21 @@
 
 #include "flux_platform.h"
 #include "flux_memory.h"
+#include "flux_hash_map.h"
+
+struct AssetNameTable {
+    u32 serialCount = 1;
+    HashMap<u32> table;
+};
+
+u32 AddName(AssetNameTable* table, u32 nameHash);
+void RemoveName(AssetNameTable* table, u32 nameHash);
+u32 GetID(AssetNameTable* table, const u32 nameHash);
+
+u32 AddName(AssetNameTable* table, const char* name);
+void RemoveName(AssetNameTable* table, const char* name);
+u32 GetID(AssetNameTable* table, const char* name);
+
 
 enum struct TextureFilter : u32 {
     None, Bilinear, Trilinear, Anisotropic, Default = Bilinear
@@ -94,10 +109,16 @@ enum struct AssetState : u32 {
     Unloaded = 0, Queued, JustLoaded, Loaded
 };
 
+enum struct MeshFileFormat {
+    AAB, Flux
+};
+
 template<typename T>
 struct AssetSlot {
     volatile AssetState state;
     T asset;
+    char filename[128];
+    MeshFileFormat format;
 };
 
 enum struct AssetType {
@@ -110,13 +131,17 @@ struct AssetQueueEntry {
 };
 
 struct AssetManager {
+    AssetNameTable nameTable;
+    HashMap<AssetSlot<Mesh*>> meshTable;
     AssetSlot<Mesh*> meshes[EntityMesh::_Count];
     AssetSlot<Material> materials[EntityMaterial::_Count];
     u32 assetQueueAt;
     AssetQueueEntry assetQueue[32];
 };
 
-Mesh* Get(AssetManager* manager, EntityMesh id);
+u32 AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format);
+
+Mesh* GetMesh(AssetManager* manager, u32 id);
 Material* Get(AssetManager* manager, EntityMaterial id);
 
 void CompletePendingLoads(AssetManager* manager);
