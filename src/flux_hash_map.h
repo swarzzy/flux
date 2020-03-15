@@ -34,6 +34,9 @@ struct HashMapIter
 
     inline HashMapIter<Key, Value>& operator++() {
         do {
+            if (at == array_count(map->table)) {
+                break;
+            }
             at++;
         } while (!(map->table[at].used));
 

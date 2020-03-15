@@ -18,7 +18,7 @@ struct RenderGroup;
 
 void Begin(Renderer* renderer, RenderGroup* group);
 void ShadowPass(Renderer* renderer, RenderGroup* group);
-void MainPass(Renderer* renderer, RenderGroup* group);
+void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* manager);
 void End(Renderer* renderer);
 
 void UploadToGPU(CubeTexture* texture);

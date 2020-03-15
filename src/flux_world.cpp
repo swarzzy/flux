@@ -1,4 +1,5 @@
 #include "flux_world.h"
+#include "flux_serialize.h"
 
 void Update(World* world) {
     for (Entity& entity : world->entityTable) {
@@ -41,6 +42,49 @@ Entity* AddEntity(World* world) {
     return result;
 }
 
+StoredTexture StoreTexture(AssetManager* manager, u32 id) {
+    StoredTexture result = {};
+    auto texture = GetTextureSlot(manager, id);
+    if (texture) {
+        strcpy_s(result.filename, array_count(result.filename), texture->filename);
+        result.format = (u32)texture->format;
+        result.wrapMode = (u32)texture->wrapMode;
+        result.filter = (u32)texture->filter;
+        result.range = (u32)texture->range;
+    }
+    return result;
+}
+
+StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
+    StoredMaterial result = {};
+    result.workflow = (u32)m->workflow;
+    switch (m->workflow) {
+    case Material::Phong: {
+        result.phong.diffuse = StoreTexture(manager, m->phong.diffuse);
+        result.phong.specular = StoreTexture(manager, m->phong.specular);
+    } break;
+    case Material::PBRMetallic: {
+        result.pbrMetallic.albedo = StoreTexture(manager, m->pbrMetallic.albedo);
+        result.pbrMetallic.roughness = StoreTexture(manager, m->pbrMetallic.roughness);
+        result.pbrMetallic.metallic = StoreTexture(manager, m->pbrMetallic.metallic);
+        result.pbrMetallic.normals = StoreTexture(manager, m->pbrMetallic.normals);
+    } break;
+    case Material::PBRSpecular: {
+        result.pbrSpecular.albedo = StoreTexture(manager, m->pbrSpecular.albedo);
+        result.pbrSpecular.specular = StoreTexture(manager, m->pbrSpecular.specular);
+        result.pbrSpecular.gloss = StoreTexture(manager, m->pbrSpecular.gloss);
+        result.pbrSpecular.normals = StoreTexture(manager, m->pbrSpecular.normals);
+    } break;
+    case Material::PBRMetallicCustom: {
+        result.pbrMetallicCustom.albedo = m->pbrMetallicCustom.albedo;
+        result.pbrMetallicCustom.roughness = m->pbrMetallicCustom.roughness;
+        result.pbrMetallicCustom.metallic = m->pbrMetallicCustom.metallic;
+    } break;
+    invalid_default();
+    }
+    return result;
+}
+
 bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
     u32 fileSize = sizeof(World) + sizeof(StoredEntity) * world->entityCount;
     void* memory = PlatformAlloc(fileSize);
@@ -65,11 +109,66 @@ bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
             strcpy_s(out->meshFileName, array_count(out->meshFileName), mesh->filename);
             out->meshFileFormat = (u32)mesh->format;
         }
-        out->materialId = (u32)entity.material;
+        out->material = StoreMaterial(manager, &entity.material);
     }
 
     auto result = PlatformDebugWriteFile(filename, memory, fileSize);
     return result;
+}
+
+u32 LoadTexture(AssetManager* assetManager, StoredTexture* stored) {
+    u32 result = 0;
+    auto status = AddTexture(assetManager, stored->filename, (TextureFormat)stored->format, (TextureWrapMode)stored->wrapMode, (TextureFilter)stored->filter, (DynamicRange)stored->range);
+    switch (status.status) {
+    case AddAssetResult::AlreadyExists: {
+        AssetName name;
+        GetAssetName(stored->filename, &name);
+        result = GetID(&assetManager->nameTable, name.name);
+        assert(result);
+    } break;
+    case AddAssetResult::Ok: {
+        result = status.id;
+    } break;
+    default: {
+        printf("[World] Texture %s not found\n", stored->filename);
+    } break;
+    }
+    return result;
+}
+
+u32 LoadTextureIfExist(AssetManager* assetManager, StoredTexture* stored) {
+    u32 result = 0;
+    if (stored->filename[0]) {
+        result = LoadTexture(assetManager, stored);
+    } else {
+        printf("[World]: Missing texture!\n");
+    }
+    return result;
+}
+
+Material LoadMaterial(AssetManager* assetManager, StoredMaterial* stored) {
+    Material mat = {};
+    mat.workflow = (Material::Workflow)stored->workflow;
+    switch (mat.workflow) {
+    case Material::Phong: {
+        mat.phong.diffuse = LoadTextureIfExist(assetManager, &stored->phong.diffuse);
+        mat.phong.specular = LoadTextureIfExist(assetManager, &stored->phong.specular);
+    } break;
+    case Material::PBRMetallic: {
+        mat.pbrMetallic.albedo = LoadTextureIfExist(assetManager, &stored->pbrMetallic.albedo);
+        mat.pbrMetallic.roughness = LoadTextureIfExist(assetManager, &stored->pbrMetallic.roughness);
+        mat.pbrMetallic.metallic = LoadTextureIfExist(assetManager, &stored->pbrMetallic.metallic);
+        mat.pbrMetallic.normals = LoadTextureIfExist(assetManager, &stored->pbrMetallic.normals);
+    } break;
+    case Material::PBRSpecular: {
+        mat.pbrSpecular.albedo = LoadTextureIfExist(assetManager, &stored->pbrSpecular.albedo);
+        mat.pbrSpecular.specular = LoadTextureIfExist(assetManager, &stored->pbrSpecular.specular);
+        mat.pbrSpecular.gloss = LoadTextureIfExist(assetManager, &stored->pbrSpecular.gloss);
+        mat.pbrSpecular.normals = LoadTextureIfExist(assetManager, &stored->pbrSpecular.normals);
+    }
+    invalid_default();
+    }
+    return mat;
 }
 
 World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename) {
@@ -97,16 +196,16 @@ World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename) {
             entry->id = stored->id;
             entry->p = stored->p;
             entry->scale = stored->scale;
-            entry->material = (EntityMaterial)stored->materialId;
+            entry->material = LoadMaterial(assetManager, &stored->material);
             auto result = AddMesh(assetManager, stored->meshFileName, (MeshFileFormat)stored->meshFileFormat);
             switch (result.status) {
-            case AddMeshResult::AlreadyExists: {
+            case AddAssetResult::AlreadyExists: {
                 AssetName name;
-                GetMeshName(stored->meshFileName, &name);
+                GetAssetName(stored->meshFileName, &name);
                 entry->mesh = GetID(&assetManager->nameTable, name.name);
                 assert(entry->mesh);
             } break;
-            case AddMeshResult::Ok: {
+            case AddAssetResult::Ok: {
                 entry->mesh = result.id;
             } break;
             default: {

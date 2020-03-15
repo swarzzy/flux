@@ -64,12 +64,12 @@ struct Texture {
 
 struct CubeTexture {
     GLuint gpuHandle;
-    b32 useMips;
     TextureFilter filter;
     TextureFormat format;
     TextureWrapMode wrapMode;
     u32 width;
     u32 height;
+    b32 useMips;
     union {
         void* data[6];
         struct {
@@ -83,6 +83,7 @@ struct CubeTexture {
     };
 };
 
+#if 0
 struct Material {
     enum  { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom } workflow;
     union {
@@ -109,7 +110,7 @@ struct Material {
         } pbrMetallicCustom;
     };
 };
-
+#endif
 
 enum struct EntityMaterial {
     Checkerboard = 0,
@@ -147,18 +148,39 @@ inline const char* ToString(MeshFileFormat value) {
     return strings[(u32)value];
 }
 
-template<typename T>
+template <typename T>
 struct AssetSlot {
     volatile AssetState state;
-    T asset;
     u32 id;
+    T asset;
     char filename[MaxAssetPathSize];
     char name[MaxAssetNameSize];
     MeshFileFormat format;
 };
 
+struct MeshSlot {
+    volatile AssetState state;
+    u32 id;
+    Mesh* mesh;
+    char filename[MaxAssetPathSize];
+    char name[MaxAssetNameSize];
+    MeshFileFormat format;
+};
+
+struct TextureSlot {
+    volatile AssetState state;
+    u32 id;
+    Texture texture;
+    char filename[MaxAssetPathSize];
+    char name[MaxAssetNameSize];
+    TextureFormat format = TextureFormat::Unknown;
+    TextureWrapMode wrapMode = TextureWrapMode::Default;
+    TextureFilter filter = TextureFilter::Default;
+    DynamicRange range = DynamicRange::LDR;
+};
+
 enum struct AssetType {
-    Material, Mesh
+    Mesh, Texture
 };
 
 struct AssetQueueEntry {
@@ -170,28 +192,32 @@ struct AssetManager {
     static u32 Hasher(u32* key) { return *key; }
     static bool Comparator(u32* a, u32* b) { return *a == *b; }
     AssetNameTable nameTable;
-    HashMap<u32, AssetSlot<Mesh*>> meshTable = HashMap<u32, AssetSlot<Mesh*>>::Make(Hasher, Comparator);
-    AssetSlot<Material> materials[EntityMaterial::_Count];
+    HashMap<u32, MeshSlot> meshTable = HashMap<u32, MeshSlot>::Make(Hasher, Comparator);
+    HashMap<u32, TextureSlot> textureTable = HashMap<u32, TextureSlot>::Make(Hasher, Comparator);
     u32 assetQueueAt;
     AssetQueueEntry assetQueue[32];
 };
 
-struct AddMeshResult {
+struct AddAssetResult {
     enum {UnknownError = 0, Ok, AlreadyExists} status;
     u32 id;
+
+    u32 Unwrap() { if (status == Ok) { return id; } else { panic(false); return 0; }};
 };
 
 
-void GetMeshName(const char* filename, AssetName* name);
-AddMeshResult AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format);
+void GetAssetName(const char* filename, AssetName* name);
+AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format);
+AddAssetResult AddTexture(AssetManager* manager, const char* filename, TextureFormat format = TextureFormat::Unknown, TextureWrapMode wrapMode = TextureWrapMode::Default, TextureFilter filter = TextureFilter::Default, DynamicRange range = DynamicRange::LDR);
 
 // TODO: Clean this thing with slots and pointers up
 // Many of callers wants to know filename or name
 // so it should be available via GetMesh call
 Mesh* GetMesh(AssetManager* manager, u32 id);
-AssetSlot<Mesh*>* GetMeshSlot(AssetManager* manager, u32 id);
+MeshSlot* GetMeshSlot(AssetManager* manager, u32 id);
 
-Material* Get(AssetManager* manager, EntityMaterial id);
+Texture* GetTexture(AssetManager* manager, u32 id);
+TextureSlot* GetTextureSlot(AssetManager* manager, u32 id);
 
 void CompletePendingLoads(AssetManager* manager);
 
@@ -209,11 +235,7 @@ void CloseMeshFile(void* file);
 Mesh* LoadMeshFlux(const char* filename);
 Mesh* LoadMeshAAB(const char* filename);
 
-Material LoadMaterialPBRMetallic(const char* albedoPath, const char* roughnessPath, const char* metalnessPath, const char* normalsPath);
-Material LoadMaterialPhong(const char* diffusePath, const char* specularPath = nullptr);
-void CompleteMaterialLoad(Material* material);
-
-Texture LoadTexture(const char* filename, TextureFormat format = TextureFormat::Unknown, TextureWrapMode wrapMode = TextureWrapMode::Default, TextureFilter filter = TextureFilter::Default, DynamicRange range = DynamicRange::LDR);
+Texture LoadTextureFromFile(const char* filename, TextureFormat format = TextureFormat::Unknown, TextureWrapMode wrapMode = TextureWrapMode::Default, TextureFilter filter = TextureFilter::Default, DynamicRange range = DynamicRange::LDR);
 Texture CreateTexture(i32 width, i32 height, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, void* data = 0);
 CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* frontPath, const char* leftPath, const char* rightPath, const char* upPath, DynamicRange range = DynamicRange::LDR, TextureFormat format = TextureFormat::Unknown, TextureFilter filter = TextureFilter::Default, TextureWrapMode wrapMode = TextureWrapMode::Default);
 CubeTexture MakeEmptyCubemap(u32 w, u32 h, TextureFormat format, TextureFilter filter, bool useMips);
@@ -226,4 +248,24 @@ inline CubeTexture LoadCubemapLDR(const char* backPath, const char* downPath, co
 inline CubeTexture LoadCubemapHDR(const char* backPath, const char* downPath, const char* frontPath,
                                   const char* leftPath, const char* rightPath, const char* upPath) {
     return LoadCubemap(backPath, downPath, frontPath, leftPath, rightPath, upPath, DynamicRange::HDR, TextureFormat::RGB16F);
+}
+
+inline AddAssetResult AddAlbedoMap(AssetManager* manager, const char* filename) {
+    return AddTexture(manager, filename, TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Trilinear, DynamicRange::LDR);
+}
+
+inline AddAssetResult AddRoughnessMap(AssetManager* manager, const char* filename) {
+    return AddTexture(manager, filename, TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Trilinear, DynamicRange::LDR);
+}
+
+inline AddAssetResult AddMetallicMap(AssetManager* manager, const char* filename) {
+    return AddTexture(manager, filename, TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Trilinear, DynamicRange::LDR);
+}
+
+inline AddAssetResult AddNormalMap(AssetManager* manager, const char* filename) {
+    return AddTexture(manager, filename, TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Trilinear, DynamicRange::LDR);
+}
+
+inline AddAssetResult AddPhongTexture(AssetManager* manager, const char* filename) {
+    return AddTexture(manager, filename, TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Trilinear, DynamicRange::LDR);
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "flux_renderer.h"
+#include "flux_world.h"
 
 struct DirectionalLight {
     v3 from;
@@ -30,7 +31,8 @@ struct RenderCommandDrawWater {
 struct RenderCommandDrawMesh {
     m4x4 transform;
     Mesh* mesh;
-    Material* material;
+    // TODO: Pointer?
+    Material material;
     enum DrawMeshFlags : u32 { Highlight, Wireframe } flags;
 };
 

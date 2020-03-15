@@ -38,52 +38,93 @@ void DrawAssetManager(Context* context) {
     //ImGui::SetNextWindowSize({200, 400});
     auto windowFlags = 0;//ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
     if (ImGui::Begin("Asset manager", (bool*)&ui->assetManagerOpen, windowFlags)) {
-        ImGui::Text("Meshes");
-        ImGui::Text("Load:");
-        ImGui::SameLine();
-        ImGui::PushID("Load mesh filename input");
-        ImGui::InputText("", ui->assetLoadFileBuffer, array_count(ui->assetLoadFileBuffer));
-        ImGui::PopID();
-        //ImGui::SameLine();
-        char formatString[16];
-        sprintf_s(formatString, 16, "%s", ToString(ui->meshLoadFormat));
-        ImGui::PushID("Mesh format selector");
-        if (ImGui::BeginCombo("", formatString)) {
-            if (ImGui::Selectable("AAB", ui->meshLoadFormat == MeshFileFormat::AAB)) {
-                ui->meshLoadFormat = MeshFileFormat::AAB;
+        if (ImGui::BeginTabBar("Asset manager tab bar")) {
+            if (ImGui::BeginTabItem("Meshes")) {
+                ImGui::Text("Load:");
+                ImGui::SameLine();
+                ImGui::PushID("Load mesh filename input");
+                ImGui::InputText("", ui->assetLoadFileBuffer, array_count(ui->assetLoadFileBuffer));
+                ImGui::PopID();
+                //ImGui::SameLine();
+                char formatString[16];
+                sprintf_s(formatString, 16, "%s", ToString(ui->meshLoadFormat));
+                ImGui::PushID("Mesh format selector");
+                if (ImGui::BeginCombo("", formatString)) {
+                    if (ImGui::Selectable("AAB", ui->meshLoadFormat == MeshFileFormat::AAB)) {
+                        ui->meshLoadFormat = MeshFileFormat::AAB;
+                    }
+                    if (ImGui::Selectable("Flux", ui->meshLoadFormat == MeshFileFormat::Flux)) {
+                        ui->meshLoadFormat = MeshFileFormat::Flux;
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopID();
+                ImGui::SameLine();
+                if (ImGui::Button("Load")) {
+                    AddMesh(&context->assetManager, ui->assetLoadFileBuffer, ui->meshLoadFormat);
+                }
+
+                ImGui::BeginChild("Asset manager list", {0.0f, -80.0f}, true);
+                for (auto& slot : context->assetManager.meshTable) {
+                    char buffer[150];
+                    sprintf_s(buffer, 150, "[%lu] %s", (long)slot.id, slot.name);
+                    bool selected = slot.id == ui->selectedMesh;
+                    if (ImGui::Selectable(buffer, selected)) {
+                        ui->selectedMesh = slot.id;
+                    }
+                }
+                ImGui::EndChild();
+
+                ImGui::Text("Asset info:");
+                if (ui->selectedMesh) {
+                    auto slot = GetMeshSlot(&context->assetManager, ui->selectedMesh);
+                    if (slot) {
+                        ImGui::Text("ID: %lu", slot->id);
+                        ImGui::Text("Name: %s", slot->name);
+                        ImGui::Text("File: %s", slot->filename);
+                        ImGui::Text("State: %s", ToString(slot->state));
+                    }
+                }
+                ImGui::EndTabItem();
             }
-            if (ImGui::Selectable("Flux", ui->meshLoadFormat == MeshFileFormat::Flux)) {
-                ui->meshLoadFormat = MeshFileFormat::Flux;
+            if (ImGui::BeginTabItem("Textures")) {
+                ImGui::Text("Load:");
+                ImGui::SameLine();
+                ImGui::PushID("Load texture filename input");
+                ImGui::InputText("", ui->assetLoadFileBuffer, array_count(ui->assetLoadFileBuffer));
+                ImGui::PopID();
+                ImGui::SameLine();
+                if (ImGui::Button("Load")) {
+                    // TODO: properties
+                    AddTexture(&context->assetManager, ui->assetLoadFileBuffer);
+                }
+
+                ImGui::BeginChild("Texture manager list", {0.0f, -80.0f}, true);
+                for (auto& slot : context->assetManager.textureTable) {
+                    char buffer[150];
+                    sprintf_s(buffer, 150, "[%lu] %s", (long)slot.id, slot.name);
+                    bool selected = slot.id == ui->selectedTexture;
+                    if (ImGui::Selectable(buffer, selected)) {
+                        ui->selectedTexture = slot.id;
+                    }
+                }
+                ImGui::EndChild();
+
+                ImGui::Text("Texture info:");
+                if (ui->selectedTexture) {
+                    auto slot = GetTextureSlot(&context->assetManager, ui->selectedTexture);
+                    if (slot) {
+                        ImGui::Text("ID: %lu", slot->id);
+                        ImGui::Text("Name: %s", slot->name);
+                        ImGui::Text("File: %s", slot->filename);
+                        ImGui::Text("State: %s", ToString(slot->state));
+                    }
+                }
+                ImGui::EndTabItem();
             }
-            ImGui::EndCombo();
-        }
-        ImGui::PopID();
-        ImGui::SameLine();
-        if (ImGui::Button("Load")) {
-            AddMesh(&context->assetManager, ui->assetLoadFileBuffer, ui->meshLoadFormat);
         }
 
-        ImGui::BeginChild("Asset manager list", {0.0f, -80.0f}, true);
-        for (auto& slot : context->assetManager.meshTable) {
-            char buffer[150];
-            sprintf_s(buffer, 150, "[%lu] %s", (long)slot.id, slot.name);
-            bool selected = slot.id == ui->selectedResource;
-            if (ImGui::Selectable(buffer, selected)) {
-                ui->selectedResource = slot.id;
-            }
-        }
-        ImGui::EndChild();
-
-        ImGui::Text("Asset info:");
-        if (ui->selectedResource) {
-            auto slot = GetMeshSlot(&context->assetManager, ui->selectedResource);
-            if (slot) {
-                ImGui::Text("ID: %lu", slot->id);
-                ImGui::Text("Name: %s", slot->name);
-                ImGui::Text("File: %s", slot->filename);
-                ImGui::Text("State: %s", ToString(slot->state));
-            }
-        }
+        ImGui::EndTabBar();
     }
     ImGui::End();
 }
@@ -154,15 +195,26 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
 
                 ImGui::Separator();
                 ImGui::Text("Mesh");
-                for (auto& asset : context->assetManager.meshTable) {
-                    char buffer[256];
-                    sprintf_s(buffer, 256, "[%lu] %s",(long)asset.id, asset.name);
-                    bool wasSelected = asset.id == entity->mesh;
-                    bool selected = ImGui::Selectable(buffer, wasSelected);
-                    if (selected) {
-                        entity->mesh = asset.id;
-                    }
+                ImGui::PushID("Entity inspector mesh combo");
+                char buffer[256];
+                auto meshSlot = GetMeshSlot(&context->assetManager, entity->mesh);
+                if (meshSlot) {
+                    sprintf_s(buffer, 256, "%s", meshSlot->name);
+                } else {
+                    buffer[0] = 0;
                 }
+                if (ImGui::BeginCombo("", buffer)) {
+                    for (auto& asset : context->assetManager.meshTable) {
+                        sprintf_s(buffer, 256, "[%lu] %s",(long)asset.id, asset.name);
+                        bool wasSelected = asset.id == entity->mesh;
+                        bool selected = ImGui::Selectable(buffer, wasSelected);
+                        if (selected) {
+                            entity->mesh = asset.id;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::PopID();
                 //auto mesh = GetMesh(&context->assetManager, entity->mesh);
                 //ImGui::Text("State: %s", ToString(mesh->state));
             }

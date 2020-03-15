@@ -12,7 +12,8 @@ struct Ui {
     u32 showBoundingVolumes;
     u32 showDebugOverlay = 1;
     u32 selectedEntity;
-    u32 selectedResource;
+    u32 selectedMesh;
+    u32 selectedTexture;
     MeshFileFormat meshLoadFormat;
     char assetLoadFileBuffer[MaxAssetPathSize];
     char worldNameBuffer[128];

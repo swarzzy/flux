@@ -2,12 +2,39 @@
 #include "flux_resource_manager.h"
 #include "flux_hash_map.h"
 
+struct Material {
+    enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom } workflow;
+    union {
+        struct {
+            u32 diffuse;
+            u32 specular;
+        } phong;
+        struct {
+            u32 albedo;
+            u32 roughness;
+            u32 metallic;
+            u32 normals;
+        } pbrMetallic;
+        struct {
+            u32 albedo;
+            u32 specular;
+            u32 gloss;
+            u32 normals;
+        } pbrSpecular;
+        struct {
+            v3 albedo;
+            f32 roughness;
+            f32 metallic;
+        } pbrMetallicCustom;
+    };
+};
+
 struct Entity {
     u32 id;
     v3 p;
     v3 scale = V3(1.0f);
     u32 mesh;
-    EntityMaterial material;
+    Material material;
     m4x4 transform;
     m4x4 invTransform;
 };
@@ -22,20 +49,6 @@ struct World {
     char name[128];
 };
 
-struct StoredEntity {
-    u32 id;
-    v3 p;
-    v3 scale;
-    u32 materialId;
-    u32 meshFileFormat;
-    char meshFileName[MaxAssetPathSize];
-};
-
-struct WorldFile {
-    u32 nextEntitySerialNumber;
-    u32 entityCount;
-    u32 firstEntityOffset;
-};
 
 struct RaycastResult {
     u32 entityId;

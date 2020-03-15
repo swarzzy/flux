@@ -763,7 +763,7 @@ void ShadowPass(Renderer* renderer, RenderGroup* group) {
     }
 }
 
-void MainPass(Renderer* renderer, RenderGroup* group) {
+void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager) {
 
     bool showShadowCascadesBoundaries = renderer->showShadowCascadesBoundaries;
     DEBUG_OVERLAY_TOGGLE(showShadowCascadesBoundaries);
@@ -848,8 +848,11 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
             } break;
             case RenderCommand::DrawMesh: {
                 auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
-                if (data->material->workflow == Material::Phong) {
+                if (data->material.workflow == Material::Phong) {
                     auto meshProg = renderer->shaders.Mesh;
+
+                    auto diffuseMap = GetTexture(assetManager, data->material.phong.diffuse);
+                    auto specularMap = GetTexture(assetManager, data->material.phong.specular);
 
                     m3x3 normalMatrix = MakeNormalMatrix(data->transform);
 
@@ -861,8 +864,13 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                     Unmap(renderer->meshUniformBuffer);
 
 
-                    glBindTextureUnit(MeshShader::DiffMap, data->material->phong.diffMap.gpuHandle);
-                    glBindTextureUnit(MeshShader::SpecMap, data->material->phong.specMap.gpuHandle);
+                    if (diffuseMap) {
+                        glBindTextureUnit(MeshShader::DiffMap, diffuseMap->gpuHandle);
+                    }
+                    if (specularMap && specularMap->gpuHandle) {
+                        glBindTextureUnit(MeshShader::SpecMap, specularMap->gpuHandle);
+                    }
+
                     glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
 
                     auto* mesh = data->mesh;
@@ -886,14 +894,14 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
                         mesh = mesh->next;
                     }
-                } else if (data->material->workflow == Material::PBRMetallic ||
-                           data->material->workflow == Material::PBRSpecular ||
-                           data->material->workflow == Material::PBRMetallicCustom) {
+                } else if (data->material.workflow == Material::PBRMetallic ||
+                           data->material.workflow == Material::PBRSpecular ||
+                           data->material.workflow == Material::PBRMetallicCustom) {
                     assert(group->irradanceMapHandle);
                     auto meshProg = renderer->shaders.PbrMesh;
                     glUseProgram(meshProg);
 
-                    auto* m = data->material;
+                    auto m = &data->material;
 
                     auto normalMatrix = MakeNormalMatrix(data->transform);
 
@@ -906,29 +914,61 @@ void MainPass(Renderer* renderer, RenderGroup* group) {
                         meshBuffer->customMaterial = 1;
                         meshBuffer->customAlbedo = m->pbrMetallicCustom.albedo;
                         meshBuffer->customRoughness = m->pbrMetallicCustom.roughness;
-                        meshBuffer->customMetalness = m->pbrMetallicCustom.metalness;
+                        meshBuffer->customMetalness = m->pbrMetallicCustom.metallic;
                     } else {
                         meshBuffer->customMaterial = 0;
                         if (m->workflow == Material::PBRMetallic) {
                             meshBuffer->metallicWorkflow = 1;
-                            glBindTextureUnit(MeshPBRShader::RoughnessMap, m->pbrMetallic.roughness.gpuHandle);
-                            glBindTextureUnit(MeshPBRShader::MetalnessMap, m->pbrMetallic.metallic.gpuHandle);
+                            auto roughMap = GetTexture(assetManager, m->pbrMetallic.roughness);
+                            auto metallicMap = GetTexture(assetManager, m->pbrMetallic.metallic);
+                            if (roughMap) {
+                                glBindTextureUnit(MeshPBRShader::RoughnessMap, roughMap->gpuHandle);
+                            } else {
+                                // TODO: Log - missing texture
+                            }
+                            if (metallicMap) {
+                                glBindTextureUnit(MeshPBRShader::MetalnessMap, metallicMap->gpuHandle);
+                            } else {
+                                // TODO: Log - missing texture
+                            }
                         } else if (m->workflow == Material::PBRSpecular) {
                             meshBuffer->metallicWorkflow = 0;
-                            glBindTextureUnit(MeshPBRShader::SpecularMap, m->pbrSpecular.specular.gpuHandle);
-                            glBindTextureUnit(MeshPBRShader::GlossMap, m->pbrSpecular.gloss.gpuHandle);
+                            auto specMap = GetTexture(assetManager, m->pbrSpecular.specular);
+                            auto glossMap = GetTexture(assetManager, m->pbrSpecular.gloss);
+                            if (specMap) {
+                                glBindTextureUnit(MeshPBRShader::SpecularMap, specMap->gpuHandle);
+                            } else {
+                                // TODO: Log - missing texture
+                            }
+                            if (glossMap) {
+                                glBindTextureUnit(MeshPBRShader::GlossMap, glossMap->gpuHandle);
+                            } else {
+                                // TODO: Log - missing texture
+                            }
                         } else {
                             unreachable();
                         }
 
                         if (m->workflow == Material::PBRMetallic) {
-                            glBindTextureUnit(MeshPBRShader::AlbedoMap, m->pbrMetallic.albedo.gpuHandle);
-                            glBindTextureUnit(MeshPBRShader::NormalMap, m->pbrMetallic.normals.gpuHandle);
-                        } else if (m->workflow == Material::PBRSpecular) {
-                            glBindTextureUnit(MeshPBRShader::AlbedoMap, m->pbrSpecular.albedo.gpuHandle);
-                            glBindTextureUnit(MeshPBRShader::NormalMap, m->pbrSpecular.normals.gpuHandle);
-                        }
+                            auto albedo = GetTexture(assetManager, m->pbrMetallic.albedo);
+                            auto normals = GetTexture(assetManager, m->pbrMetallic.normals);
+                            if (albedo) {
+                                glBindTextureUnit(MeshPBRShader::AlbedoMap, albedo->gpuHandle);
+                            }
+                            if (normals) {
+                                glBindTextureUnit(MeshPBRShader::NormalMap, normals->gpuHandle);
+                            }
 
+                        } else if (m->workflow == Material::PBRSpecular) {
+                            auto albedo = GetTexture(assetManager, m->pbrSpecular.albedo);
+                            auto normals = GetTexture(assetManager, m->pbrSpecular.normals);
+                            if (albedo) {
+                                glBindTextureUnit(MeshPBRShader::AlbedoMap, albedo->gpuHandle);
+                            }
+                            if (normals) {
+                                glBindTextureUnit(MeshPBRShader::NormalMap, normals->gpuHandle);
+                            }
+                        }
                         glBindTextureUnit(MeshPBRShader::BRDFLut, renderer->BRDFLutHandle);
 
                     }
