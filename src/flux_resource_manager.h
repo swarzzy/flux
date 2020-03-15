@@ -3,16 +3,37 @@
 #include "flux_platform.h"
 #include "flux_memory.h"
 #include "flux_hash_map.h"
+#include "flux_globals.h"
 
-struct AssetNameTable {
-    u32 serialCount = 1;
-    HashMap<u32> table;
+struct AssetName {
+    char name[MaxAssetNameSize];
 };
 
-u32 AddName(AssetNameTable* table, u32 nameHash);
-void RemoveName(AssetNameTable* table, u32 nameHash);
-u32 GetID(AssetNameTable* table, const u32 nameHash);
+struct AssetNameTable {
+    static u32 Hash(AssetName* name) {
+        // TODO: Better hash
+        const char* at = name->name;
+        u32 hash = 0;
+        while (*at) {
+            hash += *at * 31;
+            at++;
+        }
+        return hash;
+    }
 
+    static bool Comp(AssetName* a, AssetName* b) {
+        bool result = false;
+        if (strcmp(a->name, b->name) == 0) {
+            result = true;
+        }
+        return result;
+    }
+
+    u32 serialCount = 1;
+    HashMap<AssetName, u32> table = HashMap<AssetName, u32>::Make(Hash, Comp);
+};
+
+// TODO: Pass manager instead of table for convinience
 u32 AddName(AssetNameTable* table, const char* name);
 void RemoveName(AssetNameTable* table, const char* name);
 u32 GetID(AssetNameTable* table, const char* name);
@@ -97,27 +118,42 @@ enum struct EntityMaterial {
     _Count
 };
 
-enum struct EntityMesh {
-    Sphere = 0,
-    Plate,
-    Backpack,
-    Gizmos,
-    _Count
+enum struct AssetState : u32 {
+    Unloaded = 0, Queued, JustLoaded, Loaded, Error
 };
 
-enum struct AssetState : u32 {
-    Unloaded = 0, Queued, JustLoaded, Loaded
-};
+inline const char* ToString(AssetState state) {
+    static const char* strings[] = {
+        "Unloaded",
+        "Queued",
+        "JustLoaded",
+        "Loaded",
+        "Error",
+    };
+    assert((u32)state < array_count(strings));
+    return strings[(u32)state];
+}
 
 enum struct MeshFileFormat {
     AAB, Flux
 };
 
+inline const char* ToString(MeshFileFormat value) {
+    static const char* strings[] = {
+        "AAB",
+        "Flux",
+    };
+    assert((u32)value < array_count(strings));
+    return strings[(u32)value];
+}
+
 template<typename T>
 struct AssetSlot {
     volatile AssetState state;
     T asset;
-    char filename[128];
+    u32 id;
+    char filename[MaxAssetPathSize];
+    char name[MaxAssetNameSize];
     MeshFileFormat format;
 };
 
@@ -131,21 +167,45 @@ struct AssetQueueEntry {
 };
 
 struct AssetManager {
+    static u32 Hasher(u32* key) { return *key; }
+    static bool Comparator(u32* a, u32* b) { return *a == *b; }
     AssetNameTable nameTable;
-    HashMap<AssetSlot<Mesh*>> meshTable;
-    AssetSlot<Mesh*> meshes[EntityMesh::_Count];
+    HashMap<u32, AssetSlot<Mesh*>> meshTable = HashMap<u32, AssetSlot<Mesh*>>::Make(Hasher, Comparator);
     AssetSlot<Material> materials[EntityMaterial::_Count];
     u32 assetQueueAt;
     AssetQueueEntry assetQueue[32];
 };
 
-u32 AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format);
+struct AddMeshResult {
+    enum {UnknownError = 0, Ok, AlreadyExists} status;
+    u32 id;
+};
 
+
+void GetMeshName(const char* filename, AssetName* name);
+AddMeshResult AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format);
+
+// TODO: Clean this thing with slots and pointers up
+// Many of callers wants to know filename or name
+// so it should be available via GetMesh call
 Mesh* GetMesh(AssetManager* manager, u32 id);
+AssetSlot<Mesh*>* GetMeshSlot(AssetManager* manager, u32 id);
+
 Material* Get(AssetManager* manager, EntityMaterial id);
 
 void CompletePendingLoads(AssetManager* manager);
 
+struct OpenMeshResult {
+    enum Result {UnknownError = 0, Ok, FileNameIsTooLong, FileNotFound, ReadFileError, InvalidFileFormat } status;
+    void* file;
+    u32 fileSize;
+};
+
+const char* ToString(OpenMeshResult::Result value);
+
+OpenMeshResult OpenMeshFileFlux(const char* filename);
+OpenMeshResult OpenMeshFileAAB(const char* filename);
+void CloseMeshFile(void* file);
 Mesh* LoadMeshFlux(const char* filename);
 Mesh* LoadMeshAAB(const char* filename);
 

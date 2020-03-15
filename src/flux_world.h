@@ -14,9 +14,11 @@ struct Entity {
 
 // TODO: Entity iterators
 struct World {
+    static u32 Hasher(u32* key) { return *key; }
+    static bool Comparator(u32* a, u32* b) { return *a == *b; }
     u32 nextEntitySerialNumber = 1;
     u32 entityCount;
-    HashMap<Entity> entityTable;
+    HashMap<u32, Entity> entityTable = HashMap<u32, Entity>::Make(Hasher, Comparator);
     char name[128];
 };
 
@@ -24,8 +26,9 @@ struct StoredEntity {
     u32 id;
     v3 p;
     v3 scale;
-    u32 meshId;
     u32 materialId;
+    u32 meshFileFormat;
+    char meshFileName[MaxAssetPathSize];
 };
 
 struct WorldFile {
@@ -43,5 +46,5 @@ struct Context ;
 void Update(World* world);
 Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* world, v3 ro, v3 rd);
 Entity* AddEntity(World* world);
-bool SaveToDisk(World* world, const wchar_t* filename);
-World* LoadWorldFromDisc(const wchar_t* filename);
+bool SaveToDisk(AssetManager* assetManager, World* world, const wchar_t* filename);
+World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename);

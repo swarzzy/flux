@@ -158,15 +158,7 @@ u32 DebugGetFileSize(const wchar_t* filename)
         {
             fileSize = (u32)sz;
         }
-        else
-        {
-            printf("[Warn] Failed to open file");
-        }
         CloseHandle(handle);
-    }
-    else
-    {
-        printf("[Warn] Failed to open file");
     }
     return fileSize;
 }

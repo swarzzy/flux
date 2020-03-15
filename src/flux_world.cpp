@@ -15,7 +15,7 @@ Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* wo
     for (Entity& entity : world->entityTable) {
         v3 roMesh = (entity.invTransform * V4(ro, 1.0f)).xyz;
         v3 rdMesh = (entity.invTransform * V4(rd, 0.0f)).xyz;
-        auto mesh = GetMesh(manager, context->meshIDs[entity.mesh]);
+        auto mesh = GetMesh(manager, entity.mesh);
         if (mesh) {
             bool hit = IntersectFast(mesh->aabb, roMesh, rdMesh, 0.0f, F32::Max);
             if (hit) {
@@ -29,7 +29,8 @@ Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* wo
 Entity* AddEntity(World* world) {
     Entity* result = nullptr;
     auto id = world->nextEntitySerialNumber;
-    auto entity = Add(&world->entityTable, id);
+    assert(id);
+    auto entity = Add(&world->entityTable, &id);
     if (entity) {
         world->nextEntitySerialNumber++;
         *entity = {};
@@ -40,7 +41,7 @@ Entity* AddEntity(World* world) {
     return result;
 }
 
-bool SaveToDisk(World* world, const wchar_t* filename) {
+bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
     u32 fileSize = sizeof(World) + sizeof(StoredEntity) * world->entityCount;
     void* memory = PlatformAlloc(fileSize);
     defer { PlatformFree(memory); };
@@ -58,7 +59,12 @@ bool SaveToDisk(World* world, const wchar_t* filename) {
         out->id = entity.id;
         out->p = entity.p;
         out->scale = entity.scale;
-        out->meshId = (u32)entity.mesh;
+        auto mesh = GetMeshSlot(manager, entity.mesh);
+        // TODO: Decide what to do when mesh is null
+        if (mesh) {
+            strcpy_s(out->meshFileName, array_count(out->meshFileName), mesh->filename);
+            out->meshFileFormat = (u32)mesh->format;
+        }
         out->materialId = (u32)entity.material;
     }
 
@@ -66,7 +72,7 @@ bool SaveToDisk(World* world, const wchar_t* filename) {
     return result;
 }
 
-World* LoadWorldFromDisc(const wchar_t* filename) {
+World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename) {
     World* world = nullptr;
     auto fileSize = PlatformDebugGetFileSize(filename);
     if (fileSize) {
@@ -78,7 +84,7 @@ World* LoadWorldFromDisc(const wchar_t* filename) {
 
         // TODO: Pretty zeroed allocations
         world = (World*)PlatformAlloc(sizeof(World));
-        memset(world, 0, sizeof(World));
+        *world = {};
 
         world->nextEntitySerialNumber = header->nextEntitySerialNumber;
         world->entityCount = header->entityCount;
@@ -86,13 +92,28 @@ World* LoadWorldFromDisc(const wchar_t* filename) {
         auto fileEntities = (StoredEntity*)((byte*)fileBuffer + header->firstEntityOffset);
         for (u32 i = 0; i < world->entityCount; i++) {
             auto stored = fileEntities + i;
-            auto entry = Add(&world->entityTable, stored->id);
+            auto entry = Add(&world->entityTable, &stored->id);
             assert(entry);
             entry->id = stored->id;
             entry->p = stored->p;
             entry->scale = stored->scale;
-            entry->mesh = stored->meshId;
             entry->material = (EntityMaterial)stored->materialId;
+            auto result = AddMesh(assetManager, stored->meshFileName, (MeshFileFormat)stored->meshFileFormat);
+            switch (result.status) {
+            case AddMeshResult::AlreadyExists: {
+                AssetName name;
+                GetMeshName(stored->meshFileName, &name);
+                entry->mesh = GetID(&assetManager->nameTable, name.name);
+                assert(entry->mesh);
+            } break;
+            case AddMeshResult::Ok: {
+                entry->mesh = result.id;
+            } break;
+            default: {
+                entry->mesh = 0;
+                printf("[World] Mesh %s not found\n", stored->meshFileName);
+            } break;
+            }
         }
     }
     return world;

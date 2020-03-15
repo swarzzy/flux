@@ -17,9 +17,9 @@ void FluxInit(Context* context) {
 
     auto assetManager = &context->assetManager;
 
-    context->meshIDs[(u32)EntityMesh::Plate] = AddMesh(assetManager, "../res/meshes/plate.aab", MeshFileFormat::AAB);
-    context->meshIDs[(u32)EntityMesh::Sphere] = AddMesh(assetManager, "../res/meshes/sphere.aab", MeshFileFormat::AAB);
-    context->meshIDs[(u32)EntityMesh::Backpack] = AddMesh(assetManager, "../res/meshes/backpack_low.mesh", MeshFileFormat::Flux);
+    AddMesh(assetManager, "../res/meshes/plate.aab", MeshFileFormat::AAB);
+    AddMesh(assetManager, "../res/meshes/sphere.aab", MeshFileFormat::AAB);
+    AddMesh(assetManager, "../res/meshes/backpack_low.mesh", MeshFileFormat::Flux);
 
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
@@ -42,15 +42,18 @@ void FluxInit(Context* context) {
     auto backpackEntity = AddEntity(context->world);
     auto sphereEntity = AddEntity(context->world);
 
-    checkerboardEntity->mesh = (u32)EntityMesh::Plate;
+    checkerboardEntity->mesh = GetID(&assetManager->nameTable, "plate");
+    assert(checkerboardEntity->mesh);
     checkerboardEntity->material = EntityMaterial::Checkerboard;
 
     backpackEntity->p = V3(1.0f);
     backpackEntity->scale = V3(0.01f);
-    backpackEntity->mesh = (u32)EntityMesh::Backpack;
+    backpackEntity->mesh = GetID(&assetManager->nameTable, "backpack_low");
+    assert(backpackEntity->mesh);
     backpackEntity->material = EntityMaterial::Backpack;
 
-    sphereEntity->mesh = (u32)EntityMesh::Sphere;
+    sphereEntity->mesh = GetID(&assetManager->nameTable, "sphere");
+    assert(sphereEntity->mesh);
     sphereEntity->material = EntityMaterial::OldMetal;
 }
 
@@ -81,7 +84,7 @@ void FluxUpdate(Context* context) {
     UpdateUi(context);
 
     if (ui->wantsLoadLoadFrom) {
-        auto newWorld = LoadWorldFrom(ui);
+        auto newWorld = LoadWorldFrom(ui, assetManager);
         if (newWorld) {
             // TODO: Loading and unloading levels
             PlatformFree(context->world);
@@ -91,13 +94,13 @@ void FluxUpdate(Context* context) {
     }
 
     if (ui->wantsSaveAs) {
-        SaveWorldAs(ui, world);
+        SaveWorldAs(ui, world, assetManager);
     }
 
     if (ui->wantsAddEntity) {
         ui->wantsAddEntity = false;
         auto entity = AddEntity(world);
-        entity->mesh = (u32)EntityMesh::Sphere;
+        entity->mesh = GetID(&assetManager->nameTable, "../res/meshes/sphere.aab");
         entity->material = EntityMaterial::Checkerboard;
     }
 
@@ -114,7 +117,7 @@ void FluxUpdate(Context* context) {
                 wcscat(backupBuffer, L".backup");
                 PlatformDebugCopyFile(buffer, backupBuffer, true);
             }
-            if (SaveToDisk(world, buffer)) {
+            if (SaveToDisk(assetManager, world, buffer)) {
                 printf("[Info] World %s was saved successfully\n", world->name);
             } else {
                 printf("[Error] Failed to save world %s\n", world->name);
@@ -139,9 +142,9 @@ void FluxUpdate(Context* context) {
     Push(group, &lightCommand);
 
     if (ui->selectedEntity) {
-        auto entity = Get(&world->entityTable, ui->selectedEntity);
+        auto entity = Get(&world->entityTable, &ui->selectedEntity);
         assert(entity);
-        auto mesh = GetMesh(assetManager, context->meshIDs[entity->mesh]);
+        auto mesh = GetMesh(assetManager, entity->mesh);
         if (mesh) {
             auto aabb = mesh->aabb;
             aabb.min = (entity->transform * V4(aabb.min, 1.0f)).xyz;
@@ -159,8 +162,9 @@ void FluxUpdate(Context* context) {
 #endif
 
     for (Entity& entity : context->world->entityTable) {
+        assert(entity.id);
         if (entity.id) {
-            auto mesh = GetMesh(assetManager, context->meshIDs[entity.mesh]);
+            auto mesh = GetMesh(assetManager, entity.mesh);
             auto material = Get(assetManager, entity.material);
             if (mesh && material) {
                 RenderCommandDrawMesh command = {};

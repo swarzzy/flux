@@ -19,7 +19,6 @@ struct Context {
     CubeTexture hdrMap;
     CubeTexture irradanceMap;
     CubeTexture enviromentMap;
-    u32 meshIDs[EntityMesh::_Count];
 };
 
 void FluxInit(Context* context);
