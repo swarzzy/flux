@@ -51,6 +51,12 @@ bool MouseButtonPressed(MouseButton button) {
 #define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
 #define PlatformGetTimeStamp platform_call(GetTimeStamp)
 
+void* PlatformAllocClear(uptr size) {
+    void* memory = PlatformAlloc(size);
+    memset(memory, 0, size);
+    return memory;
+}
+
 #define PlatformPushWork platform_call(PushWork)
 #define PlatformCompleteAllWork platform_call(CompleteAllWork)
 #define PlatformSleep platform_call(Sleep)

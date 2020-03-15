@@ -11,30 +11,31 @@ struct HashBucket {
     Value value;
 };
 
-template<typename Key, typename Value>
+typedef u32(HashFunctionFn)(void*);
+typedef bool(CompareFunctionFn)(void*, void*);
+
+#define hash_map_template_decl template<typename Key, typename Value, HashFunctionFn* HashFunction, CompareFunctionFn* CompareFunction>
+#define hash_map_template HashMap<Key, Value, HashFunction, CompareFunction>
+#define hash_map_iter_template HashMapIter<Key, Value, HashFunction, CompareFunction>
+#define hash_bucket_teamplate HashBucket<Key, Value>
+
+hash_map_template_decl
 struct HashMap {
-    typedef u32(HashFunctionFn)(Key*);
-    typedef bool(CompareFunctionFn)(Key*, Key*);
-
-    HashFunctionFn* HashFunction;
-    CompareFunctionFn* CompareFunction;
+    static constexpr u32 DefaultSize = 128;
     u32 entryCount;
-    HashBucket<Key, Value> table[128];
-
-    static HashMap Make(HashFunctionFn* hash, CompareFunctionFn* comp) {
-        return HashMap { hash, comp };
-    }
+    u32 size = DefaultSize;
+    HashBucket<Key, Value>* table = (HashBucket<Key, Value>*)PlatformAllocClear(sizeof(HashBucket<Key, Value>) * DefaultSize);
 };
 
-template<typename Key, typename Value>
+hash_map_template_decl
 struct HashMapIter
 {
-    HashMap<Key, Value>* map;
+    hash_map_template* map;
     u32 at;
 
-    inline HashMapIter<Key, Value>& operator++() {
+    inline hash_map_iter_template& operator++() {
         do {
-            if (at == array_count(map->table)) {
+            if (at == map->size) {
                 break;
             }
             at++;
@@ -43,7 +44,7 @@ struct HashMapIter
         return *this;
     }
 
-    bool operator!=(HashMapIter<Key, Value> const& other) const {
+    bool operator!=(hash_map_iter_template const& other) const {
         assert(this->map == other.map);
         return at != other.at;
     }
@@ -53,9 +54,9 @@ struct HashMapIter
     }
 };
 
-template<typename Key, typename Value>
-    inline HashMapIter<Key, Value> begin(HashMap<Key, Value>& map) {
-    HashMapIter<Key, Value> iter = {};
+hash_map_template_decl
+inline hash_map_iter_template begin(hash_map_template& map) {
+    hash_map_iter_template iter = {};
     u32 at = 0;
     do {
         at++;
@@ -65,19 +66,19 @@ template<typename Key, typename Value>
     return iter;
 }
 
-template<typename Key, typename Value>
-inline HashMapIter<Key, Value> end(HashMap<Key, Value>& map) {
-    HashMapIter<Key, Value> iter = {};
+hash_map_template_decl
+inline hash_map_iter_template end(hash_map_template& map) {
+    hash_map_iter_template iter = {};
     iter.map = &map;
-    iter.at = array_count(map.table);
+    iter.at = map.size;
     return iter;
 }
 
-template<typename Key, typename Value>
-    Value* Add(HashMap<Key, Value>* map, Key* key);
+hash_map_template_decl
+Value* Add(hash_map_template* map, Key* key);
 
-template<typename Key, typename Value>
-Value* Get(HashMap<Key, Value>* map, Key* key);
+hash_map_template_decl
+Value* Get(hash_map_template* map, Key* key);
 
-template<typename Key, typename Value>
-bool Delete(HashMap<Key, Value>* map, Key* key);
+hash_map_template_decl
+bool Delete(hash_map_template* map, Key* key);

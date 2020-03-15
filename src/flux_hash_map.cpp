@@ -1,18 +1,18 @@
 #include "flux_hash_map.h"
 
-template<typename Key, typename Value>
-HashBucket<Key, Value>* FindEntry(HashMap<Key, Value>* map, Key* key, bool searchForEmpty) {
-    HashBucket<Key, Value>* result = nullptr;
-    u32 hashMask = array_count(map->table) - 1;
-    u32 hash = map->HashFunction(key);
+hash_map_template_decl
+hash_bucket_teamplate* FindEntry(hash_map_template* map, Key* key, bool searchForEmpty) {
+    hash_bucket_teamplate* result = nullptr;
+    u32 hashMask = map->size - 1;
+    u32 hash = HashFunction(key);
     auto index = hash & hashMask;
-    for (u32 offset = 0; offset < array_count(map->table); offset++) {
+    for (u32 offset = 0; offset < map->size; offset++) {
         u32 index = (index + offset) & hashMask;
         auto entry = map->table + index;
         if (searchForEmpty && (!entry->used)) {
             result = entry;
             break;
-        } else if (map->CompareFunction(key, &entry->key)) {
+        } else if (CompareFunction(key, &entry->key)) {
             result = entry;
             break;
         }
@@ -20,8 +20,8 @@ HashBucket<Key, Value>* FindEntry(HashMap<Key, Value>* map, Key* key, bool searc
     return result;
 }
 
-template<typename Key, typename Value>
-Value* Add(HashMap<Key, Value>* map, Key* key) {
+hash_map_template_decl
+Value* Add(hash_map_template* map, Key* key) {
     Value* result = nullptr;
     auto entry = FindEntry(map, key, true);
     if (entry) {
@@ -33,8 +33,8 @@ Value* Add(HashMap<Key, Value>* map, Key* key) {
     return result;
 }
 
-template<typename Key, typename Value>
-Value* Get(HashMap<Key, Value>* map, Key* key) {
+hash_map_template_decl
+Value* Get(hash_map_template* map, Key* key) {
     Value* result = nullptr;
     if (key) {
         auto entry = FindEntry(map, key, false);
@@ -46,8 +46,8 @@ Value* Get(HashMap<Key, Value>* map, Key* key) {
 }
 
 
-template<typename Key, typename Value>
-bool Delete(HashMap<Key, Value>* map, Key* key) {
+hash_map_template_decl
+bool Delete(hash_map_template* map, Key* key) {
     bool result = false;
     if (key) {
         auto entry = FindEntry(map, key, false);

@@ -52,11 +52,11 @@ struct Entity {
 
 // TODO: Entity iterators
 struct World {
-    static u32 Hasher(u32* key) { return *key; }
-    static bool Comparator(u32* a, u32* b) { return *a == *b; }
+    static u32 Hasher(void* key) { return *((u32*)key); }
+    static bool Comparator(void* a, void* b) { return *((u32*)a) == *((u32*)b); }
     u32 nextEntitySerialNumber = 1;
     u32 entityCount;
-    HashMap<u32, Entity> entityTable = HashMap<u32, Entity>::Make(Hasher, Comparator);
+    HashMap<u32, Entity, Hasher, Comparator> entityTable;
     char name[128];
 };
 

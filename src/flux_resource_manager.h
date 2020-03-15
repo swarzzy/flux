@@ -10,7 +10,8 @@ struct AssetName {
 };
 
 struct AssetNameTable {
-    static u32 Hash(AssetName* name) {
+    static u32 Hash(void* _name) {
+        auto name = (AssetName*)_name;
         // TODO: Better hash
         const char* at = name->name;
         u32 hash = 0;
@@ -21,7 +22,9 @@ struct AssetNameTable {
         return hash;
     }
 
-    static bool Comp(AssetName* a, AssetName* b) {
+    static bool Comp(void* _a, void* _b) {
+        auto a = (AssetName*)_a;
+        auto b = (AssetName*)_b;
         bool result = false;
         if (strcmp(a->name, b->name) == 0) {
             result = true;
@@ -30,7 +33,7 @@ struct AssetNameTable {
     }
 
     u32 serialCount = 1;
-    HashMap<AssetName, u32> table = HashMap<AssetName, u32>::Make(Hash, Comp);
+    HashMap<AssetName, u32, Hash, Comp> table;
 };
 
 // TODO: Pass manager instead of table for convinience
@@ -225,11 +228,11 @@ struct AssetQueueEntry {
 };
 
 struct AssetManager {
-    static u32 Hasher(u32* key) { return *key; }
-    static bool Comparator(u32* a, u32* b) { return *a == *b; }
+    static u32 Hasher(void* key) { return *((u32*)key); }
+    static bool Comparator(void* a, void* b) { return *((u32*)a) == *((u32*)b); }
     AssetNameTable nameTable;
-    HashMap<u32, MeshSlot> meshTable = HashMap<u32, MeshSlot>::Make(Hasher, Comparator);
-    HashMap<u32, TextureSlot> textureTable = HashMap<u32, TextureSlot>::Make(Hasher, Comparator);
+    HashMap<u32, MeshSlot, Hasher, Comparator> meshTable;
+    HashMap<u32, TextureSlot, Hasher, Comparator> textureTable;
     u32 assetQueueAt;
     AssetQueueEntry assetQueue[32];
 };
