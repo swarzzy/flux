@@ -29,6 +29,17 @@ struct Material {
     };
 };
 
+const char* ToString(Material::Workflow value) {
+    switch (value) {
+    case Material::Phong: { return "phong"; } break;
+    case Material::PBRMetallic: { return "pbr metallic"; } break;
+    case Material::PBRSpecular: { return "pbr specular"; } break;
+    case Material::PBRMetallicCustom: { return "pbr custom metallic"; } break;
+    invalid_default();
+    }
+    return "";
+}
+
 struct Entity {
     u32 id;
     v3 p;

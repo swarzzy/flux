@@ -1059,7 +1059,10 @@ void LoadResourceLoader(Win32Context* context)
     auto handle = LoadLibrary(L"flux_resource_loader.dll");
     assert(handle != INVALID_HANDLE_VALUE);
     context->state.functions.ResourceLoaderLoadImage = (ResourceLoaderLoadImageFn*)GetProcAddress(handle, "ResourceLoaderLoadImage");
+    context->state.functions.ResourceLoaderValidateImageFile = (ResourceLoaderValidateImageFileFn*)GetProcAddress(handle, "ResourceLoaderValidateImageFile");
+
     assert(context->state.functions.ResourceLoaderLoadImage);
+    assert(context->state.functions.ResourceLoaderValidateImageFile);
 }
 
 void* ImguiAllocWrapper(size_t size, void* _) { return Allocate((uptr)size); }

@@ -204,6 +204,15 @@ enum struct DynamicRange : u32 {
     LDR, HDR
 };
 
+const char* ToString(DynamicRange value) {
+    switch (value) {
+    case DynamicRange::LDR: { return "LDR"; } break;
+    case DynamicRange::HDR: { return "HDR"; } break;
+        invalid_default();
+    }
+    return "";
+}
+
 struct LoadedImage {
     void* base;
     void* bits;
@@ -217,6 +226,7 @@ struct LoadedImage {
 static_assert(sizeof(LoadedImage) % 4 == 0);
 
 typedef LoadedImage*(__cdecl ResourceLoaderLoadImageFn)(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator);
+typedef b32(__cdecl ResourceLoaderValidateImageFileFn)(const char* filename);
 
 struct PlatformCalls
 {
@@ -242,6 +252,7 @@ struct PlatformCalls
     GetTimeStampFn* GetTimeStamp;
 
     ResourceLoaderLoadImageFn* ResourceLoaderLoadImage;
+    ResourceLoaderValidateImageFileFn* ResourceLoaderValidateImageFile;
 
     EnumerateFilesInDirectoryFn* EnumerateFilesInDirectory;
 };

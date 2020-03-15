@@ -9,7 +9,7 @@ void DrawMenu(Ui* ui) {
         if (ImGui::MenuItem("Entity inspector")) {
             ui->entityInspectorOpen = !ui->entityInspectorOpen;
         }
-        if (ImGui::MenuItem("Asset Manager")) {
+        if (ImGui::MenuItem("Asset manager")) {
             ui->assetManagerOpen = !ui->assetManagerOpen;
         }
         if (ImGui::MenuItem("Show bounding volumes", nullptr, ui->showBoundingVolumes)) {
@@ -96,8 +96,52 @@ void DrawAssetManager(Context* context) {
                 ImGui::SameLine();
                 if (ImGui::Button("Load")) {
                     // TODO: properties
-                    AddTexture(&context->assetManager, ui->assetLoadFileBuffer);
+                    AddTexture(&context->assetManager, ui->assetLoadFileBuffer, (TextureFormat)ui->textureLoadFormat, (TextureWrapMode)ui->textureLoadWrapMode, (TextureFilter)ui->textureLoadFilter, (DynamicRange)ui->textureLoadDynamicRange);
                 }
+
+#define selectable_item(enumerator, uiVar) do { if (ImGui::Selectable(ToString(enumerator), ui->textureLoadFormat == (u32)enumerator)) { uiVar = (u32)enumerator; } } while (false)
+
+                ImGui::PushItemWidth(100);
+                if (ImGui::BeginCombo("format", ToString((TextureFormat)ui->textureLoadFormat))) {
+                    selectable_item(TextureFormat::Unknown, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::SRGBA8, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::SRGB8, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::RGBA8, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::RGB8, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::RGB16F, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::RG16F, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::R8, ui->textureLoadFormat);
+                    selectable_item(TextureFormat::RG8, ui->textureLoadFormat);
+                    ImGui::EndCombo();
+                }
+
+                ImGui::SameLine();
+
+                ImGui::PushItemWidth(100);
+                if (ImGui::BeginCombo("filter", ToString((TextureFilter)ui->textureLoadFilter))) {
+                    selectable_item(TextureFilter::None, ui->textureLoadFilter);
+                    selectable_item(TextureFilter::Bilinear, ui->textureLoadFilter);
+                    selectable_item(TextureFilter::Trilinear, ui->textureLoadFilter);
+                    selectable_item(TextureFilter::Anisotropic, ui->textureLoadFilter);
+                    ImGui::EndCombo();
+                }
+
+                ImGui::PushItemWidth(100);
+                if (ImGui::BeginCombo("wrap mode", ToString((TextureWrapMode)ui->textureLoadWrapMode))) {
+                    selectable_item(TextureWrapMode::Repeat, ui->textureLoadWrapMode);
+                    selectable_item(TextureWrapMode::ClampToEdge, ui->textureLoadWrapMode);
+                    ImGui::EndCombo();
+                }
+
+                ImGui::SameLine();
+
+                ImGui::PushItemWidth(100);
+                if (ImGui::BeginCombo("range", ToString((DynamicRange)ui->textureLoadDynamicRange))) {
+                    selectable_item(DynamicRange::LDR, ui->textureLoadDynamicRange);
+                    selectable_item(DynamicRange::HDR, ui->textureLoadDynamicRange);
+                    ImGui::EndCombo();
+                }
+#undef selectable_item
 
                 ImGui::BeginChild("Texture manager list", {0.0f, -80.0f}, true);
                 for (auto& slot : context->assetManager.textureTable) {
@@ -118,6 +162,10 @@ void DrawAssetManager(Context* context) {
                         ImGui::Text("Name: %s", slot->name);
                         ImGui::Text("File: %s", slot->filename);
                         ImGui::Text("State: %s", ToString(slot->state));
+                        ImGui::Text("Format: %s", ToString(slot->format));
+                        ImGui::Text("Filter: %s", ToString(slot->filter));
+                        ImGui::Text("Wrap mode: %s", ToString(slot->wrapMode));
+                        ImGui::Text("Dynamic range: %s", ToString(slot->range));
                     }
                 }
                 ImGui::EndTabItem();
@@ -148,6 +196,35 @@ void DrawEntityLister(Context* context) {
         ImGui::EndChild();
     }
     ImGui::End();
+}
+
+u32 DrawTextureCombo(AssetManager* assetManager, u32 id, const char* name) {
+    u32 newID = id;
+    char buffer[256];
+    auto textreSlot = GetTextureSlot(assetManager, id);
+    if (textreSlot) {
+        sprintf_s(buffer, 256, "%s", textreSlot->name);
+    } else {
+        buffer[0] = 0;
+    }
+
+    static u32 idHack = 0;
+    if (idHack == 0xffffffff) {
+        idHack = 0;
+    }
+
+    if (ImGui::BeginCombo(name, buffer)) {
+        for (auto& asset : assetManager->textureTable) {
+            sprintf_s(buffer, 256, "[%lu] %s",(long)asset.id, asset.name);
+            bool wasSelected = asset.id == id;
+            bool selected = ImGui::Selectable(buffer, wasSelected);
+            if (selected) {
+                newID = asset.id;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    return newID;
 }
 
 
@@ -215,8 +292,49 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                     ImGui::EndCombo();
                 }
                 ImGui::PopID();
-                //auto mesh = GetMesh(&context->assetManager, entity->mesh);
-                //ImGui::Text("State: %s", ToString(mesh->state));
+
+                ImGui::Separator();
+                if (ImGui::CollapsingHeader("Material")) {
+                    if (ImGui::BeginCombo("workflow", ToString(entity->material.workflow))) {
+                        Material::Workflow newWorkflow = entity->material.workflow;
+                        if (ImGui::Selectable("phong")) {
+                            newWorkflow = Material::Phong;
+                        }
+                        if (ImGui::Selectable("pbr metallic")) {
+                            newWorkflow = Material::PBRMetallic;
+                        }
+                        if (ImGui::Selectable("pbr specular")) {
+                            newWorkflow = Material::PBRSpecular;
+                        }
+                        if (ImGui::Selectable("pbr custom metallic")) {
+                            newWorkflow = Material::PBRMetallicCustom;
+                        }
+                        if (newWorkflow != entity->material.workflow) {
+                            entity->material = {};
+                            entity->material.workflow = newWorkflow;
+                        }
+                        ImGui::EndCombo();
+                    }
+
+                    switch (entity->material.workflow) {
+                    case Material::Phong: {
+                        entity->material.phong.diffuse = DrawTextureCombo(&context->assetManager, entity->material.phong.diffuse, "diffuse map");
+                        entity->material.phong.specular = DrawTextureCombo(&context->assetManager, entity->material.phong.specular, "specular map");
+                    } break;
+                    case Material::PBRMetallic: {
+                        entity->material.pbrMetallic.albedo = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.albedo, "albedo map");
+                        entity->material.pbrMetallic.roughness = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.roughness, "roughness map");
+                        entity->material.pbrMetallic.metallic = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.metallic, "metallic map");
+                        entity->material.pbrMetallic.normals = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.normals, "normal map");
+                    } break;
+                    case Material::PBRMetallicCustom: {
+                        ImGui::ColorEdit3("albedo", entity->material.pbrMetallicCustom.albedo.data);
+                        ImGui::SliderFloat("roughness", &entity->material.pbrMetallicCustom.roughness, 0.0f, 1.0f);
+                        ImGui::SliderFloat("metallic", &entity->material.pbrMetallicCustom.metallic, 0.0f, 1.0f);
+                    } break;
+                    default: {} break;
+                    }
+                }
             }
         }
     }

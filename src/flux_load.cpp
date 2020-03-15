@@ -48,6 +48,7 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformDebugWriteFile platform_call(DebugWriteFile)
 #define PlatformDebugCopyFile platform_call(DebugCopyFile)
 #define ResourceLoaderLoadImage platform_call(ResourceLoaderLoadImage)
+#define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
 #define PlatformGetTimeStamp platform_call(GetTimeStamp)
 
 #define PlatformPushWork platform_call(PushWork)

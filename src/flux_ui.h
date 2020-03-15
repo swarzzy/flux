@@ -14,6 +14,10 @@ struct Ui {
     u32 selectedEntity;
     u32 selectedMesh;
     u32 selectedTexture;
+    u32 textureLoadWrapMode = (u32)TextureWrapMode::Default;
+    u32 textureLoadFormat = (u32)TextureFormat::Unknown;
+    u32 textureLoadFilter = (u32)TextureFilter::Default;;
+    u32 textureLoadDynamicRange = (u32)DynamicRange::LDR;
     MeshFileFormat meshLoadFormat;
     char assetLoadFileBuffer[MaxAssetPathSize];
     char worldNameBuffer[128];

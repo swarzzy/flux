@@ -43,13 +43,49 @@ enum struct TextureFilter : u32 {
     None, Bilinear, Trilinear, Anisotropic, Default = Bilinear
 };
 
+const char* ToString(TextureFilter value) {
+    switch (value) {
+    case TextureFilter::None: { return "none"; } break;
+    case TextureFilter::Bilinear: { return "bilinear"; } break;
+    case TextureFilter::Trilinear: { return "trilinear"; } break;
+    case TextureFilter::Anisotropic: { return "anisotropic"; } break;
+        invalid_default();
+    }
+    return "";
+}
+
 enum struct TextureFormat : u32 {
     Unknown, SRGBA8, SRGB8, RGBA8, RGB8, RGB16F, RG16F, R8, RG8
 };
 
+const char* ToString(TextureFormat value) {
+    switch (value) {
+    case TextureFormat::Unknown: { return "unknown"; } break;
+    case TextureFormat::SRGBA8: { return "SRGBA8"; } break;
+    case TextureFormat::SRGB8: { return "SRGB8"; } break;
+    case TextureFormat::RGBA8: { return "RGBA8"; } break;
+    case TextureFormat::RGB8: { return "RGB8"; } break;
+    case TextureFormat::RGB16F: { return "RGB16F"; } break;
+    case TextureFormat::RG16F: { return "RG16F"; } break;
+    case TextureFormat::R8: { return "R8"; } break;
+    case TextureFormat::RG8: { return "RG8"; } break;
+        invalid_default();
+    }
+    return "";
+}
+
 enum struct TextureWrapMode : u32 {
     Repeat, ClampToEdge, Default = Repeat
 };
+
+const char* ToString(TextureWrapMode value) {
+    switch (value) {
+    case TextureWrapMode::Repeat: { return "repeat"; } break;
+    case TextureWrapMode::ClampToEdge: { return "clamp to edge"; } break;
+        invalid_default();
+    }
+    return "";
+}
 
 struct Texture {
     TextureFilter filter;

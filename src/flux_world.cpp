@@ -165,7 +165,12 @@ Material LoadMaterial(AssetManager* assetManager, StoredMaterial* stored) {
         mat.pbrSpecular.specular = LoadTextureIfExist(assetManager, &stored->pbrSpecular.specular);
         mat.pbrSpecular.gloss = LoadTextureIfExist(assetManager, &stored->pbrSpecular.gloss);
         mat.pbrSpecular.normals = LoadTextureIfExist(assetManager, &stored->pbrSpecular.normals);
-    }
+    } break;
+    case Material::PBRMetallicCustom: {
+        mat.pbrMetallicCustom.albedo = stored->pbrMetallicCustom.albedo;
+        mat.pbrMetallicCustom.roughness = stored->pbrMetallicCustom.roughness;
+        mat.pbrMetallicCustom.metallic = stored->pbrMetallicCustom.metallic;
+    } break;
     invalid_default();
     }
     return mat;

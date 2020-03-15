@@ -520,25 +520,30 @@ AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileForm
 AddAssetResult AddTexture(AssetManager* manager, const char* filename, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, DynamicRange range) {
     // TODO: Validate file
     AddAssetResult result = {};
-    AssetName name;
-    GetAssetName(filename, &name);
-    bool alreadyExists = GetID(&manager->nameTable, name.name) != 0;
-    if (!alreadyExists) {
-        u32 id = AddName(&manager->nameTable, name.name);
-        assert(id);
-        auto slot = Add(&manager->textureTable, &id);
-        assert(slot);
-        slot->id = id;
-        slot->format = format;
-        slot->wrapMode = wrapMode;
-        slot->filter = filter;
-        slot->range = range;
-        strcpy_s(slot->name, array_count(slot->name), name.name);
-        strcpy_s(slot->filename, array_count(slot->filename), filename);
-        result = { AddAssetResult::Ok, id };
+    bool fileIsImage = ResourceLoaderValidateImageFile(filename);
+    if (fileIsImage) {
+        AssetName name;
+        GetAssetName(filename, &name);
+        bool alreadyExists = GetID(&manager->nameTable, name.name) != 0;
+        if (!alreadyExists) {
+            u32 id = AddName(&manager->nameTable, name.name);
+            assert(id);
+            auto slot = Add(&manager->textureTable, &id);
+            assert(slot);
+            slot->id = id;
+            slot->format = format;
+            slot->wrapMode = wrapMode;
+            slot->filter = filter;
+            slot->range = range;
+            strcpy_s(slot->name, array_count(slot->name), name.name);
+            strcpy_s(slot->filename, array_count(slot->filename), filename);
+            result = { AddAssetResult::Ok, id };
+        } else {
+            printf("[Asset manager] Failed to load asset %s. An asset with the same name is already loaded.\n", filename);
+            result = { AddAssetResult::AlreadyExists, 0 };
+        }
     } else {
-        printf("[Asset manager] Failed to load asset %s. An asset with the same name is already loaded.\n", filename);
-        result = { AddAssetResult::AlreadyExists, 0 };
+        printf("[Asset manager] Failed to load asset %s. Invalid image file.\n", filename);
     }
     return result;
 }
