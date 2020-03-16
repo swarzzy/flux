@@ -33,7 +33,7 @@ struct AssetNameTable {
     }
 
     u32 serialCount = 1;
-    HashMap<AssetName, u32, Hash, Comp> table;
+    HashMap<AssetName, u32, Hash, Comp> table = HashMap<AssetName, u32, Hash, Comp>::Make();
 };
 
 // TODO: Pass manager instead of table for convinience
@@ -231,8 +231,8 @@ struct AssetManager {
     static u32 Hasher(void* key) { return *((u32*)key); }
     static bool Comparator(void* a, void* b) { return *((u32*)a) == *((u32*)b); }
     AssetNameTable nameTable;
-    HashMap<u32, MeshSlot, Hasher, Comparator> meshTable;
-    HashMap<u32, TextureSlot, Hasher, Comparator> textureTable;
+    HashMap<u32, MeshSlot, Hasher, Comparator> meshTable = HashMap<u32, MeshSlot, Hasher, Comparator>::Make();
+    HashMap<u32, TextureSlot, Hasher, Comparator> textureTable = HashMap<u32, TextureSlot, Hasher, Comparator>::Make();
     u32 assetQueueAt;
     AssetQueueEntry assetQueue[32];
 };

@@ -56,7 +56,7 @@ struct World {
     static bool Comparator(void* a, void* b) { return *((u32*)a) == *((u32*)b); }
     u32 nextEntitySerialNumber = 1;
     u32 entityCount;
-    HashMap<u32, Entity, Hasher, Comparator> entityTable;
+    HashMap<u32, Entity, Hasher, Comparator> entityTable = HashMap<u32, Entity, Hasher, Comparator>::Make();
     char name[128];
 };
 

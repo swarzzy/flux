@@ -90,7 +90,7 @@ bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
     void* memory = PlatformAlloc(fileSize);
     defer { PlatformFree(memory); };
     auto header = (WorldFile*)memory;
-    auto entities = (StoredEntity*)((byte*)memory + sizeof(StoredEntity));
+    auto entities = (StoredEntity*)((byte*)memory + sizeof(WorldFile));
 
     header->nextEntitySerialNumber = world->nextEntitySerialNumber;
     header->entityCount = world->entityCount;

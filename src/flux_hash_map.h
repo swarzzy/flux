@@ -24,8 +24,19 @@ struct HashMap {
     static constexpr u32 DefaultSize = 128;
     u32 entryCount;
     u32 size = DefaultSize;
-    HashBucket<Key, Value>* table = (HashBucket<Key, Value>*)PlatformAllocClear(sizeof(HashBucket<Key, Value>) * DefaultSize);
+    HashBucket<Key, Value>* table;
+
+    static HashMap Make(u32 size = DefaultSize) {
+        HashMap map = {};
+        map.table = (HashBucket<Key, Value>*)PlatformAllocClear(sizeof(HashBucket<Key, Value>) * DefaultSize);
+        map.size = size;
+        return map;
+    }
+
 };
+
+hash_map_template_decl
+void Drop(hash_map_template* map);
 
 hash_map_template_decl
 struct HashMapIter

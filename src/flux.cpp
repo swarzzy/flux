@@ -117,9 +117,12 @@ void FluxUpdate(Context* context) {
         auto newWorld = LoadWorldFrom(ui, assetManager);
         if (newWorld) {
             // TODO: Loading and unloading levels
+            // TODO: Get rid if this random deallocation confusion
+            Drop(&context->world->entityTable);
             PlatformFree(context->world);
             ui->selectedEntity = 0;
             context->world = newWorld;
+            world = newWorld;
         }
     }
 

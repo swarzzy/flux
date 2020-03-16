@@ -1,6 +1,15 @@
 #include "flux_hash_map.h"
 
 hash_map_template_decl
+void Drop(hash_map_template* map) {
+    if (map->size > 0) {
+        PlatformFree(map->table);
+        map->size = 0;
+        map->entryCount = 0;
+    }
+}
+
+hash_map_template_decl
 hash_bucket_teamplate* FindEntry(hash_map_template* map, Key* key, bool searchForEmpty) {
     hash_bucket_teamplate* result = nullptr;
     u32 hashMask = map->size - 1;
