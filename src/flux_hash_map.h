@@ -4,6 +4,11 @@
 // TODO: Itartors
 //
 
+//
+// NOTE: IMPORTANT: Pointers returned by hash map functions are valid only
+// before next write to a map.
+//
+
 template<typename Key, typename Value>
 struct HashBucket {
     b32 used;
@@ -22,13 +27,17 @@ typedef bool(CompareFunctionFn)(void*, void*);
 hash_map_template_decl
 struct HashMap {
     static constexpr u32 DefaultSize = 128;
+    // Totally random value
+    static constexpr f32 LoadFactor = 0.8;
+    static constexpr u32 GrowKoef = 2;
+
     u32 entryCount;
     u32 size = DefaultSize;
     HashBucket<Key, Value>* table;
 
     static HashMap Make(u32 size = DefaultSize) {
         HashMap map = {};
-        map.table = (HashBucket<Key, Value>*)PlatformAllocClear(sizeof(HashBucket<Key, Value>) * DefaultSize);
+        map.table = (HashBucket<Key, Value>*)PlatformAllocClear(sizeof(HashBucket<Key, Value>) * size);
         map.size = size;
         return map;
     }
@@ -69,9 +78,9 @@ hash_map_template_decl
 inline hash_map_iter_template begin(hash_map_template& map) {
     hash_map_iter_template iter = {};
     u32 at = 0;
-    do {
+    while (!(map.table[at].used)) {
         at++;
-    } while (!(map.table[at].used));
+    }
     iter.map = &map;
     iter.at = at;
     return iter;

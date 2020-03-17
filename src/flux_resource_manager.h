@@ -223,8 +223,15 @@ enum struct AssetType {
 };
 
 struct AssetQueueEntry {
-    AssetType type;
+    b32 used;
     u32 id;
+    AssetType type;
+    union {
+        // NOTE: HACK! Bacause of stupid c++ initialization rules we can't make union
+        // which could be initialized by {}
+        alignas(alignof(TextureSlot)) byte textureSlot[sizeof(TextureSlot)];
+        alignas(alignof(MeshSlot)) byte meshSlot[sizeof(MeshSlot)];
+    };
 };
 
 struct AssetManager {
@@ -233,7 +240,7 @@ struct AssetManager {
     AssetNameTable nameTable;
     HashMap<u32, MeshSlot, Hasher, Comparator> meshTable = HashMap<u32, MeshSlot, Hasher, Comparator>::Make();
     HashMap<u32, TextureSlot, Hasher, Comparator> textureTable = HashMap<u32, TextureSlot, Hasher, Comparator>::Make();
-    u32 assetQueueAt;
+    u32 assetQueueUsage;
     AssetQueueEntry assetQueue[32];
 };
 

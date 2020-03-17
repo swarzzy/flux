@@ -14,9 +14,9 @@ hash_bucket_teamplate* FindEntry(hash_map_template* map, Key* key, bool searchFo
     hash_bucket_teamplate* result = nullptr;
     u32 hashMask = map->size - 1;
     u32 hash = HashFunction(key);
-    auto index = hash & hashMask;
+    auto firstIndex = hash & hashMask;
     for (u32 offset = 0; offset < map->size; offset++) {
-        u32 index = (index + offset) & hashMask;
+        u32 index = (firstIndex + offset) & hashMask;
         auto entry = map->table + index;
         if (searchForEmpty && (!entry->used)) {
             result = entry;
@@ -30,8 +30,31 @@ hash_bucket_teamplate* FindEntry(hash_map_template* map, Key* key, bool searchFo
 }
 
 hash_map_template_decl
+void Grow(hash_map_template* map) {
+    u32 newSize = map->size * hash_map_template::GrowKoef;
+    printf("[Hash map] Growing: old size %lu, old load %.3f, new size %lu new load %.3f\n", map->size, (f32)map->entryCount / (f32)map->size, newSize, (f32)map->entryCount / (f32)newSize);
+    auto newMap = hash_map_template::Make(newSize);
+    for (u32 i = 0; i < map->size; i++) {
+        auto oldBucket = map->table + i;
+        if (oldBucket->used) {
+            Value* v = Add(&newMap, &oldBucket->key);
+            *v = oldBucket->value;
+        }
+    }
+    PlatformFree(map->table);
+    map->table = newMap.table;
+    map->size = newSize;
+}
+
+
+hash_map_template_decl
 Value* Add(hash_map_template* map, Key* key) {
     Value* result = nullptr;
+    f32 load = (f32)(map->entryCount + 1) / (f32)map->size;
+    if (load > hash_map_template::LoadFactor) {
+        Grow(map);
+    }
+
     auto entry = FindEntry(map, key, true);
     if (entry) {
         entry->used = true;
@@ -53,7 +76,6 @@ Value* Get(hash_map_template* map, Key* key) {
     }
     return result;
 }
-
 
 hash_map_template_decl
 bool Delete(hash_map_template* map, Key* key) {

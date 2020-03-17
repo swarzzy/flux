@@ -13,6 +13,9 @@ void Work(void* data, u32 id) {
 void FluxInit(Context* context) {
     context->world = (World*)PlatformAlloc(sizeof(World));
     *context->world = {};
+
+    auto world = context->world;
+
     strcpy_s(context->world->name, array_count(context->world->name), "dummy_world");
 
     auto assetManager = &context->assetManager;
@@ -38,9 +41,9 @@ void FluxInit(Context* context) {
     GenIrradanceMap(context->renderer, &context->irradanceMap, context->hdrMap.gpuHandle);
     GenEnvPrefiliteredMap(context->renderer, &context->enviromentMap, context->hdrMap.gpuHandle, 6);
 
-    auto checkerboardEntity = AddEntity(context->world);
-    auto backpackEntity = AddEntity(context->world);
-    auto sphereEntity = AddEntity(context->world);
+    auto checkerboardEntityID = AddEntity(context->world)->id;
+    auto backpackEntityID = AddEntity(context->world)->id;
+    auto sphereEntityID = AddEntity(context->world)->id;
 
     u32 oldMetalAlbedoId = AddAlbedoMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-albedo.png").Unwrap();
     u32 oldMetalRoughId = AddRoughnessMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-roughness.png").Unwrap();
@@ -72,16 +75,19 @@ void FluxInit(Context* context) {
     checkerboard.workflow = Material::Phong;
     checkerboard.phong.diffuse = checkerboardID;
 
+    auto checkerboardEntity = GetEntity(world, checkerboardEntityID);
     checkerboardEntity->mesh = GetID(&assetManager->nameTable, "plate");
     assert(checkerboardEntity->mesh);
     checkerboardEntity->material = checkerboard;
 
+    auto backpackEntity = GetEntity(world, backpackEntityID);
     backpackEntity->p = V3(1.0f);
     backpackEntity->scale = V3(0.01f);
     backpackEntity->mesh = GetID(&assetManager->nameTable, "backpack_low");
     assert(backpackEntity->mesh);
     backpackEntity->material = backpack;
 
+    auto sphereEntity = GetEntity(world, sphereEntityID);
     sphereEntity->mesh = GetID(&assetManager->nameTable, "sphere");
     assert(sphereEntity->mesh);
     sphereEntity->material = oldMetal;
@@ -96,7 +102,7 @@ void FluxUpdate(Context* context) {
     auto renderer = context->renderer;
     auto assetManager = &context->assetManager;
 
-    DEBUG_OVERLAY_TRACE(assetManager->assetQueueAt);
+    DEBUG_OVERLAY_TRACE(assetManager->assetQueueUsage);
     CompletePendingLoads(assetManager);
 
     auto renderRes = GetRenderResolution(renderer);

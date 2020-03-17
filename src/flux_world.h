@@ -70,5 +70,6 @@ struct Context ;
 void Update(World* world);
 Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* world, v3 ro, v3 rd);
 Entity* AddEntity(World* world);
+Entity* GetEntity(World* world, u32 id);
 bool SaveToDisk(AssetManager* assetManager, World* world, const wchar_t* filename);
 World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename);

@@ -55,6 +55,10 @@ StoredTexture StoreTexture(AssetManager* manager, u32 id) {
     return result;
 }
 
+Entity* GetEntity(World* world, u32 id) {
+    return Get(&world->entityTable, &id);
+}
+
 StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
     StoredMaterial result = {};
     result.workflow = (u32)m->workflow;

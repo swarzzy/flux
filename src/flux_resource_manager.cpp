@@ -391,61 +391,78 @@ CubeTexture MakeEmptyCubemap(u32 w, u32 h, TextureFormat format, TextureFilter f
 
 AssetQueueEntry* AssetQueuePush(AssetManager* manager) {
     AssetQueueEntry* ptr = nullptr;
-    if (manager->assetQueueAt < array_count(manager->assetQueue)) {
-        auto index = manager->assetQueueAt++;
-        ptr = manager->assetQueue + index;
+    if (manager->assetQueueUsage < array_count(manager->assetQueue)) {
+        for (u32x i = 0; i < array_count(manager->assetQueue); i++) {
+            auto entry = manager->assetQueue + i;
+            if (!entry->used) {
+                ptr = entry;
+                ptr->used = true;
+                break;
+            }
+        }
+        assert(ptr);
+        manager->assetQueueUsage++;
     }
     return ptr;
 }
 
 void AssetQueueRemove(AssetManager* manager, u32 index) {
-    assert(index < manager->assetQueueAt);
-    if ((manager->assetQueueAt - 1) != index) {
-        auto slot = manager->assetQueue + index;
-        auto slotToMove = manager->assetQueue + manager->assetQueueAt - 1;
-        *slot = *slotToMove;
-        manager->assetQueueAt--;
-    } else {
-        manager->assetQueueAt--;
-    }
+    assert(index < array_count(manager->assetQueue));
+    auto entry = manager->assetQueue + index;
+    assert(manager->assetQueueUsage > 0);
+    manager->assetQueueUsage--;
+    entry->used = false;
 }
 
-void LoadMeshWork(void* _data, u32 threadIndex) {
-    auto data = (MeshSlot*)_data;
-    printf("[Asset manager] Thread %d: Loading mesh %s\n", (int)threadIndex, data->filename);
+AssetQueueEntry* AssetQueueGet(AssetManager* manager, u32 index) {
+    assert(index < array_count(manager->assetQueue));
+    AssetQueueEntry* result;
+    result = manager->assetQueue + index;
+    return result;
+}
+
+void LoadMeshWork(void* data, u32 threadIndex) {
+    auto queueEntry = (AssetQueueEntry*)data;
+    assert(queueEntry->used);
+    assert(queueEntry->type == AssetType::Mesh);
+    auto slot = (MeshSlot*)(&queueEntry->meshSlot);
+    printf("[Asset manager] Thread %d: Loading mesh %s\n", (int)threadIndex, slot->filename);
     Mesh* mesh = nullptr;
-    switch (data->format)
+    switch (slot->format)
     {
     case MeshFileFormat::AAB: {
-        mesh = LoadMeshAAB(data->filename);
+        mesh = LoadMeshAAB(slot->filename);
     } break;
     case MeshFileFormat::Flux: {
-        mesh = LoadMeshFlux(data->filename);
+        mesh = LoadMeshFlux(slot->filename);
     } break;
         invalid_default();
     }
     if (mesh) {
-        data->mesh = mesh;
-        auto prevState = AtomicExchange((u32 volatile*)&data->state, (u32)AssetState::JustLoaded);
+        slot->mesh = mesh;
+        auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::JustLoaded);
         assert(prevState == (u32)AssetState::Queued);
     } else {
-        printf("[Asset manager] Failed to load mesh: %s\n", data->filename);
-        auto prevState = AtomicExchange((u32 volatile*)&data->state, (u32)AssetState::Error);
+        printf("[Asset manager] Failed to load mesh: %s\n", slot->filename);
+        auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::Error);
         assert(prevState == (u32)AssetState::Queued);
     }
 }
 
-void LoadTextureWork(void* _data, u32 threadIndex) {
-    auto data = (TextureSlot*)_data;
-    printf("[Asset manager] Thread %d: Loading texture %s\n", (int)threadIndex, data->filename);
-    Texture tex = LoadTextureFromFile(data->filename, data->format, data->wrapMode, data->filter, data->range);
+void LoadTextureWork(void* data, u32 threadIndex) {
+    auto queueEntry = (AssetQueueEntry*)data;
+    assert(queueEntry->used);
+    assert(queueEntry->type == AssetType::Texture);
+    auto slot = (TextureSlot*)(&queueEntry->textureSlot);
+    printf("[Asset manager] Thread %d: Loading texture %s\n", (int)threadIndex, slot->filename);
+    Texture tex = LoadTextureFromFile(slot->filename, slot->format, slot->wrapMode, slot->filter, slot->range);
     if (tex.data) {
-        data->texture = tex;
-        auto prevState = AtomicExchange((u32 volatile*)&data->state, (u32)AssetState::JustLoaded);
+        slot->texture = tex;
+        auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::JustLoaded);
         assert(prevState == (u32)AssetState::Queued);
     } else {
-        printf("[Asset manager] Failed to load texture: %s\n", data->filename);
-        auto prevState = AtomicExchange((u32 volatile*)&data->state, (u32)AssetState::Error);
+        printf("[Asset manager] Failed to load texture: %s\n", slot->filename);
+        auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::Error);
         assert(prevState == (u32)AssetState::Queued);
     }
 }
@@ -502,6 +519,7 @@ AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileForm
             assert(id);
             auto slot = Add(&manager->meshTable, &id);
             assert(slot);
+            *slot = {};
             slot->id = id;
             strcpy_s(slot->name, array_count(slot->name), name.name);
             strcpy_s(slot->filename, array_count(slot->filename), filename);
@@ -530,6 +548,7 @@ AddAssetResult AddTexture(AssetManager* manager, const char* filename, TextureFo
             assert(id);
             auto slot = Add(&manager->textureTable, &id);
             assert(slot);
+            *slot = {};
             slot->id = id;
             slot->format = format;
             slot->wrapMode = wrapMode;
@@ -555,8 +574,10 @@ void LoadMesh(AssetManager* manager, u32 id) {
         if (queueEntry) {
             queueEntry->id = id;
             queueEntry->type = AssetType::Mesh;
+            auto slotPtr = (MeshSlot*)queueEntry->meshSlot;
+            *slotPtr = *slot;
 
-            PlatformPushWork(GlobalPlaformWorkQueue, slot, LoadMeshWork);
+            PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadMeshWork);
         }
     }
 }
@@ -568,8 +589,10 @@ void LoadTexture(AssetManager* manager, u32 id) {
         if (queueEntry) {
             queueEntry->id = id;
             queueEntry->type = AssetType::Texture;
+            auto slotPtr = (TextureSlot*)queueEntry->textureSlot;
+            *slotPtr = *slot;
 
-            PlatformPushWork(GlobalPlaformWorkQueue, slot, LoadTextureWork);
+            PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadTextureWork);
         }
     }
 }
@@ -577,53 +600,51 @@ void LoadTexture(AssetManager* manager, u32 id) {
 void CompleteAssetLoad(AssetManager* manager, AssetType type, u32 queueIndex, u32 id) {
     switch (type) {
     case AssetType::Mesh: {
-        auto slot = Get(&manager->meshTable, &id);
-        assert(slot);
-        assert(slot->state == AssetState::Queued || slot->state == AssetState::JustLoaded || slot->state == AssetState::Error);
-        assert(manager->assetQueue[queueIndex].id == (u32)id);
-        if (slot->state == AssetState::JustLoaded) {
+        auto queueEntry = AssetQueueGet(manager, queueIndex);
+        auto queueSlot = (MeshSlot*)queueEntry->meshSlot;
+        if (queueSlot->state == AssetState::JustLoaded) {
+            auto slot = Get(&manager->meshTable, &id);
+            assert(slot);
+            assert(slot->state == AssetState::Queued);
+            assert(slot->id == queueEntry->id);
+            *slot = *queueSlot;
             AssetQueueRemove(manager, queueIndex);
             auto begin = PlatformGetTimeStamp();
             UploadToGPU(slot->mesh);
             auto end = PlatformGetTimeStamp();
-            printf("[Asset manager] Loaded material on gpu: %f ms\n", (end - begin) * 1000.0f);
+            printf("[Asset manager] Loaded mesh on gpu: %f ms\n", (end - begin) * 1000.0f);
             slot->state = AssetState::Loaded;
-        } else if (slot->state == AssetState::Error) {
-            AssetQueueRemove(manager, queueIndex);
-#if 0
-            // TODO: Clean this up
-            auto slot = GetMeshSlot(manager, id);
+        } else if (queueSlot->state == AssetState::Error) {
+            auto slot = Get(&manager->meshTable, &id);
             assert(slot);
-            AssetName name;
-            strcpy_s(name.name, array_count(name.name), slot->name);
-            Delete(&manager->nameTable.table, &name);
-            Delete(&manager->meshTable, &id);
-#endif
+            assert(slot->state == AssetState::Queued);
+            assert(slot->id == queueEntry->id);
+            AssetQueueRemove(manager, queueIndex);
+            slot->state = AssetState::Error;
         }
     } break;
     case AssetType::Texture: {
-        auto slot = Get(&manager->textureTable, &id);
-        assert(slot);
-        assert(slot->state == AssetState::Queued || slot->state == AssetState::JustLoaded || slot->state == AssetState::Error);
-        assert(manager->assetQueue[queueIndex].id == (u32)id);
-        if (slot->state == AssetState::JustLoaded) {
+        auto queueEntry = AssetQueueGet(manager, queueIndex);
+        auto queueSlot = (TextureSlot*)queueEntry->meshSlot;
+        if (queueSlot->state == AssetState::JustLoaded) {
+            auto slot = Get(&manager->textureTable, &id);
+            assert(slot);
+            assert(slot->state == AssetState::Queued);
+            assert(slot->id == queueEntry->id);
+            *slot = *queueSlot;
             AssetQueueRemove(manager, queueIndex);
             auto begin = PlatformGetTimeStamp();
             UploadToGPU(&slot->texture);
             auto end = PlatformGetTimeStamp();
-            printf("[Asset manager] Loaded texture on gpu: %f ms\n", (end - begin) * 1000.0f);
+            printf("[Asset manager] Loaded material on gpu: %f ms\n", (end - begin) * 1000.0f);
             slot->state = AssetState::Loaded;
-        } else if (slot->state == AssetState::Error) {
-            AssetQueueRemove(manager, queueIndex);
-#if 0
-            // TODO: Clean this up
-            auto slot = GetMeshSlot(manager, id);
+        } else if (queueSlot->state == AssetState::Error) {
+            auto slot = Get(&manager->textureTable, &id);
             assert(slot);
-            AssetName name;
-            strcpy_s(name.name, array_count(name.name), slot->name);
-            Delete(&manager->nameTable.table, &name);
-            Delete(&manager->meshTable, &id);
-#endif
+            assert(slot->state == AssetState::Queued);
+            assert(slot->id == queueEntry->id);
+            AssetQueueRemove(manager, queueIndex);
+            slot->state = AssetState::Error;
         }
     } break;
         invalid_default();
@@ -631,10 +652,11 @@ void CompleteAssetLoad(AssetManager* manager, AssetType type, u32 queueIndex, u3
 }
 
 void CompletePendingLoads(AssetManager* manager) {
-    // TODO: Store asset state in queue entry
-    for (u32 i = 0; i < manager->assetQueueAt; i++) {
+    for (u32 i = 0; i < array_count(manager->assetQueue); i++) {
         auto entry = manager->assetQueue + i;
-        CompleteAssetLoad(manager, entry->type, i, entry->id);
+        if (entry->used) {
+            CompleteAssetLoad(manager, entry->type, i, entry->id);
+        }
     }
 }
 
