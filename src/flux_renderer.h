@@ -1,9 +1,15 @@
 #pragma once
 
-#include "flux_resource_manager.h"
-
 struct Renderer;
+struct CubeTexture;
+struct Texture;
+struct AssetManager;
 
+struct TexTransferBufferInfo {
+    u32 index;
+    void* ptr;
+    Renderer* renderer;
+};
 
 Renderer* InitializeRenderer(uv2 renderRes);
 
@@ -24,5 +30,9 @@ void End(Renderer* renderer);
 void UploadToGPU(CubeTexture* texture);
 void UploadToGPU(Mesh* mesh);
 void UploadToGPU(Texture* texture);
+
+TexTransferBufferInfo GetTextureTransferBuffer(Renderer* renderer, u32 size);
+void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture);
+
 
 void RecompileShaders(Renderer* renderer);

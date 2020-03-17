@@ -1,6 +1,61 @@
 #include "flux_resource_manager.h"
 #include "flux_file_formats.h"
 
+u32 PixelSize(TextureFormat format) {
+    u32 size = 0;
+    switch (format) {
+    case TextureFormat::Unknown: { size = 0; } break;
+    case TextureFormat::SRGBA8: { size = 4; } break;
+    case TextureFormat::SRGB8: { size = 3; } break;
+    case TextureFormat::RGBA8: { size = 4; } break;
+    case TextureFormat::RGB8: { size = 3; } break;
+    case TextureFormat::RGB16F: { size = 6; } break;
+    case TextureFormat::RG16F: { size = 4; } break;
+    case TextureFormat::R8: { size = 1; } break;
+    case TextureFormat::RG8: { size = 2; } break;
+    invalid_default();
+    }
+    return size;
+}
+
+u32 NumberOfChannels(TextureFormat format) {
+    u32 size = 0;
+    switch (format) {
+    case TextureFormat::Unknown: { size = 0; } break;
+    case TextureFormat::SRGBA8: { size = 4; } break;
+    case TextureFormat::SRGB8: { size = 3; } break;
+    case TextureFormat::RGBA8: { size = 4; } break;
+    case TextureFormat::RGB8: { size = 3; } break;
+    case TextureFormat::RGB16F: { size = 3; } break;
+    case TextureFormat::RG16F: { size = 2; } break;
+    case TextureFormat::R8: { size = 1; } break;
+    case TextureFormat::RG8: { size = 2; } break;
+    invalid_default();
+    }
+    return size;
+}
+
+TextureFormat GuessTextureFormat(u32 numChannels, DynamicRange range) {
+    TextureFormat format = TextureFormat::Unknown;
+    if (range == DynamicRange::HDR) {
+        switch(numChannels) {
+        case 2: { format = TextureFormat::RG16F; } break;
+        case 3: { format = TextureFormat::RGB16F; } break;
+        default: {} break;
+        }
+    } else if (range == DynamicRange::LDR) {
+        switch(numChannels) {
+        case 1: { format = TextureFormat::R8; } break;
+        case 2: { format = TextureFormat::RG8; } break;
+        case 3: { format = TextureFormat::SRGB8; } break;
+        case 4: { format = TextureFormat::SRGBA8; } break;
+        default: {} break;
+        }
+    } else {
+        unreachable();
+    }
+    return format;
+}
 
 u32 AddName(AssetNameTable* table, const char* _name) {
     u32 result = 0;
@@ -457,9 +512,22 @@ void LoadTextureWork(void* data, u32 threadIndex) {
     printf("[Asset manager] Thread %d: Loading texture %s\n", (int)threadIndex, slot->filename);
     Texture tex = LoadTextureFromFile(slot->filename, slot->format, slot->wrapMode, slot->filter, slot->range);
     if (tex.data) {
-        slot->texture = tex;
-        auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::JustLoaded);
-        assert(prevState == (u32)AssetState::Queued);
+        auto bitmapSize = tex.width * tex.height * PixelSize(slot->format);
+        if (bitmapSize == slot->bitmapSize) {
+            slot->texture = tex;
+            // TODO: Load directly to buffer
+            for (uptr i = 0; i < bitmapSize; i++) {
+                ((byte*)queueEntry->texTransferBufferInfo.ptr)[i] = ((byte*)tex.data)[i];
+            }
+            //memcpy(queueEntry->texTransferBufferInfo.ptr, tex.data, bitmapSize);
+            auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::JustLoaded);
+            assert(prevState == (u32)AssetState::Queued);
+        } else {
+            printf("[Asset manager] Failed to load texture: %s. The file is different than one that was added before\n", slot->filename);
+            auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::Error);
+            assert(prevState == (u32)AssetState::Queued);
+            PlatformFree(tex.data);
+        }
     } else {
         printf("[Asset manager] Failed to load texture: %s\n", slot->filename);
         auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::Error);
@@ -538,28 +606,43 @@ AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileForm
 AddAssetResult AddTexture(AssetManager* manager, const char* filename, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, DynamicRange range) {
     // TODO: Validate file
     AddAssetResult result = {};
-    bool fileIsImage = ResourceLoaderValidateImageFile(filename);
-    if (fileIsImage) {
-        AssetName name;
-        GetAssetName(filename, &name);
-        bool alreadyExists = GetID(&manager->nameTable, name.name) != 0;
-        if (!alreadyExists) {
-            u32 id = AddName(&manager->nameTable, name.name);
-            assert(id);
-            auto slot = Add(&manager->textureTable, &id);
-            assert(slot);
-            *slot = {};
-            slot->id = id;
-            slot->format = format;
-            slot->wrapMode = wrapMode;
-            slot->filter = filter;
-            slot->range = range;
-            strcpy_s(slot->name, array_count(slot->name), name.name);
-            strcpy_s(slot->filename, array_count(slot->filename), filename);
-            result = { AddAssetResult::Ok, id };
+    auto info = ResourceLoaderValidateImageFile(filename);
+    if (info.valid) {
+        if (format == TextureFormat::Unknown) {
+            format = GuessTextureFormat(info.channelCount, range);
+        }
+        if (format != TextureFormat::Unknown) {
+            auto formatNumChannels = NumberOfChannels(format);
+            if (formatNumChannels <= info.channelCount) {
+                AssetName name;
+                GetAssetName(filename, &name);
+                bool alreadyExists = GetID(&manager->nameTable, name.name) != 0;
+                if (!alreadyExists) {
+                    u32 id = AddName(&manager->nameTable, name.name);
+                    assert(id);
+                    auto slot = Add(&manager->textureTable, &id);
+                    assert(slot);
+                    *slot = {};
+                    slot->id = id;
+                    slot->format = format;
+                    slot->wrapMode = wrapMode;
+                    slot->filter = filter;
+                    slot->range = range;
+                    slot->bitmapSize = info.width * info.height * PixelSize(slot->format);
+                    strcpy_s(slot->name, array_count(slot->name), name.name);
+                    strcpy_s(slot->filename, array_count(slot->filename), filename);
+                    result = { AddAssetResult::Ok, id };
+                } else {
+                    printf("[Asset manager] Failed to load tuexture %s. An asset with the same name is already loaded.\n", filename);
+                    result = { AddAssetResult::AlreadyExists, 0 };
+                }
+            } else {
+                printf("[Asset manager] Failed to load texture %s. Texture format has %ld channels, but image has only %ld channels\n", filename, (long)formatNumChannels, (long)info.channelCount);
+                result = { AddAssetResult::UnknownFormat, 0 };
+            }
         } else {
-            printf("[Asset manager] Failed to load asset %s. An asset with the same name is already loaded.\n", filename);
-            result = { AddAssetResult::AlreadyExists, 0 };
+            printf("[Asset manager] Failed to load texture %s. Unknown texture format\n", filename);
+            result = { AddAssetResult::UnknownFormat, 0 };
         }
     } else {
         printf("[Asset manager] Failed to load asset %s. Invalid image file.\n", filename);
@@ -585,14 +668,21 @@ void LoadMesh(AssetManager* manager, u32 id) {
 void LoadTexture(AssetManager* manager, u32 id) {
     auto slot = Get(&manager->textureTable, &id);
     if (slot) {
-        auto queueEntry = AssetQueuePush(manager);
-        if (queueEntry) {
-            queueEntry->id = id;
-            queueEntry->type = AssetType::Texture;
-            auto slotPtr = (TextureSlot*)queueEntry->textureSlot;
-            *slotPtr = *slot;
+        auto transferBuffer = GetTextureTransferBuffer(manager->renderer, slot->bitmapSize);
+        if (transferBuffer.ptr) {
+            auto queueEntry = AssetQueuePush(manager);
+            if (queueEntry) {
+                queueEntry->id = id;
+                queueEntry->type = AssetType::Texture;
+                queueEntry->texTransferBufferInfo = transferBuffer;
+                auto slotPtr = (TextureSlot*)queueEntry->textureSlot;
+                slot->state = AssetState::Queued;
+                *slotPtr = *slot;
 
-            PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadTextureWork);
+                PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadTextureWork);
+            }
+        } else {
+            printf("[Asset manager] Failed to load the texture %s. Unable to get transfer buffer\n", slot->name);
         }
     }
 }
@@ -634,7 +724,7 @@ void CompleteAssetLoad(AssetManager* manager, AssetType type, u32 queueIndex, u3
             *slot = *queueSlot;
             AssetQueueRemove(manager, queueIndex);
             auto begin = PlatformGetTimeStamp();
-            UploadToGPU(&slot->texture);
+            CompleteTextureTransfer(&queueEntry->texTransferBufferInfo, &slot->texture);
             auto end = PlatformGetTimeStamp();
             printf("[Asset manager] Loaded material on gpu: %f ms\n", (end - begin) * 1000.0f);
             slot->state = AssetState::Loaded;
@@ -701,7 +791,6 @@ Texture* GetTexture(AssetManager* manager, u32 id) {
                 result = &texture->texture;
             } break;
             case AssetState::Unloaded: {
-                texture->state = AssetState::Queued;
                 LoadTexture(manager, id);
             } break;
             case AssetState::JustLoaded: {} break;

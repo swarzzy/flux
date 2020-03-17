@@ -226,7 +226,15 @@ struct LoadedImage {
 static_assert(sizeof(LoadedImage) % 4 == 0);
 
 typedef LoadedImage*(__cdecl ResourceLoaderLoadImageFn)(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator);
-typedef b32(__cdecl ResourceLoaderValidateImageFileFn)(const char* filename);
+
+struct ImageInfo {
+    b32 valid;
+    u32 width;
+    u32 height;
+    u32 channelCount;
+};
+
+typedef ImageInfo(__cdecl ResourceLoaderValidateImageFileFn)(const char* filename);
 
 struct PlatformCalls
 {

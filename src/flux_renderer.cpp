@@ -55,6 +55,11 @@ struct Renderer {
     b32 debugG;
     b32 debugNormals;
 
+    static constexpr u32 TextureTransferBufferCount = array_count(typedecl(AssetManager, assetQueue));
+    u32 textureTransferBuffersUsageCount;
+    b32 textureTransferBuffersUsage[TextureTransferBufferCount];
+    GLuint textureTransferBuffers[TextureTransferBufferCount];
+
     u32 uniformBufferAligment;
 
     UniformBuffer<ShaderFrameData, ShaderFrameData::Binding> frameUniformBuffer;
@@ -108,6 +113,83 @@ GLTextureFilter ToOpenGL(TextureFilter filter) {
     case TextureFilter::Anisotropic: { result.min = GL_LINEAR_MIPMAP_LINEAR; result.mag = GL_LINEAR; result.anisotropic = true; } break;
     }
     return result;
+}
+
+TexTransferBufferInfo GetTextureTransferBuffer(Renderer* renderer, u32 size) {
+    TexTransferBufferInfo result = {};
+    result.renderer = renderer;
+    GLuint bufferHandle = 0;
+    u32 index = 0;
+    if (renderer->textureTransferBuffersUsageCount < Renderer::TextureTransferBufferCount) {
+        for (u32x i = 0; i < Renderer::TextureTransferBufferCount; i++) {
+            if (!renderer->textureTransferBuffersUsage[i]) {
+                renderer->textureTransferBuffersUsage[i] = true;
+                bufferHandle = renderer->textureTransferBuffers[i];
+                index = i;
+                renderer->textureTransferBuffersUsageCount++;
+                break;
+            }
+        }
+    }
+    if (bufferHandle) {
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, bufferHandle);
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, size, 0, GL_STREAM_DRAW);
+        result.ptr = glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
+        //((byte*)result.ptr)[size - 1] = 5;
+        result.index = index;
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+    return result;
+}
+
+void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture) {
+    auto renderer = info->renderer;
+    if (info->ptr) {
+        auto bufferHandle = renderer->textureTransferBuffers[info->index];
+        auto begin = PlatformGetTimeStamp();
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, bufferHandle);
+        glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+        auto end = PlatformGetTimeStamp();
+        printf("unmap time: %f ms\n", (end - begin) * 1000.0f);
+        renderer->textureTransferBuffersUsage[info->index] = false;
+        assert(renderer->textureTransferBuffersUsageCount > 0);
+        renderer->textureTransferBuffersUsageCount--;
+
+        GLuint handle;
+        if (!texture->gpuHandle) {
+            glGenTextures(1, &handle);
+            assert(handle);
+            texture->gpuHandle = handle;
+        } else {
+            handle = texture->gpuHandle;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, handle);
+
+        auto wrapMode = ToOpenGL(texture->wrapMode);
+        auto format = ToOpenGL(texture->format);
+        auto filter = ToOpenGL(texture->filter);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, format.internal, texture->width,
+                     texture->height, 0, format.format, format.type, 0);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapMode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapMode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter.mag);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter.min);
+        if (filter.anisotropic) {
+            // TODO: Anisotropy value
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_ARB, 8.0f);
+        }
+
+        // TODO: Mips control
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        *info = {};
+    }
 }
 
 void UploadToGPU(Texture* texture) {
@@ -444,6 +526,9 @@ Renderer* InitializeRenderer(uv2 renderRes) {
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RG, GL_FLOAT, bitmap);
         PlatformDebugWriteFile(L"brdf_lut.aab", bitmap, sizeof(f32) * 2 * 512 * 512);
     }
+
+    // NOTE: Texture transfer buffers
+    glGenBuffers(Renderer::TextureTransferBufferCount, renderer->textureTransferBuffers);
 
     return renderer;
 }

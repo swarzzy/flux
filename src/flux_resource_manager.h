@@ -4,6 +4,7 @@
 #include "flux_memory.h"
 #include "flux_hash_map.h"
 #include "flux_globals.h"
+#include "flux_renderer.h"
 
 struct AssetName {
     char name[MaxAssetNameSize];
@@ -58,8 +59,21 @@ const char* ToString(TextureFilter value) {
 }
 
 enum struct TextureFormat : u32 {
-    Unknown, SRGBA8, SRGB8, RGBA8, RGB8, RGB16F, RG16F, R8, RG8
+    Unknown,
+    SRGBA8,
+    SRGB8,
+    RGBA8,
+    RGB8,
+    RGB16F,
+    RG16F,
+    R8,
+    RG8,
 };
+
+// In bytes
+u32 PixelSize(TextureFormat format);
+TextureFormat GuessTextureFormat(u32 numChannels);
+u32 NumberOfChannels(TextureFormat format);
 
 const char* ToString(TextureFormat value) {
     switch (value) {
@@ -216,6 +230,7 @@ struct TextureSlot {
     TextureWrapMode wrapMode = TextureWrapMode::Default;
     TextureFilter filter = TextureFilter::Default;
     DynamicRange range = DynamicRange::LDR;
+    u32 bitmapSize;
 };
 
 enum struct AssetType {
@@ -225,6 +240,7 @@ enum struct AssetType {
 struct AssetQueueEntry {
     b32 used;
     u32 id;
+    TexTransferBufferInfo texTransferBufferInfo;
     AssetType type;
     union {
         // NOTE: HACK! Bacause of stupid c++ initialization rules we can't make union
@@ -237,15 +253,20 @@ struct AssetQueueEntry {
 struct AssetManager {
     static u32 Hasher(void* key) { return *((u32*)key); }
     static bool Comparator(void* a, void* b) { return *((u32*)a) == *((u32*)b); }
+    Renderer* renderer;
     AssetNameTable nameTable;
     HashMap<u32, MeshSlot, Hasher, Comparator> meshTable = HashMap<u32, MeshSlot, Hasher, Comparator>::Make();
     HashMap<u32, TextureSlot, Hasher, Comparator> textureTable = HashMap<u32, TextureSlot, Hasher, Comparator>::Make();
     u32 assetQueueUsage;
     AssetQueueEntry assetQueue[32];
+
+    static void Init(AssetManager* manager, Renderer* renderer) {
+        manager->renderer = renderer;
+    }
 };
 
 struct AddAssetResult {
-    enum {UnknownError = 0, Ok, AlreadyExists} status;
+    enum {UnknownError = 0, Ok, AlreadyExists, UnknownFormat} status;
     u32 id;
 
     u32 Unwrap() { if (status == Ok) { return id; } else { panic(false); return 0; }};

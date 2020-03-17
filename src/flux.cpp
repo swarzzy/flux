@@ -11,6 +11,7 @@ void Work(void* data, u32 id) {
 
 
 void FluxInit(Context* context) {
+    AssetManager::Init(&context->assetManager, context->renderer);
     context->world = (World*)PlatformAlloc(sizeof(World));
     *context->world = {};
 

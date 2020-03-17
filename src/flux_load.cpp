@@ -165,6 +165,7 @@ void* PlatformAllocClear(uptr size) {
 #define glDeleteProgram gl_call(glDeleteProgram)
 #define glGetIntegerv gl_call(glGetIntegerv)
 #define glDeleteBuffers gl_call(glDeleteBuffers)
+#define glMapBufferRange gl_call(glMapBufferRange)
 
 #include "flux_memory.h"
 // NOTE: Libs

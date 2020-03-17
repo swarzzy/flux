@@ -32,15 +32,20 @@ f64 GetTimeStamp() {
 f64 GetTimeStamp() { return 0; }
 #endif
 
-extern "C" GAME_CODE_ENTRY b32 __cdecl ResourceLoaderValidateImageFile(const char* filename) {
+extern "C" GAME_CODE_ENTRY ImageInfo __cdecl ResourceLoaderValidateImageFile(const char* filename) {
+    ImageInfo info = {};
     auto startTime = GetTimeStamp();
-    b32 result = false;
     int x, y, comp;
     int r = stbi_info(filename, &x, &y, &comp);
-    if (r) { result = true; }
+    if (r) {
+        info.valid = true;
+        info.width = x;
+        info.height = y;
+        info.channelCount = comp;
+    }
     auto endTime = GetTimeStamp();
-    printf("[Resource loader] Validating image file %s... %s. Time: %f ms\n", filename, result ? "success" : "failture", (endTime - startTime) * 1000.0f);
-    return result;
+    printf("[Resource loader] Validating image file %s... %s. Time: %f ms\n", filename, info.valid ? "success" : "failture", (endTime - startTime) * 1000.0f);
+    return info;
 }
 
 extern "C" GAME_CODE_ENTRY LoadedImage* __cdecl ResourceLoaderLoadImage(const char* filename, DynamicRange range, b32 flipY, u32 forceBPP, AllocateFn* allocator) {
