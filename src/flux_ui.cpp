@@ -75,6 +75,20 @@ void DrawAssetManager(Context* context) {
                 }
                 ImGui::EndChild();
 
+                if (ImGui::Button("Unload")) {
+                    if (ui->selectedMesh) {
+                        UnloadMesh(&context->assetManager, ui->selectedMesh);
+                    }
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Delete")) {
+                    if (ui->selectedMesh) {
+                        RemoveMesh(&context->assetManager, ui->selectedMesh);
+                    }
+                }
+
                 ImGui::Text("Asset info:");
                 if (ui->selectedMesh) {
                     auto slot = GetMeshSlot(&context->assetManager, ui->selectedMesh);
@@ -153,6 +167,20 @@ void DrawAssetManager(Context* context) {
                     }
                 }
                 ImGui::EndChild();
+
+                if (ImGui::Button("Unload")) {
+                    if (ui->selectedTexture) {
+                        UnloadTexture(&context->assetManager, ui->selectedTexture);
+                    }
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Delete")) {
+                    if (ui->selectedTexture) {
+                        RemoveTexture(&context->assetManager, ui->selectedTexture);
+                    }
+                }
 
                 ImGui::Text("Texture info:");
                 if (ui->selectedTexture) {
@@ -297,17 +325,20 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                 if (ImGui::CollapsingHeader("Material")) {
                     if (ImGui::BeginCombo("workflow", ToString(entity->material.workflow))) {
                         Material::Workflow newWorkflow = entity->material.workflow;
-                        if (ImGui::Selectable("phong")) {
+                        if (ImGui::Selectable("Phong")) {
                             newWorkflow = Material::Phong;
                         }
-                        if (ImGui::Selectable("pbr metallic")) {
+                        if (ImGui::Selectable("PBR metallic")) {
                             newWorkflow = Material::PBRMetallic;
                         }
-                        if (ImGui::Selectable("pbr specular")) {
+                        if (ImGui::Selectable("PBR specular")) {
                             newWorkflow = Material::PBRSpecular;
                         }
-                        if (ImGui::Selectable("pbr custom metallic")) {
+                        if (ImGui::Selectable("PBR custom metallic")) {
                             newWorkflow = Material::PBRMetallicCustom;
+                        }
+                        if (ImGui::Selectable("Phong custom")) {
+                            newWorkflow = Material::PhongCustom;
                         }
                         if (newWorkflow != entity->material.workflow) {
                             entity->material = {};
@@ -331,6 +362,10 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         ImGui::ColorEdit3("albedo", entity->material.pbrMetallicCustom.albedo.data);
                         ImGui::SliderFloat("roughness", &entity->material.pbrMetallicCustom.roughness, 0.0f, 1.0f);
                         ImGui::SliderFloat("metallic", &entity->material.pbrMetallicCustom.metallic, 0.0f, 1.0f);
+                    } break;
+                    case Material::PhongCustom: {
+                        ImGui::ColorEdit3("diffuse", entity->material.phongCustom.diffuse.data);
+                        ImGui::ColorEdit3("specular", entity->material.phongCustom.specular.data);
                     } break;
                     default: {} break;
                     }

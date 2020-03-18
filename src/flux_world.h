@@ -3,7 +3,7 @@
 #include "flux_hash_map.h"
 
 struct Material {
-    enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom } workflow;
+    enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom, PhongCustom } workflow;
     union {
         struct {
             u32 diffuse;
@@ -26,15 +26,20 @@ struct Material {
             f32 roughness;
             f32 metallic;
         } pbrMetallicCustom;
+        struct {
+            v3 diffuse;
+            v3 specular;
+        } phongCustom;
     };
 };
 
 const char* ToString(Material::Workflow value) {
     switch (value) {
-    case Material::Phong: { return "phong"; } break;
-    case Material::PBRMetallic: { return "pbr metallic"; } break;
-    case Material::PBRSpecular: { return "pbr specular"; } break;
-    case Material::PBRMetallicCustom: { return "pbr custom metallic"; } break;
+    case Material::Phong: { return "Phong"; } break;
+    case Material::PBRMetallic: { return "PBR metallic"; } break;
+    case Material::PBRSpecular: { return "PBR specular"; } break;
+    case Material::PBRMetallicCustom: { return "PBR custom metallic"; } break;
+    case Material::PhongCustom: { return "Phong custom"; } break;
     invalid_default();
     }
     return "";

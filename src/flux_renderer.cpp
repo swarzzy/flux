@@ -60,6 +60,11 @@ struct Renderer {
     b32 textureTransferBuffersUsage[TextureTransferBufferCount];
     GLuint textureTransferBuffers[TextureTransferBufferCount];
 
+    Material fallbackMaterial;
+    // TODO: Check is using 0 handle has consistant behavior on all GPUs
+    // Maybe we need to create some placeholder texture here
+    GLuint nullTexture2D = 0;
+
     u32 uniformBufferAligment;
 
     UniformBuffer<ShaderFrameData, ShaderFrameData::Binding> frameUniformBuffer;
@@ -306,6 +311,15 @@ void UploadToGPU(Mesh* mesh) {
     }
 }
 
+void FreeGPUBuffer(u32 id) {
+    GLuint handle = id;
+    glDeleteBuffers(1, &handle);
+}
+void FreeGPUTexture(u32 id) {
+    GLuint handle = id;
+    glDeleteTextures(1, &handle);
+}
+
 void GenBRDFLut(const Renderer* renderer, Texture* t) {
     assert(t->gpuHandle);
     assert(t->wrapMode == TextureWrapMode::ClampToEdge);
@@ -529,6 +543,25 @@ Renderer* InitializeRenderer(uv2 renderRes) {
 
     // NOTE: Texture transfer buffers
     glGenBuffers(Renderer::TextureTransferBufferCount, renderer->textureTransferBuffers);
+
+    // NOTE: Fallback material
+    renderer->fallbackMaterial.workflow = Material::PhongCustom;
+    renderer->fallbackMaterial.phongCustom.diffuse = V3(0.7f, 0.7f, 0.7f);
+    renderer->fallbackMaterial.phongCustom.specular = V3(0.0f, 0.0f, 0.0f);
+
+    // NOTE: null texture
+    glGenTextures(1, &renderer->nullTexture2D);
+    assert(renderer->nullTexture2D);
+    glBindTexture(GL_TEXTURE_2D, renderer->nullTexture2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    u8 nullTexData[] = {255, 0, 255, 255};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullTexData);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     return renderer;
 }
@@ -785,7 +818,7 @@ m4x4 CalcShadowProjection(const CameraBase* camera, f32 nearPlane, f32 farPlane,
     return result;
 }
 
-void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
+void RenderShadowMap(Renderer* renderer, RenderGroup* group, AssetManager* manager) {
     if (group->commandQueueAt) {
         auto shader = renderer->shaders.Shadow;
         for (u32 i = 0; i < group->commandQueueAt; i++) {
@@ -798,25 +831,26 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
             case RenderCommand::DrawMesh: {
                 auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
 
-                auto normalMatrix = MakeNormalMatrix(data->transform);
+                auto mesh = GetMesh(manager, data->meshID);
+                if (mesh) {
+                    auto normalMatrix = MakeNormalMatrix(data->transform);
 
-                auto meshBuffer = Map(renderer->meshUniformBuffer);
-                meshBuffer->modelMatrix = data->transform;
-                meshBuffer->normalMatrix = normalMatrix;
-                Unmap(renderer->meshUniformBuffer);
+                    auto meshBuffer = Map(renderer->meshUniformBuffer);
+                    meshBuffer->modelMatrix = data->transform;
+                    meshBuffer->normalMatrix = normalMatrix;
+                    Unmap(renderer->meshUniformBuffer);
 
-                auto* mesh = data->mesh;
+                    while (mesh) {
+                        glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
-                while (mesh) {
-                    glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+                        auto posAttrLoc = ShadowPassShader::PositionAttribLocation;
+                        glEnableVertexAttribArray(posAttrLoc);
+                        glVertexAttribPointer(posAttrLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
-                    auto posAttrLoc = ShadowPassShader::PositionAttribLocation;
-                    glEnableVertexAttribArray(posAttrLoc);
-                    glVertexAttribPointer(posAttrLoc, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
-                    glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-                    mesh = mesh->next;
+                        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+                        glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                        mesh = mesh->next;
+                    }
                 }
             } break;
             }
@@ -824,7 +858,7 @@ void RenderShadowMap(Renderer* renderer, RenderGroup* group) {
     }
 }
 
-void ShadowPass(Renderer* renderer, RenderGroup* group) {
+void ShadowPass(Renderer* renderer, RenderGroup* group, AssetManager* manager) {
     auto light = &group->dirLight;
     auto camera = group->camera;
 
@@ -844,7 +878,7 @@ void ShadowPass(Renderer* renderer, RenderGroup* group) {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->shadowMapFramebuffers[cascadeIndex]);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         glUniform1i(ShadowPassShader::CascadeIndexLocation, cascadeIndex);
-        RenderShadowMap(renderer, group);
+        RenderShadowMap(renderer, group, manager);
     }
 }
 
@@ -932,167 +966,203 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
 
             } break;
             case RenderCommand::DrawMesh: {
-                auto* data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
-                if (data->material.workflow == Material::Phong) {
-                    auto meshProg = renderer->shaders.Mesh;
+                auto data = (RenderCommandDrawMesh*)(group->renderBuffer + command->rbOffset);
+                auto mesh = GetMesh(assetManager, data->meshID);
+                if (mesh) {
+                    if (data->material.workflow == Material::PhongCustom) {
+                        auto prog = renderer->shaders.MeshPhongCustom;
 
-                    auto diffuseMap = GetTexture(assetManager, data->material.phong.diffuse);
-                    auto specularMap = GetTexture(assetManager, data->material.phong.specular);
+                        m3x3 normalMatrix = MakeNormalMatrix(data->transform);
+                        glUseProgram(prog);
 
-                    m3x3 normalMatrix = MakeNormalMatrix(data->transform);
+                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+                        meshBuffer->modelMatrix = data->transform;
+                        meshBuffer->normalMatrix = normalMatrix;
+                        meshBuffer->customPhongDiffuse = data->material.phongCustom.diffuse;
+                        meshBuffer->customPhongSpecular = data->material.phongCustom.specular;
+                        Unmap(renderer->meshUniformBuffer);
 
-                    glUseProgram(meshProg);
-
-                    auto meshBuffer = Map(renderer->meshUniformBuffer);
-                    meshBuffer->modelMatrix = data->transform;
-                    meshBuffer->normalMatrix = normalMatrix;
-                    Unmap(renderer->meshUniformBuffer);
+                        glBindTextureUnit(MeshPhongCustomShader::ShadowMap, renderer->shadowMapDepthTarget);
 
 
-                    if (diffuseMap) {
-                        glBindTextureUnit(MeshShader::DiffMap, diffuseMap->gpuHandle);
-                    }
-                    if (specularMap && specularMap->gpuHandle) {
-                        glBindTextureUnit(MeshShader::SpecMap, specularMap->gpuHandle);
-                    }
+                        while (mesh) {
+                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
-                    glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
+                            glEnableVertexAttribArray(0);
+                            glEnableVertexAttribArray(1);
+                            glEnableVertexAttribArray(2);
 
-                    auto* mesh = data->mesh;
+                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
 
-                    while (mesh) {
-                        glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
 
-                        glEnableVertexAttribArray(0);
-                        glEnableVertexAttribArray(1);
-                        glEnableVertexAttribArray(2);
+                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
 
-                        u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                        u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                            mesh = mesh->next;
+                        }
+                    } else if (data->material.workflow == Material::Phong) {
+                        auto meshProg = renderer->shaders.Mesh;
 
-                        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+                        auto diffuseMap = GetTexture(assetManager, data->material.phong.diffuse);
+                        if (diffuseMap) {
+                            glUseProgram(meshProg);
+                            auto specularMap = GetTexture(assetManager, data->material.phong.specular);
 
-                        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+                            if (diffuseMap) {
+                                glBindTextureUnit(MeshShader::DiffMap, diffuseMap->gpuHandle);
+                            }
+                            if (specularMap && specularMap->gpuHandle) {
+                                glBindTextureUnit(MeshShader::SpecMap, specularMap->gpuHandle);
+                            }
 
-                        glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-                        mesh = mesh->next;
-                    }
-                } else if (data->material.workflow == Material::PBRMetallic ||
-                           data->material.workflow == Material::PBRSpecular ||
-                           data->material.workflow == Material::PBRMetallicCustom) {
-                    assert(group->irradanceMapHandle);
-                    auto meshProg = renderer->shaders.PbrMesh;
-                    glUseProgram(meshProg);
+                            glBindTextureUnit(MeshShader::ShadowMap, renderer->shadowMapDepthTarget);
+                        } else {
+                            // Usinig fallback material
+                            auto fallbackProg = renderer->shaders.MeshPhongCustom;
+                            glUseProgram(fallbackProg);
+                            glBindTextureUnit(MeshPhongCustomShader::ShadowMap, renderer->shadowMapDepthTarget);
+                            auto meshBuffer = Map(renderer->meshUniformBuffer);
+                            meshBuffer->customPhongDiffuse = renderer->fallbackMaterial.phongCustom.diffuse;
+                            meshBuffer->customPhongSpecular = renderer->fallbackMaterial.phongCustom.specular;
+                            Unmap(renderer->meshUniformBuffer);
+                        }
 
-                    auto m = &data->material;
+                        m3x3 normalMatrix = MakeNormalMatrix(data->transform);
 
-                    auto normalMatrix = MakeNormalMatrix(data->transform);
+                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+                        meshBuffer->modelMatrix = data->transform;
+                        meshBuffer->normalMatrix = normalMatrix;
+                        Unmap(renderer->meshUniformBuffer);
 
-                    auto meshBuffer = Map(renderer->meshUniformBuffer);
-                    meshBuffer->modelMatrix = data->transform;
-                    meshBuffer->normalMatrix = normalMatrix;
+                        while (mesh) {
+                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
-                    if (m->workflow == Material::PBRMetallicCustom) {
-                        meshBuffer->metallicWorkflow = 1;
-                        meshBuffer->customMaterial = 1;
-                        meshBuffer->customAlbedo = m->pbrMetallicCustom.albedo;
-                        meshBuffer->customRoughness = m->pbrMetallicCustom.roughness;
-                        meshBuffer->customMetalness = m->pbrMetallicCustom.metallic;
-                    } else {
+                            glEnableVertexAttribArray(0);
+                            glEnableVertexAttribArray(1);
+                            glEnableVertexAttribArray(2);
+
+                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+
+                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+
+                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+
+                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                            mesh = mesh->next;
+                        }
+                    } else if (data->material.workflow == Material::PBRMetallic ||
+                               data->material.workflow == Material::PBRSpecular ||
+                               data->material.workflow == Material::PBRMetallicCustom) {
+                        assert(group->irradanceMapHandle);
+
+                        auto meshProg = renderer->shaders.PbrMesh;
+                        glUseProgram(meshProg);
+
+                        auto meshBuffer = Map(renderer->meshUniformBuffer);
+
+                        // TODO: Are they need to be binded every shader invocation?
+                        glBindTextureUnit(MeshPBRShader::IrradanceMap, group->irradanceMapHandle);
+                        glBindTextureUnit(MeshPBRShader::EnviromentMap, group->envMapHandle);
+                        glBindTextureUnit(MeshPBRShader::ShadowMap, renderer->shadowMapDepthTarget);
+
+                        auto m = &data->material;
+
                         meshBuffer->customMaterial = 0;
-                        if (m->workflow == Material::PBRMetallic) {
+
+                        // Getting materials
+                        switch (m->workflow) {
+                        case Material::PBRMetallicCustom: {
                             meshBuffer->metallicWorkflow = 1;
+                            meshBuffer->customMaterial = 1;
+                            meshBuffer->customAlbedo = m->pbrMetallicCustom.albedo;
+                            meshBuffer->customRoughness = m->pbrMetallicCustom.roughness;
+                            meshBuffer->customMetalness = m->pbrMetallicCustom.metallic;
+                        } break;
+                        case Material::PBRMetallic: {
+                            meshBuffer->metallicWorkflow = 1;
+
+                            auto albedoMap = GetTexture(assetManager, m->pbrMetallic.albedo);
                             auto roughMap = GetTexture(assetManager, m->pbrMetallic.roughness);
                             auto metallicMap = GetTexture(assetManager, m->pbrMetallic.metallic);
-                            if (roughMap) {
-                                glBindTextureUnit(MeshPBRShader::RoughnessMap, roughMap->gpuHandle);
-                            } else {
-                                // TODO: Log - missing texture
-                            }
-                            if (metallicMap) {
-                                glBindTextureUnit(MeshPBRShader::MetalnessMap, metallicMap->gpuHandle);
-                            } else {
-                                // TODO: Log - missing texture
-                            }
-                        } else if (m->workflow == Material::PBRSpecular) {
+                            auto normalMap = GetTexture(assetManager, m->pbrMetallic.normals);
+
+                            auto albedoHandle = albedoMap ? albedoMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::AlbedoMap, albedoHandle);
+
+                            auto roughHandle = roughMap ? roughMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::RoughnessMap, roughHandle);
+
+                            auto metallicHandle = metallicMap ? metallicMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::MetallicMap, metallicHandle);
+
+                            auto normalHandle = normalMap ? normalMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::NormalMap, normalHandle);
+                        } break;
+                        case Material::PBRSpecular: {
                             meshBuffer->metallicWorkflow = 0;
-                            auto specMap = GetTexture(assetManager, m->pbrSpecular.specular);
+
+                            auto albedoMap = GetTexture(assetManager, m->pbrMetallic.albedo);
+                            auto specularMap = GetTexture(assetManager, m->pbrSpecular.specular);
                             auto glossMap = GetTexture(assetManager, m->pbrSpecular.gloss);
-                            if (specMap) {
-                                glBindTextureUnit(MeshPBRShader::SpecularMap, specMap->gpuHandle);
-                            } else {
-                                // TODO: Log - missing texture
-                            }
-                            if (glossMap) {
-                                glBindTextureUnit(MeshPBRShader::GlossMap, glossMap->gpuHandle);
-                            } else {
-                                // TODO: Log - missing texture
-                            }
-                        } else {
-                            unreachable();
+                            auto normalMap = GetTexture(assetManager, m->pbrMetallic.normals);
+
+                            auto albedoHandle = albedoMap ? albedoMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::AlbedoMap, albedoHandle);
+
+                            auto specularHandle = specularMap ? specularMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::SpecularMap, specularHandle);
+
+                            auto glossHandle = glossMap ? glossMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::GlossMap, glossHandle);
+
+                            auto normalHandle = normalMap ? normalMap->gpuHandle : renderer->nullTexture2D;
+                            glBindTextureUnit(MeshPBRShader::NormalMap, normalHandle);
+                        } break;
+                            invalid_default();
                         }
 
-                        if (m->workflow == Material::PBRMetallic) {
-                            auto albedo = GetTexture(assetManager, m->pbrMetallic.albedo);
-                            auto normals = GetTexture(assetManager, m->pbrMetallic.normals);
-                            if (albedo) {
-                                glBindTextureUnit(MeshPBRShader::AlbedoMap, albedo->gpuHandle);
-                            }
-                            if (normals) {
-                                glBindTextureUnit(MeshPBRShader::NormalMap, normals->gpuHandle);
-                            }
-
-                        } else if (m->workflow == Material::PBRSpecular) {
-                            auto albedo = GetTexture(assetManager, m->pbrSpecular.albedo);
-                            auto normals = GetTexture(assetManager, m->pbrSpecular.normals);
-                            if (albedo) {
-                                glBindTextureUnit(MeshPBRShader::AlbedoMap, albedo->gpuHandle);
-                            }
-                            if (normals) {
-                                glBindTextureUnit(MeshPBRShader::NormalMap, normals->gpuHandle);
-                            }
-                        }
                         glBindTextureUnit(MeshPBRShader::BRDFLut, renderer->BRDFLutHandle);
 
+                        auto normalMatrix = MakeNormalMatrix(data->transform);
+                        meshBuffer->modelMatrix = data->transform;
+                        meshBuffer->normalMatrix = normalMatrix;
+
+                        Unmap(renderer->meshUniformBuffer);
+
+                        while (mesh) {
+                            glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
+
+                            glEnableVertexAttribArray(0);
+                            glEnableVertexAttribArray(1);
+                            glEnableVertexAttribArray(2);
+                            glEnableVertexAttribArray(3);
+
+                            u64 normalsOffset = mesh->vertexCount * sizeof(v3);
+                            u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
+                            u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
+
+                            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+                            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
+                            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
+                            glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
+
+                            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
+
+                            glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
+                            mesh = mesh->next;
+                        }
+                    } else {
+                        unreachable();
                     }
-                    Unmap(renderer->meshUniformBuffer);
-
-                    // TODO: Are they need to be binded every shader invocation?
-                    glBindTextureUnit(MeshPBRShader::IrradanceMap, group->irradanceMapHandle);
-                    glBindTextureUnit(MeshPBRShader::EnviromentMap, group->envMapHandle);
-                    glBindTextureUnit(MeshPBRShader::ShadowMap, renderer->shadowMapDepthTarget);
-
-                    auto* mesh = data->mesh;
-
-                    while (mesh) {
-                        glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
-
-                        glEnableVertexAttribArray(0);
-                        glEnableVertexAttribArray(1);
-                        glEnableVertexAttribArray(2);
-                        glEnableVertexAttribArray(3);
-
-                        u64 normalsOffset = mesh->vertexCount * sizeof(v3);
-                        u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
-                        u64 tangentsOffset = uvsOffset + mesh->vertexCount * sizeof(v2);
-
-                        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-                        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
-                        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
-                        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
-
-                        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
-
-                        glDrawElements(GL_TRIANGLES, mesh->indexCount, GL_UNSIGNED_INT, 0);
-                        mesh = mesh->next;
-                    }
-                } else {
-                    unreachable();
                 }
             } break;
-
             }
         }
         Reset(group);

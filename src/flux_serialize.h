@@ -36,6 +36,10 @@ struct StoredMaterial {
             f32 roughness;
             f32 metallic;
         } pbrMetallicCustom;
+        struct {
+            v3 diffuse;
+            v3 specular;
+        } phongCustom;
     };
 };
 

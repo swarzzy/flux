@@ -42,6 +42,10 @@ struct MeshShader {
     static constexpr u32 ShadowMap = 2;
 };
 
+struct MeshPhongCustomShader {
+    static constexpr u32 ShadowMap = 0;
+};
+
 struct MeshPBRShader {
     static constexpr u32 IrradanceMap = 0;
     static constexpr u32 EnviromentMap = 1;
@@ -49,7 +53,7 @@ struct MeshPBRShader {
     static constexpr u32 AlbedoMap = 3;
     static constexpr u32 NormalMap = 4;
     static constexpr u32 RoughnessMap = 5;
-    static constexpr u32 MetalnessMap = 6;
+    static constexpr u32 MetallicMap = 6;
     static constexpr u32 SpecularMap = 7;
     static constexpr u32 GlossMap = 8;
     static constexpr u32 ShadowMap = 9;
@@ -124,6 +128,8 @@ struct layout_std140 ShaderMeshData {
     std140_vec3 customAlbedo;
     std140_float customRoughness;
     std140_float customMetalness;
+    std140_vec3 customPhongDiffuse;
+    std140_vec3 customPhongSpecular;
 };
 
 struct layout_std140 ChunkFragUniformBuffer {

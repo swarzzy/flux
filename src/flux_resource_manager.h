@@ -105,6 +105,7 @@ const char* ToString(TextureWrapMode value) {
 }
 
 struct Texture {
+    void* base;
     TextureFilter filter;
     TextureFormat format;
     TextureWrapMode wrapMode;
@@ -276,6 +277,12 @@ struct AddAssetResult {
 void GetAssetName(const char* filename, AssetName* name);
 AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileFormat format);
 AddAssetResult AddTexture(AssetManager* manager, const char* filename, TextureFormat format = TextureFormat::Unknown, TextureWrapMode wrapMode = TextureWrapMode::Default, TextureFilter filter = TextureFilter::Default, DynamicRange range = DynamicRange::LDR);
+
+void UnloadMesh(AssetManager* manager, u32 id);
+void RemoveMesh(AssetManager* manager, u32 id);
+
+void UnloadTexture(AssetManager* manager, u32 id);
+void RemoveTexture(AssetManager* manager, u32 id);
 
 // TODO: Clean this thing with slots and pointers up
 // Many of callers wants to know filename or name

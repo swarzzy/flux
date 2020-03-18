@@ -21,7 +21,7 @@ hash_bucket_teamplate* FindEntry(hash_map_template* map, Key* key, bool searchFo
         if (searchForEmpty && (!entry->used)) {
             result = entry;
             break;
-        } else if (CompareFunction(key, &entry->key)) {
+        } else if (entry->used && CompareFunction(key, &entry->key)) {
             result = entry;
             break;
         }

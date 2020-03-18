@@ -209,7 +209,7 @@ void FluxUpdate(Context* context) {
             if (mesh) {
                 RenderCommandDrawMesh command = {};
                 command.transform = entity.transform;
-                command.mesh = mesh;
+                command.meshID = entity.mesh;
                 command.material = entity.material;
                 Push(group, &command);
                 if (context->ui.showBoundingVolumes) {
@@ -223,7 +223,7 @@ void FluxUpdate(Context* context) {
     }
 
     Begin(renderer, group);
-    ShadowPass(renderer, group);
+    ShadowPass(renderer, group, assetManager);
     MainPass(renderer, group, assetManager);
     End(renderer);
 

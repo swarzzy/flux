@@ -23,13 +23,16 @@ void ChangeRenderResolution(Renderer* renderer, uv2 newRes);
 struct RenderGroup;
 
 void Begin(Renderer* renderer, RenderGroup* group);
-void ShadowPass(Renderer* renderer, RenderGroup* group);
+void ShadowPass(Renderer* renderer, RenderGroup* group, AssetManager* manager);
 void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* manager);
 void End(Renderer* renderer);
 
 void UploadToGPU(CubeTexture* texture);
 void UploadToGPU(Mesh* mesh);
 void UploadToGPU(Texture* texture);
+
+void FreeGPUBuffer(u32 id);
+void FreeGPUTexture(u32 id);
 
 TexTransferBufferInfo GetTextureTransferBuffer(Renderer* renderer, u32 size);
 void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture);

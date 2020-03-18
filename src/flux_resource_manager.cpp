@@ -366,6 +366,8 @@ Texture LoadTextureFromFile(const char* filename, TextureFormat format, TextureW
         format = GuessTexFormatFromNumChannels(image->channels);
     }
 
+    // TODO: Store texture struct in memory chunk
+    t.base = image;
     t.format = format;
     t.width = image->width;
     t.height = image->height;
@@ -662,6 +664,57 @@ void LoadMesh(AssetManager* manager, u32 id) {
 
             PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadMeshWork);
         }
+    }
+}
+
+void UnloadMesh(AssetManager* manager, MeshSlot* slot) {
+    if (slot->state == AssetState::Loaded) {
+        FreeGPUBuffer(slot->mesh->gpuVertexBufferHandle);
+        FreeGPUBuffer(slot->mesh->gpuIndexBufferHandle);
+        PlatformFree(slot->mesh->base);
+        slot->mesh = nullptr;
+        slot->state = AssetState::Unloaded;
+    }
+}
+
+void UnloadMesh(AssetManager* manager, u32 id) {
+    auto slot = GetMeshSlot(manager, id);
+    if (slot) {
+        UnloadMesh(manager, slot);
+    }
+}
+
+void RemoveMesh(AssetManager* manager, u32 id) {
+    auto slot = GetMeshSlot(manager, id);
+    if (slot && slot->state == AssetState::Loaded) {
+        UnloadMesh(manager, slot);
+        RemoveName(&manager->nameTable, slot->name);
+        Delete(&manager->meshTable, &id);
+    }
+}
+
+void UnloadTexture(AssetManager* manager, TextureSlot* slot) {
+    if (slot->state == AssetState::Loaded) {
+        FreeGPUTexture(slot->texture.gpuHandle);
+        PlatformFree(slot->texture.base);
+        slot->texture = {};
+        slot->state = AssetState::Unloaded;
+    }
+}
+
+void UnloadTexture(AssetManager* manager, u32 id) {
+    auto slot = GetTextureSlot(manager, id);
+    if (slot) {
+        UnloadTexture(manager, slot);
+    }
+}
+
+void RemoveTexture(AssetManager* manager, u32 id) {
+    auto slot = GetTextureSlot(manager, id);
+    if (slot && slot->state == AssetState::Loaded) {
+        UnloadTexture(manager, slot);
+        RemoveName(&manager->nameTable, slot->name);
+        Delete(&manager->textureTable, &id);
     }
 }
 

@@ -84,6 +84,10 @@ StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
         result.pbrMetallicCustom.roughness = m->pbrMetallicCustom.roughness;
         result.pbrMetallicCustom.metallic = m->pbrMetallicCustom.metallic;
     } break;
+    case Material::PhongCustom: {
+        result.phongCustom.diffuse = m->phongCustom.diffuse;
+        result.phongCustom.specular = m->phongCustom.specular;
+    }
     invalid_default();
     }
     return result;
@@ -175,6 +179,10 @@ Material LoadMaterial(AssetManager* assetManager, StoredMaterial* stored) {
         mat.pbrMetallicCustom.roughness = stored->pbrMetallicCustom.roughness;
         mat.pbrMetallicCustom.metallic = stored->pbrMetallicCustom.metallic;
     } break;
+    case Material::PhongCustom: {
+        mat.phongCustom.diffuse = stored->phongCustom.diffuse;
+        mat.phongCustom.specular = stored->phongCustom.specular;
+    }
     invalid_default();
     }
     return mat;

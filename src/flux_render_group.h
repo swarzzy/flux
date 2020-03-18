@@ -30,7 +30,7 @@ struct RenderCommandDrawWater {
 
 struct RenderCommandDrawMesh {
     m4x4 transform;
-    Mesh* mesh;
+    u32 meshID;
     // TODO: Pointer?
     Material material;
     enum DrawMeshFlags : u32 { Highlight, Wireframe } flags;
