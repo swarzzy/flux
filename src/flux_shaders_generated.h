@@ -86,6 +86,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -192,6 +193,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -502,6 +504,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -588,6 +591,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -870,6 +874,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -956,6 +961,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -1235,6 +1241,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -1318,6 +1325,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -1414,6 +1422,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -1809,8 +1818,15 @@ void main()
     {
          vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;
          N = normalize(n);
-         // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
-         N.y = -N.y;
+         if (MeshData.normalFormat == 0)
+         {
+            // OpenGL format
+         }
+         else
+         {
+             // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
+             N.y = -N.y;
+         }
          N = normalize(fragIn.tbn * N);
          vec3 albedo = texture(AlbedoMap, fragIn.uv).xyz;
          float roughness = texture(RoughnessMap, fragIn.uv).r;
@@ -1901,6 +1917,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -1977,6 +1994,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -2049,6 +2067,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -2161,6 +2180,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -2278,6 +2298,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -2614,6 +2635,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -2795,6 +2817,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)
@@ -2912,6 +2935,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)

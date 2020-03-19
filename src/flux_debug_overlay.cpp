@@ -17,7 +17,7 @@ void DrawDebugPerformanceCounters() {
     ImGui::End();
 }
 
-static const auto DebugOverlayFlags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+static const auto DebugOverlayFlags = 0;//ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 //ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoDecoration
 
 void BeginDebugOverlay() {

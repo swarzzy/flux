@@ -1225,13 +1225,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, in
     assert(codeLoaded, "Failed to load game lib");
 
     IMGUI_CHECKVERSION();
+    ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, 0);
     app->state.imguiContext = ImGui::CreateContext();
     assert(app->state.imguiContext);
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, 0);
 
     ImGui::StyleColorsDark();
     io.IniFilename = 0;

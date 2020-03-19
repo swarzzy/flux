@@ -172,37 +172,13 @@ void* PlatformAllocClear(uptr size) {
 
 void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size); memset(ptr, 0, num * size); return ptr; }
 
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "../ext/imgui/imgui.h"
 
 void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
 void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr); }
 
-void ImGuiMainDockSpaceBagin() {
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->Pos);
-    ImGui::SetNextWindowSize(viewport->Size);
-    ImGui::SetNextWindowViewport(viewport->ID);
-    ImGui::SetNextWindowBgAlpha(0.0f);
-
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    bool p_open;
-    ImGui::Begin("DockSpace Demo", &p_open, window_flags);
-    ImGui::PopStyleVar(3);
-
-    ImGuiID dockspaceId = ImGui::GetID("Main dockspace");
-    auto dockspaceFlags = ImGuiDockNodeFlags_PassthruCentralNode;
-    ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), dockspaceFlags);
-}
-
-void ImGuiMainDockSpaceEnd() {
-    ImGui::End();
-}
+#include "../ext/imgui/imgui_internal.h"
 
 extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void** data) {
     switch (reason) {
@@ -244,9 +220,7 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         FluxReload(context);
     } break;
     case GameInvoke::Update: {
-        ImGuiMainDockSpaceBagin();
         FluxUpdate((Context*)(*data));
-        ImGuiMainDockSpaceEnd();
     } break;
     case GameInvoke::Render: {
         FluxRender((Context*)(*data));

@@ -130,6 +130,7 @@ struct layout_std140 ShaderMeshData {
     std140_float customMetalness;
     std140_vec3 customPhongDiffuse;
     std140_vec3 customPhongSpecular;
+    std140_int normalFormat;
 };
 
 struct layout_std140 ChunkFragUniformBuffer {

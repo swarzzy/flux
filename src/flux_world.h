@@ -2,6 +2,19 @@
 #include "flux_resource_manager.h"
 #include "flux_hash_map.h"
 
+enum struct NormalFormat {
+    OpenGL = 0, DirectX
+};
+
+const char* ToString(NormalFormat value) {
+    static const char* strings[] = {
+        "OpenGL",
+        "DirectX"
+    };
+    assert((u32)value < array_count(strings));
+    return strings[(u32)value];
+}
+
 struct Material {
     enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom, PhongCustom } workflow;
     union {
@@ -14,12 +27,14 @@ struct Material {
             u32 roughness;
             u32 metallic;
             u32 normals;
+            NormalFormat normalFormat;
         } pbrMetallic;
         struct {
             u32 albedo;
             u32 specular;
             u32 gloss;
             u32 normals;
+            NormalFormat normalFormat;
         } pbrSpecular;
         struct {
             v3 albedo;
@@ -62,7 +77,7 @@ struct World {
     u32 nextEntitySerialNumber = 1;
     u32 entityCount;
     HashMap<u32, Entity, Hasher, Comparator> entityTable = HashMap<u32, Entity, Hasher, Comparator>::Make();
-    char name[128];
+    char name[WorldNameSize];
 };
 
 

@@ -1,4 +1,5 @@
 #include "flux_ui.h"
+#include "../ext/imgui/imgui_internal.h"
 
 void DrawMenu(Ui* ui) {
     ImGui::BeginMainMenuBar();
@@ -357,6 +358,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         entity->material.pbrMetallic.roughness = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.roughness, "roughness map");
                         entity->material.pbrMetallic.metallic = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.metallic, "metallic map");
                         entity->material.pbrMetallic.normals = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.normals, "normal map");
+                        if (ImGui::BeginCombo("Normal format select", ToString(entity->material.pbrMetallic.normalFormat))) {
+                            if (ImGui::Selectable("OpenGL", entity->material.pbrMetallic.normalFormat == NormalFormat::OpenGL)) {
+                                entity->material.pbrMetallic.normalFormat = NormalFormat::OpenGL;
+                            }
+                            if (ImGui::Selectable("DirectX", entity->material.pbrMetallic.normalFormat == NormalFormat::DirectX)) {
+                                entity->material.pbrMetallic.normalFormat = NormalFormat::DirectX;
+                            }
+                            ImGui::EndCombo();
+                        }
+
                     } break;
                     case Material::PBRMetallicCustom: {
                         ImGui::ColorEdit3("albedo", entity->material.pbrMetallicCustom.albedo.data);
@@ -457,9 +468,81 @@ bool IsKeyboardCapturedByUI() {
     return result;
 }
 
+
+// NOTE: Reference https://github.com/ocornut/imgui/issues/2109#issuecomment-430096134
+void DrawTestDock() {
+    bool open = true;
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->Pos);
+    ImGui::SetNextWindowSize(viewport->Size);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("Main dockspace window", &open, window_flags);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
+
+
+    if (ImGui::DockBuilderGetNode(ImGui::GetID("MainDockspace")) == NULL) {
+        ImGuiID dockspace_id = ImGui::GetID("MainDockspace");
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::DockBuilderRemoveNode(dockspace_id); // Clear out existing layout
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace); // Add empty node
+        ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
+
+        ImGuiID dock_main_id = dockspace_id; // This variable will track the document node, however we are not using it here as we aren't docking anything into it.a
+        ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.15f, NULL, &dock_main_id);
+        ImGuiID dock_id_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, NULL, &dock_main_id);
+        ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.20f, NULL, &dock_main_id);
+
+        ImGui::DockBuilderDockWindow("Entity lister", dock_id_left);
+        ImGui::DockBuilderDockWindow("Entity inspector", dock_id_right);
+        ImGui::DockBuilderDockWindow("Asset manager", dock_id_right);
+        //ImGui::DockBuilderDockWindow("Debug overlay", dock_id_bottom);
+        ImGui::DockBuilderFinish(dockspace_id);
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_DockingEmptyBg, 0);
+    ImGuiID dockspace_id = ImGui::GetID("MainDockspace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGui::PopStyleColor();
+    ImGui::End();
+}
+
 void UpdateUi(Context* context) {
     auto ui = &context->ui;
     auto world = context->world;
+
+    DrawTestDock();
+#if 0
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    auto dockspace_size = viewport->Size;
+
+    ImGuiID dockspace_id = ImGui::GetID("Main dockspace");
+    ImGui::DockBuilderRemoveNode(dockspace_id); // Clear out existing layout
+    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace); // Add empty node
+    ImGui::DockBuilderSetNodeSize(dockspace_id, dockspace_size);
+
+    ImGuiID dock_main_id = dockspace_id; // This variable will track the document node, however we are not using it here as we aren't docking anything into it.
+    ImGuiID dock_id_prop = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, NULL, &dock_main_id);
+    ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.20f, NULL, &dock_main_id);
+
+    ImGui::DockBuilderDockWindow("Entity inspector", dock_id_prop);
+    ImGui::DockBuilderFinish(dockspace_id);
+#endif
+    //auto mainDockID = ImGui::GetID("Main dockspace");
+
+    //auto dockRight = ImGui::DockBuilderSplitNode(mainDockID, ImGuiDir_Right, 0.2f, nullptr, &mainDockID);
+    //ImGui::DockBuilderDockWindow("Entity inspector", dockRight);
+
+    //ImGui::DockBuilderFinish(mainDockID);
 
     DrawMenu(ui);
 

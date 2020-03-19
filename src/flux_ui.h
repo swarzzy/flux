@@ -1,8 +1,8 @@
 #pragma once
 
 struct Ui {
-    b32 entityListerOpen;
-    b32 entityInspectorOpen;
+    b32 entityListerOpen = 1;
+    b32 entityInspectorOpen = 1;
     b32 assetManagerOpen;
     b32 uniformEntityScale;
     b32 wantsAddEntity;
@@ -10,7 +10,7 @@ struct Ui {
     b32 wantsLoadLoadFrom;
     b32 wantsSaveAs;
     u32 showBoundingVolumes;
-    u32 showDebugOverlay = 1;
+    u32 showDebugOverlay;
     u32 selectedEntity;
     u32 selectedMesh;
     u32 selectedTexture;

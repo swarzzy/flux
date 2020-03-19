@@ -44,6 +44,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     float customMetalness;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
+    int normalFormat;
 } MeshData;
 
 float saturate(float x)

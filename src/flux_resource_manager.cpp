@@ -686,7 +686,7 @@ void UnloadMesh(AssetManager* manager, u32 id) {
 
 void RemoveMesh(AssetManager* manager, u32 id) {
     auto slot = GetMeshSlot(manager, id);
-    if (slot && slot->state == AssetState::Loaded) {
+    if (slot && (slot->state == AssetState::Loaded || slot->state == AssetState::Unloaded)) {
         UnloadMesh(manager, slot);
         RemoveName(&manager->nameTable, slot->name);
         Delete(&manager->meshTable, &id);
@@ -711,7 +711,7 @@ void UnloadTexture(AssetManager* manager, u32 id) {
 
 void RemoveTexture(AssetManager* manager, u32 id) {
     auto slot = GetTextureSlot(manager, id);
-    if (slot && slot->state == AssetState::Loaded) {
+    if (slot && (slot->state == AssetState::Loaded || slot->state == AssetState::Unloaded)) {
         UnloadTexture(manager, slot);
         RemoveName(&manager->nameTable, slot->name);
         Delete(&manager->textureTable, &id);

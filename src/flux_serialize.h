@@ -24,12 +24,14 @@ struct StoredMaterial {
             StoredTexture roughness;
             StoredTexture metallic;
             StoredTexture normals;
+            u32 normalsFormat;
         } pbrMetallic;
         struct {
             StoredTexture albedo;
             StoredTexture specular;
             StoredTexture gloss;
             StoredTexture normals;
+            u32 normalsFormat;
         } pbrSpecular;
         struct {
             v3 albedo;
@@ -56,5 +58,6 @@ struct WorldFile {
     u32 nextEntitySerialNumber;
     u32 entityCount;
     u32 firstEntityOffset;
+    char name[WorldNameSize];
 };
 #pragma pack(pop)

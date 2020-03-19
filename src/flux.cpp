@@ -12,18 +12,6 @@ void Work(void* data, u32 id) {
 
 void FluxInit(Context* context) {
     AssetManager::Init(&context->assetManager, context->renderer);
-    context->world = (World*)PlatformAlloc(sizeof(World));
-    *context->world = {};
-
-    auto world = context->world;
-
-    strcpy_s(context->world->name, array_count(context->world->name), "dummy_world");
-
-    auto assetManager = &context->assetManager;
-
-    AddMesh(assetManager, "../res/meshes/plate.aab", MeshFileFormat::AAB);
-    AddMesh(assetManager, "../res/meshes/sphere.aab", MeshFileFormat::AAB);
-    AddMesh(assetManager, "../res/meshes/backpack_low.mesh", MeshFileFormat::Flux);
 
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
@@ -42,56 +30,73 @@ void FluxInit(Context* context) {
     GenIrradanceMap(context->renderer, &context->irradanceMap, context->hdrMap.gpuHandle);
     GenEnvPrefiliteredMap(context->renderer, &context->enviromentMap, context->hdrMap.gpuHandle, 6);
 
-    auto checkerboardEntityID = AddEntity(context->world)->id;
-    auto backpackEntityID = AddEntity(context->world)->id;
-    auto sphereEntityID = AddEntity(context->world)->id;
+    auto defaultWorld = LoadWorldFromDisc(&context->assetManager, DefaultWorldW);
+    if (defaultWorld) {
+        wprintf(L"[Flux] Loaded default world: %ls", DefaultWorldW);
+        context->world = defaultWorld;
+    } else {
+        context->world = (World*)PlatformAlloc(sizeof(World));
+        *context->world = {};
+        strcpy_s(context->world->name, array_count(context->world->name), DefaultWorld);
 
-    u32 oldMetalAlbedoId = AddAlbedoMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-albedo.png").Unwrap();
-    u32 oldMetalRoughId = AddRoughnessMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-roughness.png").Unwrap();
-    u32 oldMetalMetallicId = AddMetallicMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-metal.png").Unwrap();
-    u32 oldMetalNormalId = AddNormalMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-normal.png").Unwrap();
+        auto world = context->world;
+        auto assetManager = &context->assetManager;
 
-    u32 backpackAlbedoId = AddAlbedoMap(assetManager, "../res/materials/backpack/albedo.png").Unwrap();
-    u32 backpackRoughId = AddRoughnessMap(assetManager, "../res/materials/backpack/rough.png").Unwrap();
-    u32 backpackMetallicId = AddMetallicMap(assetManager, "../res/materials/backpack/metallic.png").Unwrap();
-    u32 backpackNormalId = AddNormalMap(assetManager, "../res/materials/backpack/normal.png").Unwrap();
+        AddMesh(assetManager, "../res/meshes/plate.aab", MeshFileFormat::AAB);
+        AddMesh(assetManager, "../res/meshes/sphere.aab", MeshFileFormat::AAB);
+        AddMesh(assetManager, "../res/meshes/backpack_low.mesh", MeshFileFormat::Flux);
 
-    u32 checkerboardID = AddPhongTexture(assetManager, "../res/checkerboard.jpg").Unwrap();
+        auto checkerboardEntityID = AddEntity(context->world)->id;
+        auto backpackEntityID = AddEntity(context->world)->id;
+        auto sphereEntityID = AddEntity(context->world)->id;
 
-    Material oldMetal = {};
-    oldMetal.workflow = Material::PBRMetallic;
-    oldMetal.pbrMetallic.albedo = oldMetalAlbedoId;
-    oldMetal.pbrMetallic.roughness = oldMetalRoughId;
-    oldMetal.pbrMetallic.metallic = oldMetalMetallicId;
-    oldMetal.pbrMetallic.normals = oldMetalNormalId;
+        u32 oldMetalAlbedoId = AddAlbedoMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-albedo.png").Unwrap();
+        u32 oldMetalRoughId = AddRoughnessMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-roughness.png").Unwrap();
+        u32 oldMetalMetallicId = AddMetallicMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-metal.png").Unwrap();
+        u32 oldMetalNormalId = AddNormalMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-normal.png").Unwrap();
 
-    Material backpack = {};
-    backpack.workflow = Material::PBRMetallic;
-    backpack.pbrMetallic.albedo = backpackAlbedoId;
-    backpack.pbrMetallic.roughness = backpackRoughId;
-    backpack.pbrMetallic.metallic = backpackMetallicId;
-    backpack.pbrMetallic.normals = backpackNormalId;
+        u32 backpackAlbedoId = AddAlbedoMap(assetManager, "../res/materials/backpack/albedo.png").Unwrap();
+        u32 backpackRoughId = AddRoughnessMap(assetManager, "../res/materials/backpack/rough.png").Unwrap();
+        u32 backpackMetallicId = AddMetallicMap(assetManager, "../res/materials/backpack/metallic.png").Unwrap();
+        u32 backpackNormalId = AddNormalMap(assetManager, "../res/materials/backpack/normal.png").Unwrap();
 
-    Material checkerboard = {};
-    checkerboard.workflow = Material::Phong;
-    checkerboard.phong.diffuse = checkerboardID;
+        u32 checkerboardID = AddPhongTexture(assetManager, "../res/checkerboard.jpg").Unwrap();
 
-    auto checkerboardEntity = GetEntity(world, checkerboardEntityID);
-    checkerboardEntity->mesh = GetID(&assetManager->nameTable, "plate");
-    assert(checkerboardEntity->mesh);
-    checkerboardEntity->material = checkerboard;
+        Material oldMetal = {};
+        oldMetal.workflow = Material::PBRMetallic;
+        oldMetal.pbrMetallic.albedo = oldMetalAlbedoId;
+        oldMetal.pbrMetallic.roughness = oldMetalRoughId;
+        oldMetal.pbrMetallic.metallic = oldMetalMetallicId;
+        oldMetal.pbrMetallic.normals = oldMetalNormalId;
 
-    auto backpackEntity = GetEntity(world, backpackEntityID);
-    backpackEntity->p = V3(1.0f);
-    backpackEntity->scale = V3(0.01f);
-    backpackEntity->mesh = GetID(&assetManager->nameTable, "backpack_low");
-    assert(backpackEntity->mesh);
-    backpackEntity->material = backpack;
+        Material backpack = {};
+        backpack.workflow = Material::PBRMetallic;
+        backpack.pbrMetallic.albedo = backpackAlbedoId;
+        backpack.pbrMetallic.roughness = backpackRoughId;
+        backpack.pbrMetallic.metallic = backpackMetallicId;
+        backpack.pbrMetallic.normals = backpackNormalId;
 
-    auto sphereEntity = GetEntity(world, sphereEntityID);
-    sphereEntity->mesh = GetID(&assetManager->nameTable, "sphere");
-    assert(sphereEntity->mesh);
-    sphereEntity->material = oldMetal;
+        Material checkerboard = {};
+        checkerboard.workflow = Material::Phong;
+        checkerboard.phong.diffuse = checkerboardID;
+
+        auto checkerboardEntity = GetEntity(world, checkerboardEntityID);
+        checkerboardEntity->mesh = GetID(&assetManager->nameTable, "plate");
+        assert(checkerboardEntity->mesh);
+        checkerboardEntity->material = checkerboard;
+
+        auto backpackEntity = GetEntity(world, backpackEntityID);
+        backpackEntity->p = V3(1.0f);
+        backpackEntity->scale = V3(0.01f);
+        backpackEntity->mesh = GetID(&assetManager->nameTable, "backpack_low");
+        assert(backpackEntity->mesh);
+        backpackEntity->material = backpack;
+
+        auto sphereEntity = GetEntity(world, sphereEntityID);
+        sphereEntity->mesh = GetID(&assetManager->nameTable, "sphere");
+        assert(sphereEntity->mesh);
+        sphereEntity->material = oldMetal;
+    }
 }
 
 void FluxReload(Context* context) {
@@ -116,7 +121,7 @@ void FluxUpdate(Context* context) {
     Update(&context->camera, GlobalAbsDeltaTime);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    DrawDebugPerformanceCounters();
+    //DrawDebugPerformanceCounters();
 
     UpdateUi(context);
 

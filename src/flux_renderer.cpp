@@ -151,11 +151,8 @@ void CompleteTextureTransfer(TexTransferBufferInfo* info, Texture* texture) {
     auto renderer = info->renderer;
     if (info->ptr) {
         auto bufferHandle = renderer->textureTransferBuffers[info->index];
-        auto begin = PlatformGetTimeStamp();
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, bufferHandle);
         glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-        auto end = PlatformGetTimeStamp();
-        printf("unmap time: %f ms\n", (end - begin) * 1000.0f);
         renderer->textureTransferBuffersUsage[info->index] = false;
         assert(renderer->textureTransferBuffersUsageCount > 0);
         renderer->textureTransferBuffersUsageCount--;
@@ -1087,6 +1084,7 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
                         } break;
                         case Material::PBRMetallic: {
                             meshBuffer->metallicWorkflow = 1;
+                            meshBuffer->normalFormat = m->pbrMetallic.normalFormat == NormalFormat::OpenGL ? 0 : 1;
 
                             auto albedoMap = GetTexture(assetManager, m->pbrMetallic.albedo);
                             auto roughMap = GetTexture(assetManager, m->pbrMetallic.roughness);

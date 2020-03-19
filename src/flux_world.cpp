@@ -88,39 +88,43 @@ StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
         result.phongCustom.diffuse = m->phongCustom.diffuse;
         result.phongCustom.specular = m->phongCustom.specular;
     }
-    invalid_default();
+        invalid_default();
     }
     return result;
 }
 
 bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
-    u32 fileSize = sizeof(World) + sizeof(StoredEntity) * world->entityCount;
-    void* memory = PlatformAlloc(fileSize);
-    defer { PlatformFree(memory); };
-    auto header = (WorldFile*)memory;
-    auto entities = (StoredEntity*)((byte*)memory + sizeof(WorldFile));
+    bool result = false;
+    if (world->name[0]) {
+        u32 fileSize = sizeof(World) + sizeof(StoredEntity) * world->entityCount;
+        void* memory = PlatformAlloc(fileSize);
+        defer { PlatformFree(memory); };
+        auto header = (WorldFile*)memory;
+        auto entities = (StoredEntity*)((byte*)memory + sizeof(WorldFile));
 
-    header->nextEntitySerialNumber = world->nextEntitySerialNumber;
-    header->entityCount = world->entityCount;
-    header->firstEntityOffset = (u32)((uptr)entities - (uptr)memory);
+        header->nextEntitySerialNumber = world->nextEntitySerialNumber;
+        header->entityCount = world->entityCount;
+        header->firstEntityOffset = (u32)((uptr)entities - (uptr)memory);
+        strcpy_s(header->name, array_count(header->name), world->name);
 
-    u32 at = 0;
-    for (Entity& entity : world->entityTable) {
-        assert(at < world->entityCount);
-        auto out = entities + at++;
-        out->id = entity.id;
-        out->p = entity.p;
-        out->scale = entity.scale;
-        auto mesh = GetMeshSlot(manager, entity.mesh);
-        // TODO: Decide what to do when mesh is null
-        if (mesh) {
-            strcpy_s(out->meshFileName, array_count(out->meshFileName), mesh->filename);
-            out->meshFileFormat = (u32)mesh->format;
+        u32 at = 0;
+        for (Entity& entity : world->entityTable) {
+            assert(at < world->entityCount);
+            auto out = entities + at++;
+            out->id = entity.id;
+            out->p = entity.p;
+            out->scale = entity.scale;
+            auto mesh = GetMeshSlot(manager, entity.mesh);
+            // TODO: Decide what to do when mesh is null
+            if (mesh) {
+                strcpy_s(out->meshFileName, array_count(out->meshFileName), mesh->filename);
+                out->meshFileFormat = (u32)mesh->format;
+            }
+            out->material = StoreMaterial(manager, &entity.material);
         }
-        out->material = StoreMaterial(manager, &entity.material);
-    }
 
-    auto result = PlatformDebugWriteFile(filename, memory, fileSize);
+        result = PlatformDebugWriteFile(filename, memory, fileSize);
+    }
     return result;
 }
 
@@ -204,6 +208,8 @@ World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename) {
 
         world->nextEntitySerialNumber = header->nextEntitySerialNumber;
         world->entityCount = header->entityCount;
+        assert(header->name[0]);
+        strcpy_s(world->name, array_count(world->name), header->name);
 
         auto fileEntities = (StoredEntity*)((byte*)fileBuffer + header->firstEntityOffset);
         for (u32 i = 0; i < world->entityCount; i++) {
