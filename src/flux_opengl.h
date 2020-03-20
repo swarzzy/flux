@@ -715,6 +715,7 @@ struct OpenGL
     {
         bool EXT_texture_filter_anisotropic;
         bool ARB_texture_filter_anisotropic;
+        bool ARB_framebuffer_sRGB;
         bool ARB_spirv_extensions;
         struct _ARB_gl_spirv
         {

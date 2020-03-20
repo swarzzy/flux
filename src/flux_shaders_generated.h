@@ -99,6 +99,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 
 layout (location = 0) in vec3 a_Position;
@@ -204,6 +209,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 3
@@ -517,6 +527,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 layout (location = 0) in vec3 Pos;
 layout (location = 1) in vec3 Normal;
@@ -602,6 +617,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 2
@@ -887,6 +907,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 layout (location = 0) in vec3 Pos;
 layout (location = 1) in vec3 Normal;
@@ -972,6 +997,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 2
@@ -1254,6 +1284,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 layout (location = 0) in vec3 Pos;
 
@@ -1336,6 +1371,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 2
@@ -1433,6 +1473,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 3
@@ -1930,6 +1975,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 
 layout (location = 0) in vec3 Position;
@@ -2007,6 +2057,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 
 out vec4 color;
@@ -2078,6 +2133,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 2
@@ -2193,7 +2253,91 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
+#line 100000
+// [ https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve ]
+vec3 ACESFilmApproxTonemap(vec3 x) {
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return saturate((x*(a*x+b))/(x*(c*x+d)+e));
+}
+
+// [ http://filmicworlds.com/blog/filmic-tonemapping-operators/ ]
+vec3 Uncharted2Tonemap(vec3 x) {
+    const float A = 0.22;
+    const float B = 0.30f;
+    const float C = 0.10f;
+    const float D = 0.20f;
+    const float E = 0.01f;
+    const float F = 0.22f;
+    const float W = 11.2f;
+
+    return ((x * (A * x + C * B) + D * E) / ( x * (A * x + B) + D * F)) - E / F;
+}
+
+vec3 Uncharted2TonemapLuminance(vec3 x) {
+    float lum = Luminance(x);
+    float mappedLum = Uncharted2Tonemap(vec3(lum)).r;
+    float lumScale = mappedLum / lum;
+    return x * lumScale;
+}
+
+vec3 ReinhardTonemap(vec3 x) {
+    return vec3(1.0f) - exp(-x);
+}
+
+// [ BakingLab and Stephen Hill ACES filmic tonemapping approximation https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl]
+
+// sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
+const mat3 ACESInputMat = mat3(
+    vec3(0.59719f, 0.35458f, 0.04823f),
+    vec3(0.07600f, 0.90834f, 0.01566f),
+    vec3(0.02840f, 0.13383f, 0.83777f)
+);
+
+// ODT_SAT => XYZ => D60_2_D65 => sRGB
+const mat3 ACESOutputMat = mat3(
+    vec3( 1.60475f, -0.53108f, -0.07367f),
+    vec3(-0.10208f,  1.10813f, -0.00605f),
+    vec3(-0.00327f, -0.07276f,  1.07602f)
+);
+
+vec3 RRTAndODTFit(vec3 v) {
+    vec3 a = v * (v + 0.0245786f) - 0.000090537f;
+    vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+    return a / b;
+}
+
+vec3 ACESFilmStephenHillTonemap(vec3 color) {
+    color = ACESInputMat * color;
+
+    // Apply RRT and ODT
+    color = RRTAndODTFit(color);
+
+    color = ACESOutputMat * color;
+
+    // Clamp to [0, 1]
+    color = saturate(color);
+
+    return color;
+}
+
+vec3 ACESFilmStephenHillTonemapLuminance(vec3 x) {
+    float lum = Luminance(x);
+    float mappedLum = ACESFilmStephenHillTonemap(vec3(lum)).r;
+    float lumScale = mappedLum / lum;
+    return x * lumScale;
+}
+
+#line 3
 
 layout (location = 0) in vec2 UV;
 
@@ -2225,8 +2369,15 @@ vec3 D3DX_RGB_to_SRGB(vec3 rgb)
 void main()
 {
     vec3 hdrSample = texture(ColorSourceLinear, UV).xyz;
-    vec3 ldrSample = vec3(1.0f) - exp(-hdrSample * FrameData.exposure);
-    vec3 resultSample = D3DX_RGB_to_SRGB(ldrSample);
+
+    vec3 ldrSample = ACESFilmApproxTonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = ACESFilmStephenHillTonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = Uncharted2Tonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = ReinhardTonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = Uncharted2TonemapLuminance(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = ACESFilmStephenHillTonemapLuminance(hdrSample * FrameData.exposure);
+
+    vec3 resultSample = D3DX_RGB_to_SRGB(ldrSample * FrameData.exposure);
     fragColorResult = vec4(resultSample, 1.0f);
 }
 )"
@@ -2311,6 +2462,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 layout (location = 0) in vec2 UV;
 
@@ -2318,6 +2474,7 @@ out vec4 fragColorResult;
 
 layout (binding = 0)uniform sampler2D ColorSourcePerceptual;
 
+// TODO: Are these coefficients correct?
 float Luma(vec3 rgb)
 {
     float result = dot(rgb, vec3(0.299f, 0.587f, 0.114f));
@@ -2648,6 +2805,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 
 layout (location = 0) out vec3 UV;
@@ -2830,6 +2992,11 @@ vec3 saturate(vec3 x)
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
 
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}
+
 #line 2
 
 layout (location = 0) out vec3 UV;
@@ -2946,6 +3113,11 @@ float saturate(float x)
 vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
+}
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
 }
 
 #line 2

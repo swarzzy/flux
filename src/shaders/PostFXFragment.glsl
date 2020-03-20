@@ -1,5 +1,6 @@
 #version 450
 #include Common.glh
+#include Tonemapping.glh
 
 layout (location = 0) in vec2 UV;
 
@@ -31,7 +32,14 @@ vec3 D3DX_RGB_to_SRGB(vec3 rgb)
 void main()
 {
     vec3 hdrSample = texture(ColorSourceLinear, UV).xyz;
-    vec3 ldrSample = vec3(1.0f) - exp(-hdrSample * FrameData.exposure);
-    vec3 resultSample = D3DX_RGB_to_SRGB(ldrSample);
+
+    vec3 ldrSample = ACESFilmApproxTonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = ACESFilmStephenHillTonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = Uncharted2Tonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = ReinhardTonemap(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = Uncharted2TonemapLuminance(hdrSample * FrameData.exposure);
+    //vec3 ldrSample = ACESFilmStephenHillTonemapLuminance(hdrSample * FrameData.exposure);
+
+    vec3 resultSample = D3DX_RGB_to_SRGB(ldrSample * FrameData.exposure);
     fragColorResult = vec4(resultSample, 1.0f);
 }

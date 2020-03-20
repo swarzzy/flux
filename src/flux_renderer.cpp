@@ -881,6 +881,8 @@ void ShadowPass(Renderer* renderer, RenderGroup* group, AssetManager* manager) {
 
 void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager) {
 
+    DEBUG_OVERLAY_SLIDER(renderer->gamma, 1.0f, 10.0f);
+    DEBUG_OVERLAY_SLIDER(renderer->exposure, 0.0f, 10.0f);
     bool showShadowCascadesBoundaries = renderer->showShadowCascadesBoundaries;
     DEBUG_OVERLAY_TOGGLE(showShadowCascadesBoundaries);
     renderer->showShadowCascadesBoundaries = showShadowCascadesBoundaries;

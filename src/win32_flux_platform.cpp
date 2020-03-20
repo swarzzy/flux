@@ -110,6 +110,10 @@ OpenGLLoadResult LoadOpenGL()
         {
             context->extensions.ARB_spirv_extensions = true;
         }
+        if (strcmp((const char*)extensionString, "GL_ARB_framebuffer_sRGB") == 0)
+        {
+            context->extensions.ARB_framebuffer_sRGB = true;
+        }
     }
 
     if (!context->extensions.ARB_texture_filter_anisotropic && !context->extensions.EXT_texture_filter_anisotropic)
@@ -124,6 +128,10 @@ OpenGLLoadResult LoadOpenGL()
     {
         printf("[Info] ARB_spirv_extensions is not supported\n");
     }
+    if (!context->extensions.ARB_framebuffer_sRGB)
+    {
+        printf("[Info] ARB_framebuffer_sRGB is not supported\n");
+    }
 
     if (success)
     {
@@ -137,6 +145,11 @@ OpenGLLoadResult LoadOpenGL()
         context->functions.fn.glCullFace(GL_BACK);
         context->functions.fn.glFrontFace(GL_CCW);
         context->functions.fn.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
+        if (context->extensions.ARB_framebuffer_sRGB) {
+            // NOTE: Always enables if supported
+            //context->functions.fn.glEnable(GL_FRAMEBUFFER_SRGB);
+        }
 
         //context->functions._glEnable(GL_BLEND);
         //context->functions._glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -943,7 +956,7 @@ void Win32Init(Win32Context* ctx)
         WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
         WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
         WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
-        //WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE,
+        WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE,
         WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
         WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
         WGL_COLOR_BITS_ARB, 32,

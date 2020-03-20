@@ -56,3 +56,8 @@ vec3 saturate(vec3 x)
 {
   return max(vec3(0.0f), min(vec3(1.0f), x));
 }
+
+// [ Real Time Rendering 4th edition, p.278 ]
+float Luminance(vec3 color) {
+    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
+}

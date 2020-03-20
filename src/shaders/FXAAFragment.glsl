@@ -6,6 +6,7 @@ out vec4 fragColorResult;
 
 layout (binding = 0)uniform sampler2D ColorSourcePerceptual;
 
+// TODO: Are these coefficients correct?
 float Luma(vec3 rgb)
 {
     float result = dot(rgb, vec3(0.299f, 0.587f, 0.114f));
