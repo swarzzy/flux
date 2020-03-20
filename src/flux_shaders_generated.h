@@ -1488,6 +1488,8 @@ vec3 FresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (vec3(1.0f) - F0) * pow(1.0f - cosTheta, 5.0f);
 }
 
+#if 0
+// TODO: Factor NdotH term out
 float DistributionGGX(vec3 N, vec3 H, float a)
 {
     float a4 = a * a * a * a;
@@ -1499,6 +1501,18 @@ float DistributionGGX(vec3 N, vec3 H, float a)
     denom = PI * denom * denom;
 
     return num / max(denom, 0.001f);
+}
+#endif
+
+// [ Moving Frostbite to Physically Based Rendering 3.0. Siggraph 2014. p.12 ]
+float DistributionGGX(vec3 N, vec3 H, float a)
+{
+    float ag = a * a;
+    float ag2 = ag * ag;
+    float NdotH = saturate(dot(N, H));
+
+    float f = (NdotH * ag2 - NdotH) * NdotH + 1;
+    return ag2 / (f * f * PI);
 }
 
 float GeometrySchlickGGX(float NdotV, float a)
@@ -1517,6 +1531,14 @@ float GeometrySmith(float NdotV, float NdotL, float a)
     float ggx2 = GeometrySchlickGGX(NdotL, a);
 
     return ggx1 * ggx2;
+}
+
+// [ Moving Frostbite to Physically Based Rendering 3.0. Siggraph 2014. p.12 ]
+float GeometrySmithGGX(float NdotL, float NdotV, float ag) {
+    float ag2 = ag * ag;
+    float lambdaGGXV = NdotL * sqrt((-NdotV * ag2 + NdotV) * NdotV + ag2);
+    float lambdaGGXL = NdotV * sqrt((-NdotL * ag2 + NdotL) * NdotL + ag2);
+    return 0.5f / (lambdaGGXV + lambdaGGXL); // 1.0f
 }
 
 struct PBR
@@ -1566,18 +1588,20 @@ vec3 Unreal4BRDF(PBR pbr, vec3 L)
 {
     vec3 H = normalize(pbr.V + L);
 
-    // TODO: Adding this to avoid artifacts on edges
-    float NdotV = saturate(dot(pbr.N, pbr.V)); // + 0.000001f; // NOTE: Adding this value (trick from epic games shaders) reduces artifacts on the edges in Intel gpu's but completely brokes everything on nvidia
+    float NdotV = abs(dot(pbr.N, pbr.V)) + 1e-5f; // Adding small value to avoid artifacts on edges
     float NdotL = saturate(dot(pbr.N, L));
-
     float HdotL = saturate(dot(H, L));
+
+    // TODO: Linear roughness vs squared
+    float alphaG = pbr.roughness * pbr.roughness;
+
     vec3 F = FresnelSchlick(HdotL, pbr.F0);
     float D = DistributionGGX(pbr.N, H, pbr.roughness);
     float G = GeometrySmith(NdotV, NdotL, pbr.roughness);
 
     vec3 num = D * G * F;
     float denom = 4.0f * NdotV * NdotL;
-    vec3 specular = num / max(denom, 0.001f);
+    vec3 specular = num / (denom + 0.05f);
 
     vec3 refracted = vec3(1.0f) - F;
     refracted *= 1.0f - pbr.metallic;
@@ -1610,8 +1634,9 @@ vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, 
         roughness = 1.0f - pbr.roughness;
     }
     // NOTE: Specular irradance
-    float NdotV = saturate(dot(pbr.N, pbr.V)); // + 0.000001f; // NOTE: Adding this value (trick from epic games shaders) reduces artifacts on the edges in Intel gpu's but completely brokes everything on nvidia
+    float NdotV = saturate(dot(pbr.N, pbr.V));
     vec3 R = reflect(-pbr.V, pbr.N);
+
     vec3 envIrradance = textureLod(enviromentMap, R, roughness * MAX_REFLECTION_LOD).rgb;
     // TODO: This might be wrong (use NdotL instead?)
     vec3 Fenv = FresnelSchlickRoughness(NdotV, pbr.F0, roughness);
@@ -1619,7 +1644,7 @@ vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, 
     vec3 envSpecular = envIrradance * (Fenv * envBRDF.r + envBRDF.g);
 
     // NOTE: Diffuse irradance
-    vec3 kS = FresnelSchlick(NdotV, pbr.F0);
+    vec3 kS = Fenv;
     vec3 kD = vec3(1.0f) - kS;
     kD *= 1.0f - pbr.metallic;
     vec3 diffIrradance = texture(irradanceMap, pbr.N).rgb;
@@ -1862,7 +1887,6 @@ void main()
     else if (MeshData.metallicWorkflow == 1)
     {
          vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;
-         N = normalize(n);
          if (MeshData.normalFormat == 0)
          {
             // OpenGL format
@@ -1870,8 +1894,9 @@ void main()
          else
          {
              // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
-             N.y = -N.y;
+             n.y = -n.y;
          }
+         N = normalize(n);
          N = normalize(fragIn.tbn * N);
          vec3 albedo = texture(AlbedoMap, fragIn.uv).xyz;
          float roughness = texture(RoughnessMap, fragIn.uv).r;
@@ -1902,6 +1927,8 @@ void main()
     vec3 envIrradance = IBLIrradance(context, IrradanceMap, EnviromentMap, BRDFLut);
 
     vec3 kShadow = CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);
+
+    L0 = min(vec3(1.0f), L0);
 
     resultColor = vec4((envIrradance + L0 * kShadow), 1.0f);
 #if 0
