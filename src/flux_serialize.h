@@ -16,32 +16,79 @@ struct StoredMaterial {
     u32 workflow;
     union {
         struct {
-            StoredTexture diffuse;
-            StoredTexture specular;
+            u32 useDiffuseMap;
+            u32 useSpecularMap;
+            union {
+                StoredTexture diffuseMap;
+                v3 diffuseValue;
+            };
+            union {
+                StoredTexture specularMap;
+                v3 specularValue;
+            };
         } phong;
         struct {
-            StoredTexture albedo;
-            StoredTexture roughness;
-            StoredTexture metallic;
-            StoredTexture normals;
-            u32 normalsFormat;
+            u32 useAlbedoMap;
+            u32 useRoughnessMap;
+            u32 useMetallicMap;
+            u32 useNormalMap;
+            u32 useAOMap;
+            u32 useEmissionMap;
+            u32 normalFormat;
+            byte roughnessMask;
+            byte metallicMask;
+            byte aoMask;
+            byte emissionMask;
+            union {
+                StoredTexture albedoMap;
+                v3 albedoValue;
+            };
+            union {
+                StoredTexture roughnessMap;
+                f32 roughnessValue;
+            };
+            union {
+                StoredTexture metallicMap;
+                f32 metallicValue;
+            };
+            union {
+                StoredTexture emissionMap;
+                v3 emissionValue;
+            };
+            StoredTexture aoMap;
+            StoredTexture normalMap;
         } pbrMetallic;
         struct {
-            StoredTexture albedo;
-            StoredTexture specular;
-            StoredTexture gloss;
-            StoredTexture normals;
-            u32 normalsFormat;
+            u32 useAlbedoMap;
+            u32 useSpecularMap;
+            u32 useGlossMap;
+            u32 useNormalMap;
+            u32 useAOMap;
+            u32 useEmissionMap;
+            u32 normalFormat;
+            byte specularMask; // ???
+            byte glossMask;
+            byte emissionMask;
+            byte aoMask;
+            union {
+                StoredTexture albedoMap;
+                v3 albedoValue;
+            };
+            union {
+                StoredTexture specularMap;
+                v3 specularValue;
+            };
+            union {
+                StoredTexture glossMap;
+                f32 glossValue;
+            };
+            union {
+                StoredTexture emissionMap;
+                f32 emissionValue;
+            };
+            StoredTexture aoMap;
+            StoredTexture normalMap;
         } pbrSpecular;
-        struct {
-            v3 albedo;
-            f32 roughness;
-            f32 metallic;
-        } pbrMetallicCustom;
-        struct {
-            v3 diffuse;
-            v3 specular;
-        } phongCustom;
     };
 };
 

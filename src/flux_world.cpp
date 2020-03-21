@@ -64,31 +64,78 @@ StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
     result.workflow = (u32)m->workflow;
     switch (m->workflow) {
     case Material::Phong: {
-        result.phong.diffuse = StoreTexture(manager, m->phong.diffuse);
-        result.phong.specular = StoreTexture(manager, m->phong.specular);
+        result.phong.useDiffuseMap = m->phong.useDiffuseMap;
+        if (m->phong.useDiffuseMap) {
+            result.phong.diffuseMap = StoreTexture(manager, m->phong.diffuseMap);
+        } else {
+            result.phong.diffuseValue = m->phong.diffuseValue;
+        }
+
+        result.phong.useSpecularMap = m->phong.useSpecularMap;
+        if (m->phong.useSpecularMap) {
+            result.phong.specularMap = StoreTexture(manager, m->phong.specularMap);
+        } else {
+            result.phong.specularValue = m->phong.specularValue;
+        }
     } break;
     case Material::PBRMetallic: {
-        result.pbrMetallic.albedo = StoreTexture(manager, m->pbrMetallic.albedo);
-        result.pbrMetallic.roughness = StoreTexture(manager, m->pbrMetallic.roughness);
-        result.pbrMetallic.metallic = StoreTexture(manager, m->pbrMetallic.metallic);
-        result.pbrMetallic.normals = StoreTexture(manager, m->pbrMetallic.normals);
+        result.pbrMetallic.useAlbedoMap = m->pbrMetallic.useAlbedoMap;
+        if (m->pbrMetallic.useAlbedoMap) {
+            result.pbrMetallic.albedoMap = StoreTexture(manager, m->pbrMetallic.albedoMap);
+        } else {
+            result.pbrMetallic.albedoValue = m->pbrMetallic.albedoValue;
+        }
+
+        result.pbrMetallic.useRoughnessMap = m->pbrMetallic.useRoughnessMap;
+        if (m->pbrMetallic.useRoughnessMap) {
+            result.pbrMetallic.roughnessMap = StoreTexture(manager, m->pbrMetallic.roughnessMap);
+        } else {
+            result.pbrMetallic.roughnessValue = m->pbrMetallic.roughnessValue;
+        }
+
+        result.pbrMetallic.useMetallicMap = m->pbrMetallic.useMetallicMap;
+        if (m->pbrMetallic.useMetallicMap) {
+            result.pbrMetallic.metallicMap = StoreTexture(manager, m->pbrMetallic.metallicMap);
+        } else {
+            result.pbrMetallic.metallicValue = m->pbrMetallic.metallicValue;
+        }
+
+        result.pbrMetallic.useNormalMap = m->pbrMetallic.useNormalMap;
+        if (m->pbrMetallic.useNormalMap) {
+            result.pbrMetallic.normalMap = StoreTexture(manager, m->pbrMetallic.normalMap);
+            result.pbrMetallic.normalFormat = (u32)m->pbrMetallic.normalFormat;
+        }
     } break;
     case Material::PBRSpecular: {
-        result.pbrSpecular.albedo = StoreTexture(manager, m->pbrSpecular.albedo);
-        result.pbrSpecular.specular = StoreTexture(manager, m->pbrSpecular.specular);
-        result.pbrSpecular.gloss = StoreTexture(manager, m->pbrSpecular.gloss);
-        result.pbrSpecular.normals = StoreTexture(manager, m->pbrSpecular.normals);
+        result.pbrSpecular.useAlbedoMap = m->pbrSpecular.useAlbedoMap;
+        if (m->pbrSpecular.useAlbedoMap) {
+            result.pbrSpecular.albedoMap = StoreTexture(manager, m->pbrSpecular.albedoMap);
+        } else {
+            result.pbrSpecular.albedoValue = m->pbrSpecular.albedoValue;
+        }
+
+        result.pbrSpecular.useSpecularMap = m->pbrSpecular.useSpecularMap;
+        if (m->pbrSpecular.useSpecularMap) {
+            result.pbrSpecular.specularMap = StoreTexture(manager, m->pbrSpecular.specularMap);
+        } else {
+            result.pbrSpecular.specularValue = m->pbrSpecular.specularValue;
+        }
+
+        result.pbrSpecular.useGlossMap = m->pbrSpecular.useGlossMap;
+        if (m->pbrSpecular.useGlossMap) {
+            result.pbrSpecular.glossMap = StoreTexture(manager, m->pbrSpecular.glossMap);
+        } else {
+            result.pbrSpecular.glossValue = m->pbrSpecular.glossValue;
+        }
+
+        result.pbrSpecular.useNormalMap = m->pbrSpecular.useNormalMap;
+        if (m->pbrSpecular.useNormalMap) {
+            result.pbrSpecular.normalMap = StoreTexture(manager, m->pbrSpecular.normalMap);
+            result.pbrSpecular.normalFormat = (u32)m->pbrSpecular.normalFormat;
+        }
+
     } break;
-    case Material::PBRMetallicCustom: {
-        result.pbrMetallicCustom.albedo = m->pbrMetallicCustom.albedo;
-        result.pbrMetallicCustom.roughness = m->pbrMetallicCustom.roughness;
-        result.pbrMetallicCustom.metallic = m->pbrMetallicCustom.metallic;
-    } break;
-    case Material::PhongCustom: {
-        result.phongCustom.diffuse = m->phongCustom.diffuse;
-        result.phongCustom.specular = m->phongCustom.specular;
-    }
-        invalid_default();
+    invalid_default();
     }
     return result;
 }
@@ -163,30 +210,88 @@ Material LoadMaterial(AssetManager* assetManager, StoredMaterial* stored) {
     mat.workflow = (Material::Workflow)stored->workflow;
     switch (mat.workflow) {
     case Material::Phong: {
-        mat.phong.diffuse = LoadTextureIfExist(assetManager, &stored->phong.diffuse);
-        mat.phong.specular = LoadTextureIfExist(assetManager, &stored->phong.specular);
+        if (stored->phong.useDiffuseMap) {
+            mat.phong.useDiffuseMap = true;
+            mat.phong.diffuseMap = LoadTextureIfExist(assetManager, &stored->phong.diffuseMap);
+        } else {
+            mat.phong.useDiffuseMap = false;
+            mat.phong.diffuseValue = stored->phong.diffuseValue;
+        }
+
+        if (stored->phong.useSpecularMap) {
+            mat.phong.useSpecularMap = true;
+            mat.phong.specularMap = LoadTextureIfExist(assetManager, &stored->phong.specularMap);
+        } else {
+            mat.phong.useSpecularMap = false;
+            mat.phong.specularValue = stored->phong.specularValue;
+        }
     } break;
     case Material::PBRMetallic: {
-        mat.pbrMetallic.albedo = LoadTextureIfExist(assetManager, &stored->pbrMetallic.albedo);
-        mat.pbrMetallic.roughness = LoadTextureIfExist(assetManager, &stored->pbrMetallic.roughness);
-        mat.pbrMetallic.metallic = LoadTextureIfExist(assetManager, &stored->pbrMetallic.metallic);
-        mat.pbrMetallic.normals = LoadTextureIfExist(assetManager, &stored->pbrMetallic.normals);
+        if (stored->pbrMetallic.useAlbedoMap) {
+            mat.pbrMetallic.useAlbedoMap = true;
+            mat.pbrMetallic.albedoMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.albedoMap);
+        } else {
+            mat.pbrMetallic.useAlbedoMap = false;
+            mat.pbrMetallic.albedoValue = stored->pbrMetallic.albedoValue;
+        }
+
+        if (stored->pbrMetallic.useRoughnessMap) {
+            mat.pbrMetallic.useRoughnessMap = true;
+            mat.pbrMetallic.roughnessMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.roughnessMap);
+        } else {
+            mat.pbrMetallic.useRoughnessMap = false;
+            mat.pbrMetallic.roughnessValue = stored->pbrMetallic.roughnessValue;
+        }
+
+        if (stored->pbrMetallic.useMetallicMap) {
+            mat.pbrMetallic.useMetallicMap = true;
+            mat.pbrMetallic.metallicMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.metallicMap);
+        } else {
+            mat.pbrMetallic.useMetallicMap = false;
+            mat.pbrMetallic.metallicValue = stored->pbrMetallic.metallicValue;
+        }
+
+        if (stored->pbrMetallic.useNormalMap) {
+            mat.pbrMetallic.useNormalMap = true;
+            mat.pbrMetallic.normalFormat = (NormalFormat)stored->pbrMetallic.normalFormat;
+            mat.pbrMetallic.normalMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.normalMap);
+        } else {
+            mat.pbrMetallic.useNormalMap = false;
+        }
     } break;
     case Material::PBRSpecular: {
-        mat.pbrSpecular.albedo = LoadTextureIfExist(assetManager, &stored->pbrSpecular.albedo);
-        mat.pbrSpecular.specular = LoadTextureIfExist(assetManager, &stored->pbrSpecular.specular);
-        mat.pbrSpecular.gloss = LoadTextureIfExist(assetManager, &stored->pbrSpecular.gloss);
-        mat.pbrSpecular.normals = LoadTextureIfExist(assetManager, &stored->pbrSpecular.normals);
+        if (stored->pbrSpecular.useAlbedoMap) {
+            mat.pbrSpecular.useAlbedoMap = true;
+            mat.pbrSpecular.albedoMap = LoadTextureIfExist(assetManager, &stored->pbrSpecular.albedoMap);
+        } else {
+            mat.pbrSpecular.useAlbedoMap = false;
+            mat.pbrSpecular.albedoValue = stored->pbrSpecular.albedoValue;
+        }
+
+        if (stored->pbrSpecular.useSpecularMap) {
+            mat.pbrSpecular.useSpecularMap = true;
+            mat.pbrSpecular.specularMap = LoadTextureIfExist(assetManager, &stored->pbrSpecular.specularMap);
+        } else {
+            mat.pbrSpecular.useSpecularMap = false;
+            mat.pbrSpecular.specularValue = stored->pbrSpecular.specularValue;
+        }
+
+        if (stored->pbrSpecular.useGlossMap) {
+            mat.pbrSpecular.useGlossMap = true;
+            mat.pbrSpecular.glossMap = LoadTextureIfExist(assetManager, &stored->pbrSpecular.glossMap);
+        } else {
+            mat.pbrSpecular.useGlossMap = false;
+            mat.pbrSpecular.glossValue = stored->pbrSpecular.glossValue;
+        }
+
+        if (stored->pbrSpecular.useNormalMap) {
+            mat.pbrSpecular.useNormalMap = true;
+            mat.pbrSpecular.normalFormat = (NormalFormat)stored->pbrSpecular.normalFormat;
+            mat.pbrSpecular.normalMap = LoadTextureIfExist(assetManager, &stored->pbrSpecular.normalMap);
+        } else {
+            mat.pbrSpecular.useNormalMap = false;
+        }
     } break;
-    case Material::PBRMetallicCustom: {
-        mat.pbrMetallicCustom.albedo = stored->pbrMetallicCustom.albedo;
-        mat.pbrMetallicCustom.roughness = stored->pbrMetallicCustom.roughness;
-        mat.pbrMetallicCustom.metallic = stored->pbrMetallicCustom.metallic;
-    } break;
-    case Material::PhongCustom: {
-        mat.phongCustom.diffuse = stored->phongCustom.diffuse;
-        mat.phongCustom.specular = stored->phongCustom.specular;
-    }
     invalid_default();
     }
     return mat;

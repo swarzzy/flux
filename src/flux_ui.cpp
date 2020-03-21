@@ -335,12 +335,6 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         if (ImGui::Selectable("PBR specular")) {
                             newWorkflow = Material::PBRSpecular;
                         }
-                        if (ImGui::Selectable("PBR custom metallic")) {
-                            newWorkflow = Material::PBRMetallicCustom;
-                        }
-                        if (ImGui::Selectable("Phong custom")) {
-                            newWorkflow = Material::PhongCustom;
-                        }
                         if (newWorkflow != entity->material.workflow) {
                             entity->material = {};
                             entity->material.workflow = newWorkflow;
@@ -350,33 +344,67 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
 
                     switch (entity->material.workflow) {
                     case Material::Phong: {
-                        entity->material.phong.diffuse = DrawTextureCombo(&context->assetManager, entity->material.phong.diffuse, "diffuse map");
-                        entity->material.phong.specular = DrawTextureCombo(&context->assetManager, entity->material.phong.specular, "specular map");
-                    } break;
-                    case Material::PBRMetallic: {
-                        entity->material.pbrMetallic.albedo = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.albedo, "albedo map");
-                        entity->material.pbrMetallic.roughness = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.roughness, "roughness map");
-                        entity->material.pbrMetallic.metallic = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.metallic, "metallic map");
-                        entity->material.pbrMetallic.normals = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.normals, "normal map");
-                        if (ImGui::BeginCombo("Normal format select", ToString(entity->material.pbrMetallic.normalFormat))) {
-                            if (ImGui::Selectable("OpenGL", entity->material.pbrMetallic.normalFormat == NormalFormat::OpenGL)) {
-                                entity->material.pbrMetallic.normalFormat = NormalFormat::OpenGL;
-                            }
-                            if (ImGui::Selectable("DirectX", entity->material.pbrMetallic.normalFormat == NormalFormat::DirectX)) {
-                                entity->material.pbrMetallic.normalFormat = NormalFormat::DirectX;
-                            }
-                            ImGui::EndCombo();
+                        bool useDiffuseMap = entity->material.phong.useDiffuseMap;
+                        ImGui::Checkbox("Diffuse map", &useDiffuseMap);
+                        entity->material.phong.useDiffuseMap = useDiffuseMap;
+                        if (entity->material.phong.useDiffuseMap) {
+                            entity->material.phong.diffuseMap = DrawTextureCombo(&context->assetManager, entity->material.phong.diffuseMap, "diffuse map");
+                        } else {
+                            ImGui::ColorEdit3("Diffuse color", entity->material.phong.diffuseValue.data);
                         }
 
+                        bool useSpecularMap = entity->material.phong.useSpecularMap;
+                        ImGui::Checkbox("Specular map", &useSpecularMap);
+                        entity->material.phong.useSpecularMap = useSpecularMap;
+                        if (entity->material.phong.useSpecularMap) {
+                            entity->material.phong.specularMap = DrawTextureCombo(&context->assetManager, entity->material.phong.specularMap, "specular map");
+                        } else {
+                            ImGui::ColorEdit3("Specular color", entity->material.phong.specularValue.data);
+                        }
                     } break;
-                    case Material::PBRMetallicCustom: {
-                        ImGui::ColorEdit3("albedo", entity->material.pbrMetallicCustom.albedo.data);
-                        ImGui::SliderFloat("roughness", &entity->material.pbrMetallicCustom.roughness, 0.0f, 1.0f);
-                        ImGui::SliderFloat("metallic", &entity->material.pbrMetallicCustom.metallic, 0.0f, 1.0f);
-                    } break;
-                    case Material::PhongCustom: {
-                        ImGui::ColorEdit3("diffuse", entity->material.phongCustom.diffuse.data);
-                        ImGui::ColorEdit3("specular", entity->material.phongCustom.specular.data);
+                    case Material::PBRMetallic: {
+                        bool useAlbedoMap = entity->material.pbrMetallic.useAlbedoMap;
+                        ImGui::Checkbox("Albedo map", &useAlbedoMap);
+                        entity->material.pbrMetallic.useAlbedoMap = useAlbedoMap;
+                        if (entity->material.pbrMetallic.useAlbedoMap) {
+                            entity->material.pbrMetallic.albedoMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.albedoMap, "albedo map");
+                        } else {
+                            ImGui::ColorEdit3("Albedo", entity->material.pbrMetallic.albedoValue.data);
+                        }
+
+                        bool useRoughnessMap = entity->material.pbrMetallic.useRoughnessMap;
+                        ImGui::Checkbox("Roughness map", &useRoughnessMap);
+                        entity->material.pbrMetallic.useRoughnessMap = useRoughnessMap;
+                        if (entity->material.pbrMetallic.useRoughnessMap) {
+                            entity->material.pbrMetallic.roughnessMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.roughnessMap, "roughness map");
+                        } else {
+                            ImGui::SliderFloat("Roughness", &entity->material.pbrMetallic.roughnessValue, 0.0f, 1.0f);
+                        }
+
+                        bool useMetallicMap = entity->material.pbrMetallic.useMetallicMap;
+                        ImGui::Checkbox("Metallic map", &useMetallicMap);
+                        entity->material.pbrMetallic.useMetallicMap = useMetallicMap;
+                        if (entity->material.pbrMetallic.useMetallicMap) {
+                            entity->material.pbrMetallic.metallicMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.metallicMap, "metallic map");
+                        } else {
+                            ImGui::SliderFloat("Metallic", &entity->material.pbrMetallic.metallicValue, 0.0f, 1.0f);
+                        }
+
+                        bool useNormalMap = entity->material.pbrMetallic.useNormalMap;
+                        ImGui::Checkbox("Normal map", &useNormalMap);
+                        entity->material.pbrMetallic.useNormalMap = useNormalMap;
+                        if (entity->material.pbrMetallic.useNormalMap) {
+                            if (ImGui::BeginCombo("Normal format select", ToString(entity->material.pbrMetallic.normalFormat))) {
+                                if (ImGui::Selectable("OpenGL", entity->material.pbrMetallic.normalFormat == NormalFormat::OpenGL)) {
+                                    entity->material.pbrMetallic.normalFormat = NormalFormat::OpenGL;
+                                }
+                                if (ImGui::Selectable("DirectX", entity->material.pbrMetallic.normalFormat == NormalFormat::DirectX)) {
+                                    entity->material.pbrMetallic.normalFormat = NormalFormat::DirectX;
+                                }
+                                ImGui::EndCombo();
+                            }
+                            entity->material.pbrMetallic.normalMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.normalMap, "normal map");
+                        }
                     } break;
                     default: {} break;
                     }

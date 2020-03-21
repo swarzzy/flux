@@ -123,11 +123,24 @@ struct layout_std140 ShaderMeshData {
     std140_mat4 modelMatrix;
     std140_mat3 normalMatrix;
     std140_vec3 lineColor;
+
     std140_int metallicWorkflow;
-    std140_int customMaterial;
-    std140_vec3 customAlbedo;
-    std140_float customRoughness;
-    std140_float customMetalness;
+
+    std140_int pbrUseAlbedoMap;
+    std140_int pbrUseRoughnessMap;
+    std140_int pbrUseMetallicMap;
+    std140_int pbrUseSpecularMap;
+    std140_int pbrUseGlossMap;
+    std140_int pbrUseNormalMap;
+
+    std140_vec3 pbrAlbedoValue;
+    std140_float pbrRoughnessValue;
+    std140_float pbrMetallicValue;
+    std140_vec3 pbrSpecularValue;
+    std140_float pbrGlossValue;
+
+    std140_int phongUseDiffuseMap;
+    std140_int phongUseSpecularMap;
     std140_vec3 customPhongDiffuse;
     std140_vec3 customPhongSpecular;
     std140_int normalFormat;

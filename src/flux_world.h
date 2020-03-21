@@ -16,35 +16,60 @@ const char* ToString(NormalFormat value) {
 }
 
 struct Material {
-    enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom, PhongCustom } workflow;
+    enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, } workflow;
     union {
         struct {
-            u32 diffuse;
-            u32 specular;
+            b32 useDiffuseMap;
+            b32 useSpecularMap;
+            union {
+                u32 diffuseMap;
+                v3 diffuseValue;
+            };
+            union {
+                u32 specularMap;
+                v3 specularValue;
+            };
         } phong;
         struct {
-            u32 albedo;
-            u32 roughness;
-            u32 metallic;
-            u32 normals;
+            b32 useAlbedoMap;
+            b32 useRoughnessMap;
+            b32 useMetallicMap;
+            b32 useNormalMap;
             NormalFormat normalFormat;
+            union {
+                u32 albedoMap;
+                v3 albedoValue;
+            };
+            union {
+                u32 roughnessMap;
+                f32 roughnessValue;
+            };
+            union {
+                u32 metallicMap;
+                f32 metallicValue;
+            };
+            u32 normalMap;
         } pbrMetallic;
         struct {
-            u32 albedo;
-            u32 specular;
-            u32 gloss;
-            u32 normals;
+            b32 useAlbedoMap;
+            b32 useSpecularMap;
+            b32 useGlossMap;
+            b32 useNormalMap;
             NormalFormat normalFormat;
+            union {
+                u32 albedoMap;
+                v3 albedoValue;
+            };
+            union {
+                u32 specularMap;
+                v3 specularValue;
+            };
+            union {
+                u32 glossMap;
+                f32 glossValue;
+            };
+            u32 normalMap;
         } pbrSpecular;
-        struct {
-            v3 albedo;
-            f32 roughness;
-            f32 metallic;
-        } pbrMetallicCustom;
-        struct {
-            v3 diffuse;
-            v3 specular;
-        } phongCustom;
     };
 };
 
@@ -53,8 +78,6 @@ const char* ToString(Material::Workflow value) {
     case Material::Phong: { return "Phong"; } break;
     case Material::PBRMetallic: { return "PBR metallic"; } break;
     case Material::PBRSpecular: { return "PBR specular"; } break;
-    case Material::PBRMetallicCustom: { return "PBR custom metallic"; } break;
-    case Material::PhongCustom: { return "Phong custom"; } break;
     invalid_default();
     }
     return "";

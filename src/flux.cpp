@@ -64,21 +64,32 @@ void FluxInit(Context* context) {
 
         Material oldMetal = {};
         oldMetal.workflow = Material::PBRMetallic;
-        oldMetal.pbrMetallic.albedo = oldMetalAlbedoId;
-        oldMetal.pbrMetallic.roughness = oldMetalRoughId;
-        oldMetal.pbrMetallic.metallic = oldMetalMetallicId;
-        oldMetal.pbrMetallic.normals = oldMetalNormalId;
+        oldMetal.pbrMetallic.useAlbedoMap = true;
+        oldMetal.pbrMetallic.useRoughnessMap = true;
+        oldMetal.pbrMetallic.useMetallicMap = true;
+        oldMetal.pbrMetallic.useNormalMap = true;
+        oldMetal.pbrMetallic.normalFormat = NormalFormat::DirectX;
+        oldMetal.pbrMetallic.albedoMap = oldMetalAlbedoId;
+        oldMetal.pbrMetallic.roughnessMap = oldMetalRoughId;
+        oldMetal.pbrMetallic.metallicMap = oldMetalMetallicId;
+        oldMetal.pbrMetallic.normalMap = oldMetalNormalId;
 
         Material backpack = {};
         backpack.workflow = Material::PBRMetallic;
-        backpack.pbrMetallic.albedo = backpackAlbedoId;
-        backpack.pbrMetallic.roughness = backpackRoughId;
-        backpack.pbrMetallic.metallic = backpackMetallicId;
-        backpack.pbrMetallic.normals = backpackNormalId;
+        backpack.pbrMetallic.useAlbedoMap = true;
+        backpack.pbrMetallic.useRoughnessMap = true;
+        backpack.pbrMetallic.useMetallicMap = true;
+        backpack.pbrMetallic.useNormalMap = true;
+        backpack.pbrMetallic.normalFormat = NormalFormat::DirectX;
+        backpack.pbrMetallic.albedoMap = backpackAlbedoId;
+        backpack.pbrMetallic.roughnessMap = backpackRoughId;
+        backpack.pbrMetallic.metallicMap = backpackMetallicId;
+        backpack.pbrMetallic.normalMap = backpackNormalId;
 
         Material checkerboard = {};
         checkerboard.workflow = Material::Phong;
-        checkerboard.phong.diffuse = checkerboardID;
+        checkerboard.phong.useDiffuseMap = true;
+        checkerboard.phong.diffuseMap = checkerboardID;
 
         auto checkerboardEntity = GetEntity(world, checkerboardEntityID);
         checkerboardEntity->mesh = GetID(&assetManager->nameTable, "plate");

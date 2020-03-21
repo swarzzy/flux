@@ -37,11 +37,24 @@ layout (std140, binding = 1) uniform ShaderMeshData
     mat4 modelMatrix;
     mat3 normalMatrix;
     vec3 lineColor;
+
     int metallicWorkflow;
-    int customMaterial;
-    vec3 customAlbedo;
-    float customRoughness;
-    float customMetalness;
+
+    int pbrUseAlbedoMap;
+    int pbrUseRoughnessMap;
+    int pbrUseMetallicMap;
+    int pbrUseSpecularMap;
+    int pbrUseGlossMap;
+    int pbrUseNormalMap;
+
+    vec3 pbrAlbedoValue;
+    float pbrRoughnessValue;
+    float pbrMetallicValue;
+    vec3 pbrSpecularValue;
+    float pbrGlossValue;
+
+    int phongUseDiffuseMap;
+    int phongUseSpecularMap;
     vec3 customPhongDiffuse;
     vec3 customPhongSpecular;
     int normalFormat;

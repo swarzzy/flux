@@ -24,7 +24,7 @@ layout (binding = 3) uniform sampler2D AlbedoMap;
 layout (binding = 4) uniform sampler2D NormalMap;
 
 layout (binding = 5) uniform sampler2D RoughnessMap;
-layout (binding = 6) uniform sampler2D MetalnessMap;
+layout (binding = 6) uniform sampler2D MetallicMap;
 
 layout (binding = 7) uniform sampler2D SpecularMap;
 layout (binding = 8) uniform sampler2D GlossMap;
@@ -35,49 +35,86 @@ layout (binding = 9) uniform sampler2DArrayShadow ShadowMap;
 
 void main()
 {
-    vec3 N;
-
     vec3 V = normalize(FrameData.viewPos - fragIn.fragPos);
 
     PBR context;
 
-    if (MeshData.customMaterial == 1)
+    vec3 N;
+    if (MeshData.pbrUseNormalMap == 1)
     {
-        N = normalize(fragIn.normal);
-        vec3 albedo = MeshData.customAlbedo;
-        float roughness = MeshData.customRoughness;
-        float metalness = MeshData.customMetalness;
-        context = InitPBRMetallic(V, N, albedo, metalness, roughness);
-    }
-    else if (MeshData.metallicWorkflow == 1)
-    {
-         vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;
-         if (MeshData.normalFormat == 0)
-         {
+        vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;
+        if (MeshData.normalFormat == 0)
+        {
             // OpenGL format
-         }
-         else
-         {
-             // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
-             n.y = -n.y;
-         }
-         N = normalize(n);
-         N = normalize(fragIn.tbn * N);
-         vec3 albedo = texture(AlbedoMap, fragIn.uv).xyz;
-         float roughness = texture(RoughnessMap, fragIn.uv).r;
-         float metalness = texture(MetalnessMap, fragIn.uv).r;
-         context = InitPBRMetallic(V, N, albedo, metalness, roughness);
+        }
+        else
+        {
+            // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
+            n.y = -n.y;
+        }
+        N = normalize(n);
+        N = normalize(fragIn.tbn * N);
     }
     else
     {
-         vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;
-         N = normalize(n);
-         // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
-         N.y = -N.y;
-         N = normalize(fragIn.tbn * N);
-         vec3 albedo = texture(AlbedoMap, fragIn.uv).xyz;
-         vec3 specular = texture(SpecularMap, fragIn.uv).rgb;
-         float gloss = texture(GlossMap, fragIn.uv).r;
+        N = normalize(fragIn.normal);
+    }
+
+    vec3 albedo;
+    if (MeshData.pbrUseAlbedoMap == 1)
+    {
+        albedo = texture(AlbedoMap, fragIn.uv).xyz;
+    }
+    else
+    {
+        albedo = MeshData.pbrAlbedoValue;
+    }
+
+    if (MeshData.metallicWorkflow == 1)
+    {
+        float roughness;
+        if (MeshData.pbrUseRoughnessMap == 1)
+        {
+            roughness = texture(RoughnessMap, fragIn.uv).x;
+        }
+        else
+        {
+            roughness = MeshData.pbrRoughnessValue;
+        }
+
+        float metallic;
+        if (MeshData.pbrUseMetallicMap == 1)
+        {
+            metallic = texture(MetallicMap, fragIn.uv).x;
+        }
+        else
+        {
+            metallic = MeshData.pbrMetallicValue;
+        }
+
+        context = InitPBRMetallic(V, N, albedo, metallic, roughness);
+    }
+    else // Specular workflow
+    {
+        vec3 specular;
+        if (MeshData.pbrUseSpecularMap == 1)
+        {
+            specular = texture(SpecularMap, fragIn.uv).xyz;
+        }
+        else
+        {
+            specular = MeshData.pbrSpecularValue;
+        }
+
+        float gloss;
+        if (MeshData.pbrUseGlossMap == 1)
+        {
+            gloss = texture(GlossMap, fragIn.uv).x;
+        }
+        else
+        {
+            gloss = MeshData.pbrGlossValue;
+        }
          context = InitPBRSpecular(V, N, albedo, specular, gloss);
     }
 
