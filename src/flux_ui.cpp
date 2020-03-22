@@ -237,11 +237,6 @@ u32 DrawTextureCombo(AssetManager* assetManager, u32 id, const char* name) {
         buffer[0] = 0;
     }
 
-    static u32 idHack = 0;
-    if (idHack == 0xffffffff) {
-        idHack = 0;
-    }
-
     if (ImGui::BeginCombo(name, buffer)) {
         for (auto& asset : assetManager->textureTable) {
             sprintf_s(buffer, 256, "[%lu] %s",(long)asset.id, asset.name);
@@ -404,6 +399,30 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                                 ImGui::EndCombo();
                             }
                             entity->material.pbrMetallic.normalMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.normalMap, "normal map");
+                        }
+
+                        bool useAOMap = entity->material.pbrMetallic.useAOMap;
+                        ImGui::Checkbox("AO map", &useAOMap);
+                        entity->material.pbrMetallic.useAOMap = useAOMap;
+                        if (entity->material.pbrMetallic.useAOMap) {
+                            entity->material.pbrMetallic.AOMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.AOMap, "ao map");
+                        }
+
+                        bool emitsLight = entity->material.pbrMetallic.emitsLight;
+                        ImGui::Checkbox("Emits light", &emitsLight);
+                        entity->material.pbrMetallic.emitsLight = emitsLight;
+
+                        if (emitsLight) {
+                            bool useEmissionMap = entity->material.pbrMetallic.useEmissionMap;
+                            ImGui::Checkbox("Emission map", &useEmissionMap);
+                            entity->material.pbrMetallic.useEmissionMap = useEmissionMap;
+
+                            if (entity->material.pbrMetallic.useEmissionMap) {
+                                entity->material.pbrMetallic.emissionMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.emissionMap, "emission map");
+                            } else {
+                                ImGui::ColorEdit3("emission color", entity->material.pbrMetallic.emissionValue.data);
+                                ImGui::SliderFloat("emission intensity", &entity->material.pbrMetallic.emissionIntensity, 0.0f, 10.0f);
+                            }
                         }
                     } break;
                     default: {} break;

@@ -1063,6 +1063,7 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
                         case Material::PBRMetallic: {
                             meshBuffer->metallicWorkflow = 1;
 
+                            // TODO: Refactor these
                             if (data->material.pbrMetallic.useAlbedoMap) {
                                 auto albedoMap = GetTexture(assetManager, data->material.pbrMetallic.albedoMap);
                                 if (albedoMap) {
@@ -1117,6 +1118,37 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
                             } else {
                                 meshBuffer->pbrUseNormalMap = 0;
                             }
+
+                            if (data->material.pbrMetallic.useAOMap) {
+                                auto aoMap = GetTexture(assetManager, data->material.pbrMetallic.AOMap);
+                                if (aoMap) {
+                                    meshBuffer->pbrUseAOMap = 1;
+                                    glBindTextureUnit(MeshPBRShader::AOMap, aoMap->gpuHandle);
+                                } else {
+                                    meshBuffer->pbrUseAOMap = 0;
+                                }
+                            } else {
+                                meshBuffer->pbrUseAOMap = 0;
+                            }
+
+                            if (data->material.pbrMetallic.emitsLight) {
+                                meshBuffer->emitsLight = 1;
+                                if (data->material.pbrMetallic.useEmissionMap) {
+                                    auto emissionMap = GetTexture(assetManager, data->material.pbrMetallic.emissionMap);
+                                    if (emissionMap) {
+                                        meshBuffer->pbrUseEmissionMap = 1;
+                                        glBindTextureUnit(MeshPBRShader::EmissionMap, emissionMap->gpuHandle);
+                                    } else {
+                                        meshBuffer->pbrUseEmissionMap = 0;
+                                    }
+                                } else {
+                                    meshBuffer->pbrUseEmissionMap = 0;
+                                    meshBuffer->pbrEmissionValue = data->material.pbrMetallic.emissionValue * data->material.pbrMetallic.emissionIntensity;
+                                }
+                            } else {
+                                meshBuffer->emitsLight = 0;
+                            }
+
                         } break;
                         case Material::PBRSpecular: {
                             // TODO: Implement

@@ -81,6 +81,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -88,12 +89,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -206,6 +210,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -213,12 +218,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -535,6 +543,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -542,12 +551,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -640,6 +652,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -647,12 +660,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -960,6 +976,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -967,12 +984,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -1065,6 +1085,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -1072,12 +1093,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -1363,6 +1387,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -1370,12 +1395,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -1465,6 +1493,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -1472,12 +1501,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -1580,6 +1612,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -1587,12 +1620,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -1683,6 +1719,8 @@ struct PBR
     vec3 V;
     vec3 N;
     vec3 F0;
+    float AO;
+    vec3 emissionColor;
     // NOTE: Metallic/Specular
     vec3 albedo;
     // NOTE: Metallic
@@ -1690,12 +1728,13 @@ struct PBR
     float roughness;
 };
 
-PBR InitPBRMetallic(vec3 V, vec3 N, vec3 albedo, float metallic, float roughness)
+PBR InitPBRMetallic(vec3 V, vec3 N, vec3 albedo, float metallic, float roughness, float AO)
 {
     PBR pbr;
     pbr.metallicWorkflow = true;
     pbr.V = V;
     pbr.N = N;
+    pbr.AO = AO;
     pbr.albedo = albedo;
     // TODO: Specify F0 for dielectrics
     vec3 F0 = vec3(0.04f);
@@ -1705,12 +1744,13 @@ PBR InitPBRMetallic(vec3 V, vec3 N, vec3 albedo, float metallic, float roughness
     return pbr;
 }
 
-PBR InitPBRSpecular(vec3 V, vec3 N, vec3 albedo, vec3 specular, float gloss)
+PBR InitPBRSpecular(vec3 V, vec3 N, vec3 albedo, vec3 specular, float gloss, float AO)
 {
     PBR pbr;
     pbr.metallicWorkflow = false;
     pbr.V = V;
     pbr.N = N;
+    pbr.AO = AO;
     pbr.albedo = albedo;
     pbr.F0 = specular;
     pbr.roughness = gloss;//saturate(1.0f - gloss);
@@ -1786,7 +1826,7 @@ vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, 
     vec3 diffIrradance = texture(irradanceMap, pbr.N).rgb;
     vec3 diffuse = diffIrradance * pbr.albedo;
 
-    vec3 irradance = (kD * diffuse + envSpecular);// * uAO;
+    vec3 irradance = (kD * diffuse + envSpecular) * pbr.AO;
     return irradance;
 }
 
@@ -1999,7 +2039,8 @@ layout (binding = 6) uniform sampler2D MetallicMap;
 
 layout (binding = 7) uniform sampler2D SpecularMap;
 layout (binding = 8) uniform sampler2D GlossMap;
-
+layout (binding = 10) uniform sampler2D AOMap;
+layout (binding = 11) uniform sampler2D EmissionMap;
 
 layout (binding = 9) uniform sampler2DArrayShadow ShadowMap;
 //uniform sampler2D uAOMap;
@@ -2041,6 +2082,29 @@ void main()
         albedo = MeshData.pbrAlbedoValue;
     }
 
+    float AO;
+    if (MeshData.pbrUseAOMap == 1)
+    {
+        AO = texture(AOMap, fragIn.uv).x;
+    }
+    else
+    {
+        AO = 1.0f;
+    }
+
+    vec3 emissionColor = vec3(0.0f);
+    if (MeshData.emitsLight == 1)
+    {
+        if (MeshData.pbrUseEmissionMap == 1)
+        {
+            emissionColor = texture(EmissionMap, fragIn.uv).xyz;
+        }
+        else
+        {
+            emissionColor = MeshData.pbrEmissionValue;
+        }
+    }
+
     if (MeshData.metallicWorkflow == 1)
     {
         float roughness;
@@ -2063,7 +2127,7 @@ void main()
             metallic = MeshData.pbrMetallicValue;
         }
 
-        context = InitPBRMetallic(V, N, albedo, metallic, roughness);
+        context = InitPBRMetallic(V, N, albedo, metallic, roughness, AO);
     }
     else // Specular workflow
     {
@@ -2086,7 +2150,7 @@ void main()
         {
             gloss = MeshData.pbrGlossValue;
         }
-         context = InitPBRSpecular(V, N, albedo, specular, gloss);
+         context = InitPBRSpecular(V, N, albedo, specular, gloss, AO);
     }
 
     vec3 L0 = vec3(0.0f);
@@ -2103,13 +2167,7 @@ void main()
 
     L0 = min(vec3(1.0f), L0);
 
-    resultColor = vec4((envIrradance + L0 * kShadow), 1.0f);
-#if 0
-    if (FrameData.debugF == 1) resultColor = vec4(F,  1.0f);
-    else if (FrameData.debugG == 1) resultColor = vec4(G, G, G, 1.0f);
-    else if (FrameData.debugD == 1) resultColor = vec4(D, D, D, 1.0f);
-    else if (FrameData.debugNormals == 1) resultColor = vec4(N, 1.0f);
-#endif
+    resultColor = vec4((envIrradance + L0 * kShadow + emissionColor), 1.0f);
 }
 )"
     },
@@ -2157,6 +2215,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -2164,12 +2223,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -2252,6 +2314,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -2259,12 +2322,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -2343,6 +2409,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -2350,12 +2417,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -2474,6 +2544,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -2481,12 +2552,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -2696,6 +2770,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -2703,12 +2778,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -3052,6 +3130,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -3059,12 +3138,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -3252,6 +3334,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -3259,12 +3342,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;
@@ -3388,6 +3474,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -3395,12 +3482,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;

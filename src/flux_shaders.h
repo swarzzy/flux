@@ -18,7 +18,7 @@ inline void DeleteProgram(GLuint handle) { glDeleteProgram(handle); }
 
 template <typename T, u32 Binding>
 struct UniformBuffer {
-        GLuint handle;
+    GLuint handle;
 };
 
 template<typename T, u32 Binding>
@@ -57,6 +57,8 @@ struct MeshPBRShader {
     static constexpr u32 SpecularMap = 7;
     static constexpr u32 GlossMap = 8;
     static constexpr u32 ShadowMap = 9;
+    static constexpr u32 AOMap = 10;
+    static constexpr u32 EmissionMap = 11;
 };
 
 struct ShadowPassShader {
@@ -125,6 +127,7 @@ struct layout_std140 ShaderMeshData {
     std140_vec3 lineColor;
 
     std140_int metallicWorkflow;
+    std140_int emitsLight;
 
     std140_int pbrUseAlbedoMap;
     std140_int pbrUseRoughnessMap;
@@ -132,12 +135,15 @@ struct layout_std140 ShaderMeshData {
     std140_int pbrUseSpecularMap;
     std140_int pbrUseGlossMap;
     std140_int pbrUseNormalMap;
+    std140_int pbrUseAOMap;
+    std140_int pbrUseEmissionMap;
 
     std140_vec3 pbrAlbedoValue;
     std140_float pbrRoughnessValue;
     std140_float pbrMetallicValue;
     std140_vec3 pbrSpecularValue;
     std140_float pbrGlossValue;
+    std140_vec3 pbrEmissionValue;
 
     std140_int phongUseDiffuseMap;
     std140_int phongUseSpecularMap;

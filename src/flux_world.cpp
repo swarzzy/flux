@@ -105,6 +105,20 @@ StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
             result.pbrMetallic.normalMap = StoreTexture(manager, m->pbrMetallic.normalMap);
             result.pbrMetallic.normalFormat = (u32)m->pbrMetallic.normalFormat;
         }
+
+        result.pbrMetallic.useAOMap = m->pbrMetallic.useAOMap;
+        if (m->pbrMetallic.useAOMap) {
+            result.pbrMetallic.AOMap = StoreTexture(manager, m->pbrMetallic.AOMap);
+        }
+
+        result.pbrMetallic.emitsLight = m->pbrMetallic.emitsLight;
+        result.pbrMetallic.useEmissionMap = m->pbrMetallic.useEmissionMap;
+        if (m->pbrMetallic.useEmissionMap) {
+            result.pbrMetallic.emissionMap = StoreTexture(manager, m->pbrMetallic.emissionMap);
+        } else {
+            result.pbrMetallic.emissionValue = m->pbrMetallic.emissionValue;
+            result.pbrMetallic.emissionIntensity = m->pbrMetallic.emissionIntensity;
+        }
     } break;
     case Material::PBRSpecular: {
         result.pbrSpecular.useAlbedoMap = m->pbrSpecular.useAlbedoMap;
@@ -134,6 +148,19 @@ StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
             result.pbrSpecular.normalFormat = (u32)m->pbrSpecular.normalFormat;
         }
 
+        result.pbrSpecular.useAOMap = m->pbrSpecular.useAOMap;
+        if (m->pbrSpecular.useAOMap) {
+            result.pbrSpecular.AOMap = StoreTexture(manager, m->pbrSpecular.AOMap);
+        }
+
+        result.pbrSpecular.emitsLight = m->pbrSpecular.emitsLight;
+        result.pbrSpecular.useEmissionMap = m->pbrSpecular.useEmissionMap;
+        if (m->pbrSpecular.useEmissionMap) {
+            result.pbrSpecular.emissionMap = StoreTexture(manager, m->pbrSpecular.emissionMap);
+        } else {
+            result.pbrSpecular.emissionValue = m->pbrSpecular.emissionValue;
+            result.pbrSpecular.emissionIntensity = m->pbrSpecular.emissionIntensity;
+        }
     } break;
     invalid_default();
     }
@@ -258,6 +285,23 @@ Material LoadMaterial(AssetManager* assetManager, StoredMaterial* stored) {
         } else {
             mat.pbrMetallic.useNormalMap = false;
         }
+
+        if (stored->pbrMetallic.useAOMap) {
+            mat.pbrMetallic.useAOMap = true;
+            mat.pbrMetallic.AOMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.AOMap);
+        } else {
+            mat.pbrMetallic.useAOMap = false;
+        }
+
+        mat.pbrMetallic.emitsLight = stored->pbrMetallic.emitsLight;
+        if (stored->pbrMetallic.useEmissionMap) {
+            mat.pbrMetallic.useEmissionMap = true;
+            mat.pbrMetallic.emissionMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.emissionMap);
+        } else {
+            mat.pbrMetallic.useEmissionMap = false;
+            mat.pbrMetallic.emissionValue = stored->pbrMetallic.emissionValue;
+            mat.pbrMetallic.emissionIntensity = stored->pbrMetallic.emissionIntensity;
+        }
     } break;
     case Material::PBRSpecular: {
         if (stored->pbrSpecular.useAlbedoMap) {
@@ -291,6 +335,24 @@ Material LoadMaterial(AssetManager* assetManager, StoredMaterial* stored) {
         } else {
             mat.pbrSpecular.useNormalMap = false;
         }
+
+        if (stored->pbrMetallic.useAOMap) {
+            mat.pbrMetallic.useAOMap = true;
+            mat.pbrMetallic.AOMap = LoadTextureIfExist(assetManager, &stored->pbrMetallic.AOMap);
+        } else {
+            mat.pbrMetallic.useAOMap = false;
+        }
+
+        mat.pbrSpecular.emitsLight = stored->pbrSpecular.emitsLight;
+        if (stored->pbrSpecular.useEmissionMap) {
+            mat.pbrSpecular.useEmissionMap = true;
+            mat.pbrSpecular.emissionMap = LoadTextureIfExist(assetManager, &stored->pbrSpecular.emissionMap);
+        } else {
+            mat.pbrSpecular.useEmissionMap = false;
+            mat.pbrSpecular.emissionValue = stored->pbrSpecular.emissionValue;
+            mat.pbrSpecular.emissionIntensity = stored->pbrSpecular.emissionIntensity;
+        }
+
     } break;
     invalid_default();
     }

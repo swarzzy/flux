@@ -35,6 +35,9 @@ struct Material {
             b32 useRoughnessMap;
             b32 useMetallicMap;
             b32 useNormalMap;
+            b32 useAOMap;
+            b32 emitsLight;
+            b32 useEmissionMap;
             NormalFormat normalFormat;
             union {
                 u32 albedoMap;
@@ -48,6 +51,14 @@ struct Material {
                 u32 metallicMap;
                 f32 metallicValue;
             };
+            union {
+                u32 emissionMap;
+                struct {
+                    v3 emissionValue;
+                    f32 emissionIntensity;
+                };
+            };
+            u32 AOMap;
             u32 normalMap;
         } pbrMetallic;
         struct {
@@ -55,6 +66,9 @@ struct Material {
             b32 useSpecularMap;
             b32 useGlossMap;
             b32 useNormalMap;
+            b32 useAOMap;
+            b32 emitsLight;
+            b32 useEmissionMap;
             NormalFormat normalFormat;
             union {
                 u32 albedoMap;
@@ -68,6 +82,14 @@ struct Material {
                 u32 glossMap;
                 f32 glossValue;
             };
+            union {
+                u32 emissionMap;
+                struct {
+                    v3 emissionValue;
+                    f32 emissionIntensity;
+                };
+            };
+            u32 AOMap;
             u32 normalMap;
         } pbrSpecular;
     };

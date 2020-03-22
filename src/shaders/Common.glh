@@ -39,6 +39,7 @@ layout (std140, binding = 1) uniform ShaderMeshData
     vec3 lineColor;
 
     int metallicWorkflow;
+    int emitsLight;
 
     int pbrUseAlbedoMap;
     int pbrUseRoughnessMap;
@@ -46,12 +47,15 @@ layout (std140, binding = 1) uniform ShaderMeshData
     int pbrUseSpecularMap;
     int pbrUseGlossMap;
     int pbrUseNormalMap;
+    int pbrUseAOMap;
+    int pbrUseEmissionMap;
 
     vec3 pbrAlbedoValue;
     float pbrRoughnessValue;
     float pbrMetallicValue;
     vec3 pbrSpecularValue;
     float pbrGlossValue;
+    vec3 pbrEmissionValue;
 
     int phongUseDiffuseMap;
     int phongUseSpecularMap;

@@ -33,6 +33,7 @@ struct StoredMaterial {
             u32 useMetallicMap;
             u32 useNormalMap;
             u32 useAOMap;
+            u32 emitsLight;
             u32 useEmissionMap;
             u32 normalFormat;
             byte roughnessMask;
@@ -53,9 +54,12 @@ struct StoredMaterial {
             };
             union {
                 StoredTexture emissionMap;
-                v3 emissionValue;
+                struct {
+                    v3 emissionValue;
+                    f32 emissionIntensity;
+                };
             };
-            StoredTexture aoMap;
+            StoredTexture AOMap;
             StoredTexture normalMap;
         } pbrMetallic;
         struct {
@@ -64,11 +68,12 @@ struct StoredMaterial {
             u32 useGlossMap;
             u32 useNormalMap;
             u32 useAOMap;
+            u32 emitsLight;
             u32 useEmissionMap;
             u32 normalFormat;
             byte specularMask; // ???
             byte glossMask;
-            byte emissionMask;
+            byte emissionMask; // ???
             byte aoMask;
             union {
                 StoredTexture albedoMap;
@@ -84,9 +89,12 @@ struct StoredMaterial {
             };
             union {
                 StoredTexture emissionMap;
-                f32 emissionValue;
+                struct {
+                    v3 emissionValue;
+                    f32 emissionIntensity;
+                };
             };
-            StoredTexture aoMap;
+            StoredTexture AOMap;
             StoredTexture normalMap;
         } pbrSpecular;
     };
