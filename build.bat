@@ -7,7 +7,7 @@ popd
 goto end
 )
 
-set BuildShaderPreprocessor=false
+set BuildShaderPreprocessor=true
 set BuildResourceLoader=true
 
 set ObjOutDir=build\obj\

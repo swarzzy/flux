@@ -48,7 +48,7 @@ vec3 ImportanceSampleGGX(vec2 p, vec3 N, float a)
 
 float GeometrySchlickGGX(float NdotV, float a)
 {
-    float k = (a * a) / 1.0f;
+    float k = (a * a) / 2.0f;
     float nom = NdotV;
     float denom = NdotV * (1.0f - k) + k;
     return nom / denom;

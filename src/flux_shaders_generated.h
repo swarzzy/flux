@@ -38,3501 +38,3005 @@ const char* ShaderNames[] =
 const ShaderProgramSource ShaderSources[] =
 {
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-layout (location = 0) in vec3 a_Position;
-layout (location = 1) in vec3 a_Normal;
-layout (location = 2) in int a_TileId;
-
-layout (location = 3) out vec3 v_ViewPosition;
-layout (location = 4) out vec4 v_LightSpacePos[3];
-layout (location = 7) flat out int v_TileId;
-layout (location = 8) out vec3 v_Normal;
-layout (location = 9) out vec2 v_UV;
-layout (location = 10) out vec4 v_Position;
-
-
-#define NUM_SHADOW_CASCADES 3
-#define TERRAIN_TEX_ARRAY_NUM_LAYERS 32
-#define INDICES_PER_CHUNK_QUAD 6
-#define VERTICES_PER_QUAD 4
-
-vec2 UV[] = vec2[](vec2(0.0f, 0.0f),
-                   vec2(1.0f, 0.0f),
-                   vec2(1.0f, 1.0f),
-                   vec2(0.0f, 1.0f));
-
-
-void main()
-{
-    // TODO: Pass ints as vertex attrib
-    // This problem will be solved when we switch to using
-    // packed vertex attributes
-
-    int vertIndexInQuad = gl_VertexID % 4;
-
-    v_UV = UV[min(vertIndexInQuad, VERTICES_PER_QUAD - 1)];
-
-    v_TileId = a_TileId;
-    v_Position = (MeshData.modelMatrix * vec4(a_Position, 1.0f));
-    v_ViewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(a_Position, 1.0f)).xyz;
-    v_Normal = MeshData.normalMatrix * a_Normal;
-    v_LightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(a_Position, 1.0f);
-    v_LightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(a_Position, 1.0f);
-    v_LightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(a_Position, 1.0f);
-    gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * MeshData.modelMatrix * vec4(a_Position, 1.0f);
-}
-)", 
-R"(#version 450
-
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 3
-#line 100000
-
-#define NUM_SHADOW_CASCADES 3
-
-// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl
-const vec2 PoissonSamples[64] = vec2[64]
-(
-    vec2(-0.5119625f, -0.4827938f),
-    vec2(-0.2171264f, -0.4768726f),
-    vec2(-0.7552931f, -0.2426507f),
-    vec2(-0.7136765f, -0.4496614f),
-    vec2(-0.5938849f, -0.6895654f),
-    vec2(-0.3148003f, -0.7047654f),
-    vec2(-0.42215f, -0.2024607f),
-    vec2(-0.9466816f, -0.2014508f),
-    vec2(-0.8409063f, -0.03465778f),
-    vec2(-0.6517572f, -0.07476326f),
-    vec2(-0.1041822f, -0.02521214f),
-    vec2(-0.3042712f, -0.02195431f),
-    vec2(-0.5082307f, 0.1079806f),
-    vec2(-0.08429877f, -0.2316298f),
-    vec2(-0.9879128f, 0.1113683f),
-    vec2(-0.3859636f, 0.3363545f),
-    vec2(-0.1925334f, 0.1787288f),
-    vec2(0.003256182f, 0.138135f),
-    vec2(-0.8706837f, 0.3010679f),
-    vec2(-0.6982038f, 0.1904326f),
-    vec2(0.1975043f, 0.2221317f),
-    vec2(0.1507788f, 0.4204168f),
-    vec2(0.3514056f, 0.09865579f),
-    vec2(0.1558783f, -0.08460935f),
-    vec2(-0.0684978f, 0.4461993f),
-    vec2(0.3780522f, 0.3478679f),
-    vec2(0.3956799f, -0.1469177f),
-    vec2(0.5838975f, 0.1054943f),
-    vec2(0.6155105f, 0.3245716f),
-    vec2(0.3928624f, -0.4417621f),
-    vec2(0.1749884f, -0.4202175f),
-    vec2(0.6813727f, -0.2424808f),
-    vec2(-0.6707711f, 0.4912741f),
-    vec2(0.0005130528f, -0.8058334f),
-    vec2(0.02703013f, -0.6010728f),
-    vec2(-0.1658188f, -0.9695674f),
-    vec2(0.4060591f, -0.7100726f),
-    vec2(0.7713396f, -0.4713659f),
-    vec2(0.573212f, -0.51544f),
-    vec2(-0.3448896f, -0.9046497f),
-    vec2(0.1268544f, -0.9874692f),
-    vec2(0.7418533f, -0.6667366f),
-    vec2(0.3492522f, 0.5924662f),
-    vec2(0.5679897f, 0.5343465f),
-    vec2(0.5663417f, 0.7708698f),
-    vec2(0.7375497f, 0.6691415f),
-    vec2(0.2271994f, -0.6163502f),
-    vec2(0.2312844f, 0.8725659f),
-    vec2(0.4216993f, 0.9002838f),
-    vec2(0.4262091f, -0.9013284f),
-    vec2(0.2001408f, -0.808381f),
-    vec2(0.149394f, 0.6650763f),
-    vec2(-0.09640376f, 0.9843736f),
-    vec2(0.7682328f, -0.07273844f),
-    vec2(0.04146584f, 0.8313184f),
-    vec2(0.9705266f, -0.1143304f),
-    vec2(0.9670017f, 0.1293385f),
-    vec2(0.9015037f, -0.3306949f),
-    vec2(-0.5085648f, 0.7534177f),
-    vec2(0.9055501f, 0.3758393f),
-    vec2(0.7599946f, 0.1809109f),
-    vec2(-0.2483695f, 0.7942952f),
-    vec2(-0.4241052f, 0.5581087f),
-    vec2(-0.1020106f, 0.6724468f)
-);
-
-vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]
-(
-    vec3(1.0f, 0.0f, 0.0f),
-    vec3(0.0f, 1.0f, 0.0f),
-    vec3(0.0f, 0.0f, 1.0f)
-);
-
-int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)
-{
-    int cascadeNum = 0;
-
-    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)
-    {
-        if (viewSpaceDepth < bounds[i])
-        {
-            cascadeNum = i;
-            break;
-        }
-    }
-    return cascadeNum;
-}
-
-vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,
-               vec3 lightSpaceP, float viewSpaceDepth,
-               float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-    int sampleCount = 0;
-    for (int y = -2; y <= 1; y++)
-    {
-        for (int x = -2; x <= 1; x++)
-        {
-            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);
-            kShadow += texture(shadowMap, uv);
-            sampleCount++;
-        }
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,
-                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,
-                      float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-
-#if RANDOMIZE_OFFSETS
-    int randomTextureSize = textureSize(randomTexture, 0);
-    // TODO: Better random here
-    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;
-    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;
-    mat2 randomRotationMtx;
-    randomRotationMtx[0] = vec2(cos(theta), sin(theta));
-    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));
-    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));
-    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));
-#endif
-
-    const int sampleCount = 16;
-
-    for (int i = 0; i < sampleCount; i++)
-    {
-#if RANDOMIZE_OFFSETS
-        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;
-#else
-        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;
-#endif
-        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);
-        kShadow += texture(shadowMap, uv);
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)
-{
-    float viewSpaceDepth = -viewSpacePos.z;
-    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);
-    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;
-    lightSpaceP = lightSpaceP * 0.5f + 0.5f;
-    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);
-    return kShadow;
-}
-
-#line 4
-
-layout (location = 3) in vec3 v_ViewPosition;
-layout (location = 4) in vec4 v_LightSpacePos[3];
-layout (location = 7) flat in int v_TileId;
-layout (location = 8) in vec3 v_Normal;
-layout (location = 9) in vec2 v_UV;
-layout (location = 10) in vec4 v_Position;
-
-out vec4 color;
-
-layout (binding = 0) uniform sampler2DArray u_TerrainAtlas;
-layout (binding = 1) uniform sampler2DArrayShadow u_ShadowMap;
-layout (binding = 2) uniform sampler1D randomTexture;
-
-#define PI (3.14159265359)
-
-//#define RANDOM_DISC_PCF 1
-#define RANDOMIZE_OFFSETS 1
-#define DUMMY_PCF 1
-
-
-vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 viewDir, vec3 diffSample)
-{
-    vec3 lightDir = normalize(-light.dir);
-    vec3 lightDirReflected = reflect(-lightDir, normal);
-
-    float Kd = max(dot(normal, lightDir), 0.0);
-
-    float viewSpaceDepth = -v_ViewPosition.z;
-    int cascadeIndex = GetShadowCascadeIndex(-v_ViewPosition.z, FrameData.shadowCascadeSplits);
-    vec3 lightSpaceP = v_LightSpacePos[cascadeIndex].xyz / v_LightSpacePos[cascadeIndex].w;
-    lightSpaceP = lightSpaceP * 0.5f + 0.5f;
-#if DUMMY_PCF
-   vec3 Kshadow = ShadowPCF(u_ShadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);
-#endif
-#if RANDOM_DISC_PCF
-   vec3 Kshadow = ShadowRandomDisc(u_ShadowMap, randomTexture, cascadeIndex, lightSpaceP, viewSpaceDepth, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);
-#endif
-
-    vec3 ambient = light.ambient * diffSample;
-    vec3 diffuse = Kd * light.diffuse * diffSample * Kshadow;
-    return ambient + diffuse;
-}
-
-#define TERRAIN_TEX_ARRAY_NUM_LAYERS 32
-
-void main()
-{
-    vec3 normal = normalize(v_Normal);
-    vec3 viewDir = normalize(FrameData.viewPos - v_Position.xyz);
-
-    int tileID = clamp(v_TileId, 0, TERRAIN_TEX_ARRAY_NUM_LAYERS);
-
-    vec3 diffSample;
-    float alpha;
-    diffSample = texture(u_TerrainAtlas, vec3(v_UV.x, v_UV.y, tileID)).rgb;
-    alpha = 1.0f;
-
-    vec3 directional = CalcDirectionalLight(FrameData.dirLight, normal, viewDir, diffSample);
-    //directional = diffSample;
-
-    color = vec4(directional, alpha);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 a_Position;\n"
+        "layout (location = 1) in vec3 a_Normal;\n"
+        "layout (location = 2) in int a_TileId;\n"
+        "layout (location = 3) out vec3 v_ViewPosition;\n"
+        "layout (location = 4) out vec4 v_LightSpacePos[3];\n"
+        "layout (location = 7) flat out int v_TileId;\n"
+        "layout (location = 8) out vec3 v_Normal;\n"
+        "layout (location = 9) out vec2 v_UV;\n"
+        "layout (location = 10) out vec4 v_Position;\n"
+        "#define NUM_SHADOW_CASCADES 3\n"
+        "#define TERRAIN_TEX_ARRAY_NUM_LAYERS 32\n"
+        "#define INDICES_PER_CHUNK_QUAD 6\n"
+        "#define VERTICES_PER_QUAD 4\n"
+        "vec2 UV[] = vec2[](vec2(0.0f, 0.0f),\n"
+        "                   vec2(1.0f, 0.0f),\n"
+        "                   vec2(1.0f, 1.0f),\n"
+        "                   vec2(0.0f, 1.0f));\n"
+        "void main()\n"
+        "{\n"
+        "    // TODO: Pass ints as vertex attrib\n"
+        "    // This problem will be solved when we switch to using\n"
+        "    // packed vertex attributes\n"
+        "    int vertIndexInQuad = gl_VertexID % 4;\n"
+        "    v_UV = UV[min(vertIndexInQuad, VERTICES_PER_QUAD - 1)];\n"
+        "    v_TileId = a_TileId;\n"
+        "    v_Position = (MeshData.modelMatrix * vec4(a_Position, 1.0f));\n"
+        "    v_ViewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(a_Position, 1.0f)).xyz;\n"
+        "    v_Normal = MeshData.normalMatrix * a_Normal;\n"
+        "    v_LightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(a_Position, 1.0f);\n"
+        "    v_LightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(a_Position, 1.0f);\n"
+        "    v_LightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(a_Position, 1.0f);\n"
+        "    gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * MeshData.modelMatrix * vec4(a_Position, 1.0f);\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 3\n"
+        "#line 100000\n"
+        "#define NUM_SHADOW_CASCADES 3\n"
+        "// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl\n"
+        "const vec2 PoissonSamples[64] = vec2[64]\n"
+        "(\n"
+        "    vec2(-0.5119625f, -0.4827938f),\n"
+        "    vec2(-0.2171264f, -0.4768726f),\n"
+        "    vec2(-0.7552931f, -0.2426507f),\n"
+        "    vec2(-0.7136765f, -0.4496614f),\n"
+        "    vec2(-0.5938849f, -0.6895654f),\n"
+        "    vec2(-0.3148003f, -0.7047654f),\n"
+        "    vec2(-0.42215f, -0.2024607f),\n"
+        "    vec2(-0.9466816f, -0.2014508f),\n"
+        "    vec2(-0.8409063f, -0.03465778f),\n"
+        "    vec2(-0.6517572f, -0.07476326f),\n"
+        "    vec2(-0.1041822f, -0.02521214f),\n"
+        "    vec2(-0.3042712f, -0.02195431f),\n"
+        "    vec2(-0.5082307f, 0.1079806f),\n"
+        "    vec2(-0.08429877f, -0.2316298f),\n"
+        "    vec2(-0.9879128f, 0.1113683f),\n"
+        "    vec2(-0.3859636f, 0.3363545f),\n"
+        "    vec2(-0.1925334f, 0.1787288f),\n"
+        "    vec2(0.003256182f, 0.138135f),\n"
+        "    vec2(-0.8706837f, 0.3010679f),\n"
+        "    vec2(-0.6982038f, 0.1904326f),\n"
+        "    vec2(0.1975043f, 0.2221317f),\n"
+        "    vec2(0.1507788f, 0.4204168f),\n"
+        "    vec2(0.3514056f, 0.09865579f),\n"
+        "    vec2(0.1558783f, -0.08460935f),\n"
+        "    vec2(-0.0684978f, 0.4461993f),\n"
+        "    vec2(0.3780522f, 0.3478679f),\n"
+        "    vec2(0.3956799f, -0.1469177f),\n"
+        "    vec2(0.5838975f, 0.1054943f),\n"
+        "    vec2(0.6155105f, 0.3245716f),\n"
+        "    vec2(0.3928624f, -0.4417621f),\n"
+        "    vec2(0.1749884f, -0.4202175f),\n"
+        "    vec2(0.6813727f, -0.2424808f),\n"
+        "    vec2(-0.6707711f, 0.4912741f),\n"
+        "    vec2(0.0005130528f, -0.8058334f),\n"
+        "    vec2(0.02703013f, -0.6010728f),\n"
+        "    vec2(-0.1658188f, -0.9695674f),\n"
+        "    vec2(0.4060591f, -0.7100726f),\n"
+        "    vec2(0.7713396f, -0.4713659f),\n"
+        "    vec2(0.573212f, -0.51544f),\n"
+        "    vec2(-0.3448896f, -0.9046497f),\n"
+        "    vec2(0.1268544f, -0.9874692f),\n"
+        "    vec2(0.7418533f, -0.6667366f),\n"
+        "    vec2(0.3492522f, 0.5924662f),\n"
+        "    vec2(0.5679897f, 0.5343465f),\n"
+        "    vec2(0.5663417f, 0.7708698f),\n"
+        "    vec2(0.7375497f, 0.6691415f),\n"
+        "    vec2(0.2271994f, -0.6163502f),\n"
+        "    vec2(0.2312844f, 0.8725659f),\n"
+        "    vec2(0.4216993f, 0.9002838f),\n"
+        "    vec2(0.4262091f, -0.9013284f),\n"
+        "    vec2(0.2001408f, -0.808381f),\n"
+        "    vec2(0.149394f, 0.6650763f),\n"
+        "    vec2(-0.09640376f, 0.9843736f),\n"
+        "    vec2(0.7682328f, -0.07273844f),\n"
+        "    vec2(0.04146584f, 0.8313184f),\n"
+        "    vec2(0.9705266f, -0.1143304f),\n"
+        "    vec2(0.9670017f, 0.1293385f),\n"
+        "    vec2(0.9015037f, -0.3306949f),\n"
+        "    vec2(-0.5085648f, 0.7534177f),\n"
+        "    vec2(0.9055501f, 0.3758393f),\n"
+        "    vec2(0.7599946f, 0.1809109f),\n"
+        "    vec2(-0.2483695f, 0.7942952f),\n"
+        "    vec2(-0.4241052f, 0.5581087f),\n"
+        "    vec2(-0.1020106f, 0.6724468f)\n"
+        ");\n"
+        "vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]\n"
+        "(\n"
+        "    vec3(1.0f, 0.0f, 0.0f),\n"
+        "    vec3(0.0f, 1.0f, 0.0f),\n"
+        "    vec3(0.0f, 0.0f, 1.0f)\n"
+        ");\n"
+        "int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)\n"
+        "{\n"
+        "    int cascadeNum = 0;\n"
+        "    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)\n"
+        "    {\n"
+        "        if (viewSpaceDepth < bounds[i])\n"
+        "        {\n"
+        "            cascadeNum = i;\n"
+        "            break;\n"
+        "        }\n"
+        "    }\n"
+        "    return cascadeNum;\n"
+        "}\n"
+        "vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,\n"
+        "               vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "               float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "    int sampleCount = 0;\n"
+        "    for (int y = -2; y <= 1; y++)\n"
+        "    {\n"
+        "        for (int x = -2; x <= 1; x++)\n"
+        "        {\n"
+        "            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);\n"
+        "            kShadow += texture(shadowMap, uv);\n"
+        "            sampleCount++;\n"
+        "        }\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,\n"
+        "                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "                      float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "    int randomTextureSize = textureSize(randomTexture, 0);\n"
+        "    // TODO: Better random here\n"
+        "    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;\n"
+        "    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;\n"
+        "    mat2 randomRotationMtx;\n"
+        "    randomRotationMtx[0] = vec2(cos(theta), sin(theta));\n"
+        "    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));\n"
+        "    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));\n"
+        "    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));\n"
+        "#endif\n"
+        "    const int sampleCount = 16;\n"
+        "    for (int i = 0; i < sampleCount; i++)\n"
+        "    {\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;\n"
+        "#else\n"
+        "        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;\n"
+        "#endif\n"
+        "        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);\n"
+        "        kShadow += texture(shadowMap, uv);\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)\n"
+        "{\n"
+        "    float viewSpaceDepth = -viewSpacePos.z;\n"
+        "    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);\n"
+        "    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;\n"
+        "    lightSpaceP = lightSpaceP * 0.5f + 0.5f;\n"
+        "    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);\n"
+        "    return kShadow;\n"
+        "}\n"
+        "#line 4\n"
+        "layout (location = 3) in vec3 v_ViewPosition;\n"
+        "layout (location = 4) in vec4 v_LightSpacePos[3];\n"
+        "layout (location = 7) flat in int v_TileId;\n"
+        "layout (location = 8) in vec3 v_Normal;\n"
+        "layout (location = 9) in vec2 v_UV;\n"
+        "layout (location = 10) in vec4 v_Position;\n"
+        "out vec4 color;\n"
+        "layout (binding = 0) uniform sampler2DArray u_TerrainAtlas;\n"
+        "layout (binding = 1) uniform sampler2DArrayShadow u_ShadowMap;\n"
+        "layout (binding = 2) uniform sampler1D randomTexture;\n"
+        "#define PI (3.14159265359)\n"
+        "//#define RANDOM_DISC_PCF 1\n"
+        "#define RANDOMIZE_OFFSETS 1\n"
+        "#define DUMMY_PCF 1\n"
+        "vec3 CalcDirectionalLight(DirLight light, vec3 normal, vec3 viewDir, vec3 diffSample)\n"
+        "{\n"
+        "    vec3 lightDir = normalize(-light.dir);\n"
+        "    vec3 lightDirReflected = reflect(-lightDir, normal);\n"
+        "    float Kd = max(dot(normal, lightDir), 0.0);\n"
+        "    float viewSpaceDepth = -v_ViewPosition.z;\n"
+        "    int cascadeIndex = GetShadowCascadeIndex(-v_ViewPosition.z, FrameData.shadowCascadeSplits);\n"
+        "    vec3 lightSpaceP = v_LightSpacePos[cascadeIndex].xyz / v_LightSpacePos[cascadeIndex].w;\n"
+        "    lightSpaceP = lightSpaceP * 0.5f + 0.5f;\n"
+        "#if DUMMY_PCF\n"
+        "   vec3 Kshadow = ShadowPCF(u_ShadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);\n"
+        "#endif\n"
+        "#if RANDOM_DISC_PCF\n"
+        "   vec3 Kshadow = ShadowRandomDisc(u_ShadowMap, randomTexture, cascadeIndex, lightSpaceP, viewSpaceDepth, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);\n"
+        "#endif\n"
+        "    vec3 ambient = light.ambient * diffSample;\n"
+        "    vec3 diffuse = Kd * light.diffuse * diffSample * Kshadow;\n"
+        "    return ambient + diffuse;\n"
+        "}\n"
+        "#define TERRAIN_TEX_ARRAY_NUM_LAYERS 32\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 normal = normalize(v_Normal);\n"
+        "    vec3 viewDir = normalize(FrameData.viewPos - v_Position.xyz);\n"
+        "    int tileID = clamp(v_TileId, 0, TERRAIN_TEX_ARRAY_NUM_LAYERS);\n"
+        "    vec3 diffSample;\n"
+        "    float alpha;\n"
+        "    diffSample = texture(u_TerrainAtlas, vec3(v_UV.x, v_UV.y, tileID)).rgb;\n"
+        "    alpha = 1.0f;\n"
+        "    vec3 directional = CalcDirectionalLight(FrameData.dirLight, normal, viewDir, diffSample);\n"
+        "    //directional = diffSample;\n"
+        "    color = vec4(directional, alpha);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-layout (location = 0) in vec3 Pos;
-layout (location = 1) in vec3 Normal;
-layout (location = 2) in vec2 UV;
-
-layout (location = 3) out VertOut
-{
-    vec3 fragPos;
-    vec3 normal;
-    vec2 uv;
-    vec3 viewPosition;
-    vec4 lightSpacePos[3];
-} vertOut;
-
-void main()
-{
-    gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.fragPos = (MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;
-    vertOut.uv = UV;
-    vertOut.normal = MeshData.normalMatrix * Normal;
-    vertOut.viewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;
-    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-}
-)", 
-R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-#line 100000
-
-#define NUM_SHADOW_CASCADES 3
-
-// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl
-const vec2 PoissonSamples[64] = vec2[64]
-(
-    vec2(-0.5119625f, -0.4827938f),
-    vec2(-0.2171264f, -0.4768726f),
-    vec2(-0.7552931f, -0.2426507f),
-    vec2(-0.7136765f, -0.4496614f),
-    vec2(-0.5938849f, -0.6895654f),
-    vec2(-0.3148003f, -0.7047654f),
-    vec2(-0.42215f, -0.2024607f),
-    vec2(-0.9466816f, -0.2014508f),
-    vec2(-0.8409063f, -0.03465778f),
-    vec2(-0.6517572f, -0.07476326f),
-    vec2(-0.1041822f, -0.02521214f),
-    vec2(-0.3042712f, -0.02195431f),
-    vec2(-0.5082307f, 0.1079806f),
-    vec2(-0.08429877f, -0.2316298f),
-    vec2(-0.9879128f, 0.1113683f),
-    vec2(-0.3859636f, 0.3363545f),
-    vec2(-0.1925334f, 0.1787288f),
-    vec2(0.003256182f, 0.138135f),
-    vec2(-0.8706837f, 0.3010679f),
-    vec2(-0.6982038f, 0.1904326f),
-    vec2(0.1975043f, 0.2221317f),
-    vec2(0.1507788f, 0.4204168f),
-    vec2(0.3514056f, 0.09865579f),
-    vec2(0.1558783f, -0.08460935f),
-    vec2(-0.0684978f, 0.4461993f),
-    vec2(0.3780522f, 0.3478679f),
-    vec2(0.3956799f, -0.1469177f),
-    vec2(0.5838975f, 0.1054943f),
-    vec2(0.6155105f, 0.3245716f),
-    vec2(0.3928624f, -0.4417621f),
-    vec2(0.1749884f, -0.4202175f),
-    vec2(0.6813727f, -0.2424808f),
-    vec2(-0.6707711f, 0.4912741f),
-    vec2(0.0005130528f, -0.8058334f),
-    vec2(0.02703013f, -0.6010728f),
-    vec2(-0.1658188f, -0.9695674f),
-    vec2(0.4060591f, -0.7100726f),
-    vec2(0.7713396f, -0.4713659f),
-    vec2(0.573212f, -0.51544f),
-    vec2(-0.3448896f, -0.9046497f),
-    vec2(0.1268544f, -0.9874692f),
-    vec2(0.7418533f, -0.6667366f),
-    vec2(0.3492522f, 0.5924662f),
-    vec2(0.5679897f, 0.5343465f),
-    vec2(0.5663417f, 0.7708698f),
-    vec2(0.7375497f, 0.6691415f),
-    vec2(0.2271994f, -0.6163502f),
-    vec2(0.2312844f, 0.8725659f),
-    vec2(0.4216993f, 0.9002838f),
-    vec2(0.4262091f, -0.9013284f),
-    vec2(0.2001408f, -0.808381f),
-    vec2(0.149394f, 0.6650763f),
-    vec2(-0.09640376f, 0.9843736f),
-    vec2(0.7682328f, -0.07273844f),
-    vec2(0.04146584f, 0.8313184f),
-    vec2(0.9705266f, -0.1143304f),
-    vec2(0.9670017f, 0.1293385f),
-    vec2(0.9015037f, -0.3306949f),
-    vec2(-0.5085648f, 0.7534177f),
-    vec2(0.9055501f, 0.3758393f),
-    vec2(0.7599946f, 0.1809109f),
-    vec2(-0.2483695f, 0.7942952f),
-    vec2(-0.4241052f, 0.5581087f),
-    vec2(-0.1020106f, 0.6724468f)
-);
-
-vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]
-(
-    vec3(1.0f, 0.0f, 0.0f),
-    vec3(0.0f, 1.0f, 0.0f),
-    vec3(0.0f, 0.0f, 1.0f)
-);
-
-int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)
-{
-    int cascadeNum = 0;
-
-    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)
-    {
-        if (viewSpaceDepth < bounds[i])
-        {
-            cascadeNum = i;
-            break;
-        }
-    }
-    return cascadeNum;
-}
-
-vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,
-               vec3 lightSpaceP, float viewSpaceDepth,
-               float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-    int sampleCount = 0;
-    for (int y = -2; y <= 1; y++)
-    {
-        for (int x = -2; x <= 1; x++)
-        {
-            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);
-            kShadow += texture(shadowMap, uv);
-            sampleCount++;
-        }
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,
-                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,
-                      float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-
-#if RANDOMIZE_OFFSETS
-    int randomTextureSize = textureSize(randomTexture, 0);
-    // TODO: Better random here
-    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;
-    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;
-    mat2 randomRotationMtx;
-    randomRotationMtx[0] = vec2(cos(theta), sin(theta));
-    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));
-    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));
-    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));
-#endif
-
-    const int sampleCount = 16;
-
-    for (int i = 0; i < sampleCount; i++)
-    {
-#if RANDOMIZE_OFFSETS
-        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;
-#else
-        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;
-#endif
-        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);
-        kShadow += texture(shadowMap, uv);
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)
-{
-    float viewSpaceDepth = -viewSpacePos.z;
-    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);
-    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;
-    lightSpaceP = lightSpaceP * 0.5f + 0.5f;
-    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);
-    return kShadow;
-}
-
-#line 3
-
-out vec4 Color;
-
-layout (location = 3) in VertOut
-{
-    vec3 fragPos;
-    vec3 normal;
-    vec2 uv;
-    vec3 viewPosition;
-    vec4 lightSpacePos[3];
-} fragIn;
-
-layout (binding = 0) uniform sampler2D DiffMap;
-layout (binding = 1) uniform sampler2D SpecMap;
-layout (binding = 2) uniform sampler2DArrayShadow ShadowMap;
-
-void main()
-{
-    vec3 normal = normalize(fragIn.normal);
-
-    vec4 diffSample;
-    if (MeshData.phongUseDiffuseMap == 1)
-    {
-        diffSample = texture(DiffMap, fragIn.uv);
-    }
-    else
-    {
-        diffSample = vec4(MeshData.customPhongDiffuse, 1.0f);
-    }
-
-    vec4 specSample;
-    if (MeshData.phongUseSpecularMap == 1)
-    {
-        specSample = texture(SpecMap, fragIn.uv);
-    }
-    else
-    {
-        specSample = vec4(MeshData.customPhongSpecular, 1.0f);
-    }
-
-    specSample.a = 1.0f;
-    vec3 lightDir = normalize(-FrameData.dirLight.dir);
-    float kDiff = max(dot(normal, lightDir), 0.0f);
-    vec3 viewDir = normalize(FrameData.viewPos - fragIn.fragPos);
-    vec3 rFromLight = reflect(-lightDir, normal);
-    float kSpec = pow(max(dot(viewDir, rFromLight), 0.0f), 32.0f);
-
-    vec4 kShadow = vec4(CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries), 1.0f);
-
-    vec4 ambient = diffSample * vec4(FrameData.dirLight.ambient, 1.0f);
-    vec4 diffuse = diffSample * kDiff * vec4(FrameData.dirLight.diffuse, 1.0f) * kShadow;
-    vec4 specular = specSample * kSpec * vec4(FrameData.dirLight.specular, 1.0f) * kShadow;
-    Color = ambient + diffuse + specular;
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 Pos;\n"
+        "layout (location = 1) in vec3 Normal;\n"
+        "layout (location = 2) in vec2 UV;\n"
+        "layout (location = 3) out VertOut\n"
+        "{\n"
+        "    vec3 fragPos;\n"
+        "    vec3 normal;\n"
+        "    vec2 uv;\n"
+        "    vec3 viewPosition;\n"
+        "    vec4 lightSpacePos[3];\n"
+        "} vertOut;\n"
+        "void main()\n"
+        "{\n"
+        "    gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.fragPos = (MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;\n"
+        "    vertOut.uv = UV;\n"
+        "    vertOut.normal = MeshData.normalMatrix * Normal;\n"
+        "    vertOut.viewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;\n"
+        "    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "#line 100000\n"
+        "#define NUM_SHADOW_CASCADES 3\n"
+        "// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl\n"
+        "const vec2 PoissonSamples[64] = vec2[64]\n"
+        "(\n"
+        "    vec2(-0.5119625f, -0.4827938f),\n"
+        "    vec2(-0.2171264f, -0.4768726f),\n"
+        "    vec2(-0.7552931f, -0.2426507f),\n"
+        "    vec2(-0.7136765f, -0.4496614f),\n"
+        "    vec2(-0.5938849f, -0.6895654f),\n"
+        "    vec2(-0.3148003f, -0.7047654f),\n"
+        "    vec2(-0.42215f, -0.2024607f),\n"
+        "    vec2(-0.9466816f, -0.2014508f),\n"
+        "    vec2(-0.8409063f, -0.03465778f),\n"
+        "    vec2(-0.6517572f, -0.07476326f),\n"
+        "    vec2(-0.1041822f, -0.02521214f),\n"
+        "    vec2(-0.3042712f, -0.02195431f),\n"
+        "    vec2(-0.5082307f, 0.1079806f),\n"
+        "    vec2(-0.08429877f, -0.2316298f),\n"
+        "    vec2(-0.9879128f, 0.1113683f),\n"
+        "    vec2(-0.3859636f, 0.3363545f),\n"
+        "    vec2(-0.1925334f, 0.1787288f),\n"
+        "    vec2(0.003256182f, 0.138135f),\n"
+        "    vec2(-0.8706837f, 0.3010679f),\n"
+        "    vec2(-0.6982038f, 0.1904326f),\n"
+        "    vec2(0.1975043f, 0.2221317f),\n"
+        "    vec2(0.1507788f, 0.4204168f),\n"
+        "    vec2(0.3514056f, 0.09865579f),\n"
+        "    vec2(0.1558783f, -0.08460935f),\n"
+        "    vec2(-0.0684978f, 0.4461993f),\n"
+        "    vec2(0.3780522f, 0.3478679f),\n"
+        "    vec2(0.3956799f, -0.1469177f),\n"
+        "    vec2(0.5838975f, 0.1054943f),\n"
+        "    vec2(0.6155105f, 0.3245716f),\n"
+        "    vec2(0.3928624f, -0.4417621f),\n"
+        "    vec2(0.1749884f, -0.4202175f),\n"
+        "    vec2(0.6813727f, -0.2424808f),\n"
+        "    vec2(-0.6707711f, 0.4912741f),\n"
+        "    vec2(0.0005130528f, -0.8058334f),\n"
+        "    vec2(0.02703013f, -0.6010728f),\n"
+        "    vec2(-0.1658188f, -0.9695674f),\n"
+        "    vec2(0.4060591f, -0.7100726f),\n"
+        "    vec2(0.7713396f, -0.4713659f),\n"
+        "    vec2(0.573212f, -0.51544f),\n"
+        "    vec2(-0.3448896f, -0.9046497f),\n"
+        "    vec2(0.1268544f, -0.9874692f),\n"
+        "    vec2(0.7418533f, -0.6667366f),\n"
+        "    vec2(0.3492522f, 0.5924662f),\n"
+        "    vec2(0.5679897f, 0.5343465f),\n"
+        "    vec2(0.5663417f, 0.7708698f),\n"
+        "    vec2(0.7375497f, 0.6691415f),\n"
+        "    vec2(0.2271994f, -0.6163502f),\n"
+        "    vec2(0.2312844f, 0.8725659f),\n"
+        "    vec2(0.4216993f, 0.9002838f),\n"
+        "    vec2(0.4262091f, -0.9013284f),\n"
+        "    vec2(0.2001408f, -0.808381f),\n"
+        "    vec2(0.149394f, 0.6650763f),\n"
+        "    vec2(-0.09640376f, 0.9843736f),\n"
+        "    vec2(0.7682328f, -0.07273844f),\n"
+        "    vec2(0.04146584f, 0.8313184f),\n"
+        "    vec2(0.9705266f, -0.1143304f),\n"
+        "    vec2(0.9670017f, 0.1293385f),\n"
+        "    vec2(0.9015037f, -0.3306949f),\n"
+        "    vec2(-0.5085648f, 0.7534177f),\n"
+        "    vec2(0.9055501f, 0.3758393f),\n"
+        "    vec2(0.7599946f, 0.1809109f),\n"
+        "    vec2(-0.2483695f, 0.7942952f),\n"
+        "    vec2(-0.4241052f, 0.5581087f),\n"
+        "    vec2(-0.1020106f, 0.6724468f)\n"
+        ");\n"
+        "vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]\n"
+        "(\n"
+        "    vec3(1.0f, 0.0f, 0.0f),\n"
+        "    vec3(0.0f, 1.0f, 0.0f),\n"
+        "    vec3(0.0f, 0.0f, 1.0f)\n"
+        ");\n"
+        "int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)\n"
+        "{\n"
+        "    int cascadeNum = 0;\n"
+        "    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)\n"
+        "    {\n"
+        "        if (viewSpaceDepth < bounds[i])\n"
+        "        {\n"
+        "            cascadeNum = i;\n"
+        "            break;\n"
+        "        }\n"
+        "    }\n"
+        "    return cascadeNum;\n"
+        "}\n"
+        "vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,\n"
+        "               vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "               float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "    int sampleCount = 0;\n"
+        "    for (int y = -2; y <= 1; y++)\n"
+        "    {\n"
+        "        for (int x = -2; x <= 1; x++)\n"
+        "        {\n"
+        "            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);\n"
+        "            kShadow += texture(shadowMap, uv);\n"
+        "            sampleCount++;\n"
+        "        }\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,\n"
+        "                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "                      float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "    int randomTextureSize = textureSize(randomTexture, 0);\n"
+        "    // TODO: Better random here\n"
+        "    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;\n"
+        "    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;\n"
+        "    mat2 randomRotationMtx;\n"
+        "    randomRotationMtx[0] = vec2(cos(theta), sin(theta));\n"
+        "    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));\n"
+        "    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));\n"
+        "    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));\n"
+        "#endif\n"
+        "    const int sampleCount = 16;\n"
+        "    for (int i = 0; i < sampleCount; i++)\n"
+        "    {\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;\n"
+        "#else\n"
+        "        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;\n"
+        "#endif\n"
+        "        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);\n"
+        "        kShadow += texture(shadowMap, uv);\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)\n"
+        "{\n"
+        "    float viewSpaceDepth = -viewSpacePos.z;\n"
+        "    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);\n"
+        "    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;\n"
+        "    lightSpaceP = lightSpaceP * 0.5f + 0.5f;\n"
+        "    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);\n"
+        "    return kShadow;\n"
+        "}\n"
+        "#line 3\n"
+        "out vec4 Color;\n"
+        "layout (location = 3) in VertOut\n"
+        "{\n"
+        "    vec3 fragPos;\n"
+        "    vec3 normal;\n"
+        "    vec2 uv;\n"
+        "    vec3 viewPosition;\n"
+        "    vec4 lightSpacePos[3];\n"
+        "} fragIn;\n"
+        "layout (binding = 0) uniform sampler2D DiffMap;\n"
+        "layout (binding = 1) uniform sampler2D SpecMap;\n"
+        "layout (binding = 2) uniform sampler2DArrayShadow ShadowMap;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 normal = normalize(fragIn.normal);\n"
+        "    vec4 diffSample;\n"
+        "    if (MeshData.phongUseDiffuseMap == 1)\n"
+        "    {\n"
+        "        diffSample = texture(DiffMap, fragIn.uv);\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        diffSample = vec4(MeshData.customPhongDiffuse, 1.0f);\n"
+        "    }\n"
+        "    vec4 specSample;\n"
+        "    if (MeshData.phongUseSpecularMap == 1)\n"
+        "    {\n"
+        "        specSample = texture(SpecMap, fragIn.uv);\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        specSample = vec4(MeshData.customPhongSpecular, 1.0f);\n"
+        "    }\n"
+        "    specSample.a = 1.0f;\n"
+        "    vec3 lightDir = normalize(-FrameData.dirLight.dir);\n"
+        "    float kDiff = max(dot(normal, lightDir), 0.0f);\n"
+        "    vec3 viewDir = normalize(FrameData.viewPos - fragIn.fragPos);\n"
+        "    vec3 rFromLight = reflect(-lightDir, normal);\n"
+        "    float kSpec = pow(max(dot(viewDir, rFromLight), 0.0f), 32.0f);\n"
+        "    vec4 kShadow = vec4(CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries), 1.0f);\n"
+        "    vec4 ambient = diffSample * vec4(FrameData.dirLight.ambient, 1.0f);\n"
+        "    vec4 diffuse = diffSample * kDiff * vec4(FrameData.dirLight.diffuse, 1.0f) * kShadow;\n"
+        "    vec4 specular = specSample * kSpec * vec4(FrameData.dirLight.specular, 1.0f) * kShadow;\n"
+        "    Color = ambient + diffuse + specular;\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-layout (location = 0) in vec3 Pos;
-layout (location = 1) in vec3 Normal;
-layout (location = 2) in vec2 UV;
-
-layout (location = 3) out VertOut
-{
-    vec3 fragPos;
-    vec3 normal;
-    vec2 uv;
-    vec3 viewPosition;
-    vec4 lightSpacePos[3];
-} vertOut;
-
-void main()
-{
-    gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.fragPos = (MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;
-    vertOut.uv = UV;
-    vertOut.normal = MeshData.normalMatrix * Normal;
-    vertOut.viewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;
-    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-}
-)", 
-R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-#line 100000
-
-#define NUM_SHADOW_CASCADES 3
-
-// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl
-const vec2 PoissonSamples[64] = vec2[64]
-(
-    vec2(-0.5119625f, -0.4827938f),
-    vec2(-0.2171264f, -0.4768726f),
-    vec2(-0.7552931f, -0.2426507f),
-    vec2(-0.7136765f, -0.4496614f),
-    vec2(-0.5938849f, -0.6895654f),
-    vec2(-0.3148003f, -0.7047654f),
-    vec2(-0.42215f, -0.2024607f),
-    vec2(-0.9466816f, -0.2014508f),
-    vec2(-0.8409063f, -0.03465778f),
-    vec2(-0.6517572f, -0.07476326f),
-    vec2(-0.1041822f, -0.02521214f),
-    vec2(-0.3042712f, -0.02195431f),
-    vec2(-0.5082307f, 0.1079806f),
-    vec2(-0.08429877f, -0.2316298f),
-    vec2(-0.9879128f, 0.1113683f),
-    vec2(-0.3859636f, 0.3363545f),
-    vec2(-0.1925334f, 0.1787288f),
-    vec2(0.003256182f, 0.138135f),
-    vec2(-0.8706837f, 0.3010679f),
-    vec2(-0.6982038f, 0.1904326f),
-    vec2(0.1975043f, 0.2221317f),
-    vec2(0.1507788f, 0.4204168f),
-    vec2(0.3514056f, 0.09865579f),
-    vec2(0.1558783f, -0.08460935f),
-    vec2(-0.0684978f, 0.4461993f),
-    vec2(0.3780522f, 0.3478679f),
-    vec2(0.3956799f, -0.1469177f),
-    vec2(0.5838975f, 0.1054943f),
-    vec2(0.6155105f, 0.3245716f),
-    vec2(0.3928624f, -0.4417621f),
-    vec2(0.1749884f, -0.4202175f),
-    vec2(0.6813727f, -0.2424808f),
-    vec2(-0.6707711f, 0.4912741f),
-    vec2(0.0005130528f, -0.8058334f),
-    vec2(0.02703013f, -0.6010728f),
-    vec2(-0.1658188f, -0.9695674f),
-    vec2(0.4060591f, -0.7100726f),
-    vec2(0.7713396f, -0.4713659f),
-    vec2(0.573212f, -0.51544f),
-    vec2(-0.3448896f, -0.9046497f),
-    vec2(0.1268544f, -0.9874692f),
-    vec2(0.7418533f, -0.6667366f),
-    vec2(0.3492522f, 0.5924662f),
-    vec2(0.5679897f, 0.5343465f),
-    vec2(0.5663417f, 0.7708698f),
-    vec2(0.7375497f, 0.6691415f),
-    vec2(0.2271994f, -0.6163502f),
-    vec2(0.2312844f, 0.8725659f),
-    vec2(0.4216993f, 0.9002838f),
-    vec2(0.4262091f, -0.9013284f),
-    vec2(0.2001408f, -0.808381f),
-    vec2(0.149394f, 0.6650763f),
-    vec2(-0.09640376f, 0.9843736f),
-    vec2(0.7682328f, -0.07273844f),
-    vec2(0.04146584f, 0.8313184f),
-    vec2(0.9705266f, -0.1143304f),
-    vec2(0.9670017f, 0.1293385f),
-    vec2(0.9015037f, -0.3306949f),
-    vec2(-0.5085648f, 0.7534177f),
-    vec2(0.9055501f, 0.3758393f),
-    vec2(0.7599946f, 0.1809109f),
-    vec2(-0.2483695f, 0.7942952f),
-    vec2(-0.4241052f, 0.5581087f),
-    vec2(-0.1020106f, 0.6724468f)
-);
-
-vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]
-(
-    vec3(1.0f, 0.0f, 0.0f),
-    vec3(0.0f, 1.0f, 0.0f),
-    vec3(0.0f, 0.0f, 1.0f)
-);
-
-int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)
-{
-    int cascadeNum = 0;
-
-    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)
-    {
-        if (viewSpaceDepth < bounds[i])
-        {
-            cascadeNum = i;
-            break;
-        }
-    }
-    return cascadeNum;
-}
-
-vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,
-               vec3 lightSpaceP, float viewSpaceDepth,
-               float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-    int sampleCount = 0;
-    for (int y = -2; y <= 1; y++)
-    {
-        for (int x = -2; x <= 1; x++)
-        {
-            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);
-            kShadow += texture(shadowMap, uv);
-            sampleCount++;
-        }
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,
-                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,
-                      float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-
-#if RANDOMIZE_OFFSETS
-    int randomTextureSize = textureSize(randomTexture, 0);
-    // TODO: Better random here
-    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;
-    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;
-    mat2 randomRotationMtx;
-    randomRotationMtx[0] = vec2(cos(theta), sin(theta));
-    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));
-    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));
-    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));
-#endif
-
-    const int sampleCount = 16;
-
-    for (int i = 0; i < sampleCount; i++)
-    {
-#if RANDOMIZE_OFFSETS
-        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;
-#else
-        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;
-#endif
-        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);
-        kShadow += texture(shadowMap, uv);
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)
-{
-    float viewSpaceDepth = -viewSpacePos.z;
-    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);
-    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;
-    lightSpaceP = lightSpaceP * 0.5f + 0.5f;
-    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);
-    return kShadow;
-}
-
-#line 3
-
-out vec4 Color;
-
-layout (location = 3) in VertOut
-{
-    vec3 fragPos;
-    vec3 normal;
-    vec2 uv;
-    vec3 viewPosition;
-    vec4 lightSpacePos[3];
-} fragIn;
-
-layout (binding = 0) uniform sampler2DArrayShadow ShadowMap;
-
-void main()
-{
-    vec3 normal = normalize(fragIn.normal);
-    vec4 diffSamle = vec4(MeshData.customPhongDiffuse, 1.0f);
-    vec4 specSample = vec4(MeshData.customPhongSpecular, 1.0f);
-    vec3 lightDir = normalize(-FrameData.dirLight.dir);
-    float kDiff = max(dot(normal, lightDir), 0.0f);
-    vec3 viewDir = normalize(FrameData.viewPos - fragIn.fragPos);
-    vec3 rFromLight = reflect(-lightDir, normal);
-    float kSpec = pow(max(dot(viewDir, rFromLight), 0.0f), 32.0f);
-
-    vec4 kShadow = vec4(CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries), 1.0f);
-
-    vec4 ambient = diffSamle * vec4(FrameData.dirLight.ambient, 1.0f);
-    vec4 diffuse = diffSamle * kDiff * vec4(FrameData.dirLight.diffuse, 1.0f) * kShadow;
-    vec4 specular = specSample * kSpec * vec4(FrameData.dirLight.specular, 1.0f) * kShadow;
-    Color = ambient + diffuse + specular;
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 Pos;\n"
+        "layout (location = 1) in vec3 Normal;\n"
+        "layout (location = 2) in vec2 UV;\n"
+        "layout (location = 3) out VertOut\n"
+        "{\n"
+        "    vec3 fragPos;\n"
+        "    vec3 normal;\n"
+        "    vec2 uv;\n"
+        "    vec3 viewPosition;\n"
+        "    vec4 lightSpacePos[3];\n"
+        "} vertOut;\n"
+        "void main()\n"
+        "{\n"
+        "    gl_Position = FrameData.projectionMatrix * FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.fragPos = (MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;\n"
+        "    vertOut.uv = UV;\n"
+        "    vertOut.normal = MeshData.normalMatrix * Normal;\n"
+        "    vertOut.viewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;\n"
+        "    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "#line 100000\n"
+        "#define NUM_SHADOW_CASCADES 3\n"
+        "// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl\n"
+        "const vec2 PoissonSamples[64] = vec2[64]\n"
+        "(\n"
+        "    vec2(-0.5119625f, -0.4827938f),\n"
+        "    vec2(-0.2171264f, -0.4768726f),\n"
+        "    vec2(-0.7552931f, -0.2426507f),\n"
+        "    vec2(-0.7136765f, -0.4496614f),\n"
+        "    vec2(-0.5938849f, -0.6895654f),\n"
+        "    vec2(-0.3148003f, -0.7047654f),\n"
+        "    vec2(-0.42215f, -0.2024607f),\n"
+        "    vec2(-0.9466816f, -0.2014508f),\n"
+        "    vec2(-0.8409063f, -0.03465778f),\n"
+        "    vec2(-0.6517572f, -0.07476326f),\n"
+        "    vec2(-0.1041822f, -0.02521214f),\n"
+        "    vec2(-0.3042712f, -0.02195431f),\n"
+        "    vec2(-0.5082307f, 0.1079806f),\n"
+        "    vec2(-0.08429877f, -0.2316298f),\n"
+        "    vec2(-0.9879128f, 0.1113683f),\n"
+        "    vec2(-0.3859636f, 0.3363545f),\n"
+        "    vec2(-0.1925334f, 0.1787288f),\n"
+        "    vec2(0.003256182f, 0.138135f),\n"
+        "    vec2(-0.8706837f, 0.3010679f),\n"
+        "    vec2(-0.6982038f, 0.1904326f),\n"
+        "    vec2(0.1975043f, 0.2221317f),\n"
+        "    vec2(0.1507788f, 0.4204168f),\n"
+        "    vec2(0.3514056f, 0.09865579f),\n"
+        "    vec2(0.1558783f, -0.08460935f),\n"
+        "    vec2(-0.0684978f, 0.4461993f),\n"
+        "    vec2(0.3780522f, 0.3478679f),\n"
+        "    vec2(0.3956799f, -0.1469177f),\n"
+        "    vec2(0.5838975f, 0.1054943f),\n"
+        "    vec2(0.6155105f, 0.3245716f),\n"
+        "    vec2(0.3928624f, -0.4417621f),\n"
+        "    vec2(0.1749884f, -0.4202175f),\n"
+        "    vec2(0.6813727f, -0.2424808f),\n"
+        "    vec2(-0.6707711f, 0.4912741f),\n"
+        "    vec2(0.0005130528f, -0.8058334f),\n"
+        "    vec2(0.02703013f, -0.6010728f),\n"
+        "    vec2(-0.1658188f, -0.9695674f),\n"
+        "    vec2(0.4060591f, -0.7100726f),\n"
+        "    vec2(0.7713396f, -0.4713659f),\n"
+        "    vec2(0.573212f, -0.51544f),\n"
+        "    vec2(-0.3448896f, -0.9046497f),\n"
+        "    vec2(0.1268544f, -0.9874692f),\n"
+        "    vec2(0.7418533f, -0.6667366f),\n"
+        "    vec2(0.3492522f, 0.5924662f),\n"
+        "    vec2(0.5679897f, 0.5343465f),\n"
+        "    vec2(0.5663417f, 0.7708698f),\n"
+        "    vec2(0.7375497f, 0.6691415f),\n"
+        "    vec2(0.2271994f, -0.6163502f),\n"
+        "    vec2(0.2312844f, 0.8725659f),\n"
+        "    vec2(0.4216993f, 0.9002838f),\n"
+        "    vec2(0.4262091f, -0.9013284f),\n"
+        "    vec2(0.2001408f, -0.808381f),\n"
+        "    vec2(0.149394f, 0.6650763f),\n"
+        "    vec2(-0.09640376f, 0.9843736f),\n"
+        "    vec2(0.7682328f, -0.07273844f),\n"
+        "    vec2(0.04146584f, 0.8313184f),\n"
+        "    vec2(0.9705266f, -0.1143304f),\n"
+        "    vec2(0.9670017f, 0.1293385f),\n"
+        "    vec2(0.9015037f, -0.3306949f),\n"
+        "    vec2(-0.5085648f, 0.7534177f),\n"
+        "    vec2(0.9055501f, 0.3758393f),\n"
+        "    vec2(0.7599946f, 0.1809109f),\n"
+        "    vec2(-0.2483695f, 0.7942952f),\n"
+        "    vec2(-0.4241052f, 0.5581087f),\n"
+        "    vec2(-0.1020106f, 0.6724468f)\n"
+        ");\n"
+        "vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]\n"
+        "(\n"
+        "    vec3(1.0f, 0.0f, 0.0f),\n"
+        "    vec3(0.0f, 1.0f, 0.0f),\n"
+        "    vec3(0.0f, 0.0f, 1.0f)\n"
+        ");\n"
+        "int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)\n"
+        "{\n"
+        "    int cascadeNum = 0;\n"
+        "    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)\n"
+        "    {\n"
+        "        if (viewSpaceDepth < bounds[i])\n"
+        "        {\n"
+        "            cascadeNum = i;\n"
+        "            break;\n"
+        "        }\n"
+        "    }\n"
+        "    return cascadeNum;\n"
+        "}\n"
+        "vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,\n"
+        "               vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "               float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "    int sampleCount = 0;\n"
+        "    for (int y = -2; y <= 1; y++)\n"
+        "    {\n"
+        "        for (int x = -2; x <= 1; x++)\n"
+        "        {\n"
+        "            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);\n"
+        "            kShadow += texture(shadowMap, uv);\n"
+        "            sampleCount++;\n"
+        "        }\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,\n"
+        "                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "                      float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "    int randomTextureSize = textureSize(randomTexture, 0);\n"
+        "    // TODO: Better random here\n"
+        "    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;\n"
+        "    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;\n"
+        "    mat2 randomRotationMtx;\n"
+        "    randomRotationMtx[0] = vec2(cos(theta), sin(theta));\n"
+        "    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));\n"
+        "    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));\n"
+        "    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));\n"
+        "#endif\n"
+        "    const int sampleCount = 16;\n"
+        "    for (int i = 0; i < sampleCount; i++)\n"
+        "    {\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;\n"
+        "#else\n"
+        "        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;\n"
+        "#endif\n"
+        "        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);\n"
+        "        kShadow += texture(shadowMap, uv);\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)\n"
+        "{\n"
+        "    float viewSpaceDepth = -viewSpacePos.z;\n"
+        "    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);\n"
+        "    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;\n"
+        "    lightSpaceP = lightSpaceP * 0.5f + 0.5f;\n"
+        "    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);\n"
+        "    return kShadow;\n"
+        "}\n"
+        "#line 3\n"
+        "out vec4 Color;\n"
+        "layout (location = 3) in VertOut\n"
+        "{\n"
+        "    vec3 fragPos;\n"
+        "    vec3 normal;\n"
+        "    vec2 uv;\n"
+        "    vec3 viewPosition;\n"
+        "    vec4 lightSpacePos[3];\n"
+        "} fragIn;\n"
+        "layout (binding = 0) uniform sampler2DArrayShadow ShadowMap;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 normal = normalize(fragIn.normal);\n"
+        "    vec4 diffSamle = vec4(MeshData.customPhongDiffuse, 1.0f);\n"
+        "    vec4 specSample = vec4(MeshData.customPhongSpecular, 1.0f);\n"
+        "    vec3 lightDir = normalize(-FrameData.dirLight.dir);\n"
+        "    float kDiff = max(dot(normal, lightDir), 0.0f);\n"
+        "    vec3 viewDir = normalize(FrameData.viewPos - fragIn.fragPos);\n"
+        "    vec3 rFromLight = reflect(-lightDir, normal);\n"
+        "    float kSpec = pow(max(dot(viewDir, rFromLight), 0.0f), 32.0f);\n"
+        "    vec4 kShadow = vec4(CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries), 1.0f);\n"
+        "    vec4 ambient = diffSamle * vec4(FrameData.dirLight.ambient, 1.0f);\n"
+        "    vec4 diffuse = diffSamle * kDiff * vec4(FrameData.dirLight.diffuse, 1.0f) * kShadow;\n"
+        "    vec4 specular = specSample * kSpec * vec4(FrameData.dirLight.specular, 1.0f) * kShadow;\n"
+        "    Color = ambient + diffuse + specular;\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-layout (location = 0) in vec3 Pos;
-
-layout (location = 1) out vec3 Color;
-
-void main()
-{
-    gl_Position = FrameData.viewProjMatrix * vec4(Pos, 1.0f);
-    Color = MeshData.lineColor;
-}
-)", 
-R"(#version 450
-out vec4 fragColor;
-
-layout(location = 1) in vec3 Color;
-
-void main()
-{
-    fragColor = vec4(Color, 1.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 Pos;\n"
+        "layout (location = 1) out vec3 Color;\n"
+        "void main()\n"
+        "{\n"
+        "    gl_Position = FrameData.viewProjMatrix * vec4(Pos, 1.0f);\n"
+        "    Color = MeshData.lineColor;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "out vec4 fragColor;\n"
+        "layout(location = 1) in vec3 Color;\n"
+        "void main()\n"
+        "{\n"
+        "    fragColor = vec4(Color, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-layout (location = 0) in vec3 Pos;
-layout (location = 1) in vec3 Normal;
-layout (location = 2) in vec2 UV;
-layout (location = 3) in vec3 Tangent;
-
-layout (location = 4) out VertOut
-{
-    vec3 fragPos;
-    vec3 normal;
-    vec2 uv;
-    mat3 tbn;
-    vec3 viewPosition;
-    vec4 lightSpacePos[3];
-} vertOut;
-
-void main()
-{
-    vec3 n = normalize(MeshData.normalMatrix * Normal);
-    vec3 t = normalize(MeshData.normalMatrix * Tangent);
-    t = normalize(t - dot(t, n) * n);
-    vec3 b = normalize(cross(n, t));
-    mat3 tbn = mat3(t, b, n);
-
-    gl_Position = FrameData.viewProjMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.fragPos = (MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;
-    vertOut.uv = UV;
-    vertOut.normal = n;
-    vertOut.tbn = tbn;
-    vertOut.viewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;
-    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(Pos, 1.0f);
-}
-)", 
-R"(#version 450
-
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 3
-#line 100000
-
-vec3 FresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (vec3(1.0f) - F0) * pow(1.0f - cosTheta, 5.0f);
-}
-
-#if 0
-// TODO: Factor NdotH term out
-float DistributionGGX(vec3 N, vec3 H, float a)
-{
-    float a4 = a * a * a * a;
-    float NdotH = saturate(dot(N, H));
-    float NdotHSq = NdotH * NdotH;
-
-    float num = a4;
-    float denom = (NdotHSq * (a4 - 1.0f) + 1.0f);
-    denom = PI * denom * denom;
-
-    return num / max(denom, 0.001f);
-}
-#endif
-
-// [ Moving Frostbite to Physically Based Rendering 3.0. Siggraph 2014. p.12 ]
-float DistributionGGX(vec3 N, vec3 H, float a)
-{
-    float ag = a * a;
-    float ag2 = ag * ag;
-    float NdotH = saturate(dot(N, H));
-
-    float f = (NdotH * ag2 - NdotH) * NdotH + 1;
-    return ag2 / (f * f * PI);
-}
-
-float GeometrySchlickGGX(float NdotV, float a)
-{
-    float k = ((a + 1.0f) * (a + 1.0f)) / 8.0f;
-
-    float num = NdotV;
-    float denom = NdotV * (1.0f - k) + k;
-
-    return num / denom;
-}
-
-float GeometrySmith(float NdotV, float NdotL, float a)
-{
-    float ggx1 = GeometrySchlickGGX(NdotV, a);
-    float ggx2 = GeometrySchlickGGX(NdotL, a);
-
-    return ggx1 * ggx2;
-}
-
-// [ Moving Frostbite to Physically Based Rendering 3.0. Siggraph 2014. p.12 ]
-float GeometrySmithGGX(float NdotL, float NdotV, float ag) {
-    float ag2 = ag * ag;
-    float lambdaGGXV = NdotL * sqrt((-NdotV * ag2 + NdotV) * NdotV + ag2);
-    float lambdaGGXL = NdotV * sqrt((-NdotL * ag2 + NdotL) * NdotL + ag2);
-    return 0.5f / (lambdaGGXV + lambdaGGXL); // 1.0f
-}
-
-struct PBR
-{
-    bool metallicWorkflow;
-    vec3 V;
-    vec3 N;
-    vec3 F0;
-    float AO;
-    vec3 emissionColor;
-    // NOTE: Metallic/Specular
-    vec3 albedo;
-    // NOTE: Metallic
-    float metallic;
-    float roughness;
-};
-
-PBR InitPBRMetallic(vec3 V, vec3 N, vec3 albedo, float metallic, float roughness, float AO)
-{
-    PBR pbr;
-    pbr.metallicWorkflow = true;
-    pbr.V = V;
-    pbr.N = N;
-    pbr.AO = AO;
-    pbr.albedo = albedo;
-    // TODO: Specify F0 for dielectrics
-    vec3 F0 = vec3(0.04f);
-    pbr.F0 = mix(F0, albedo, metallic);
-    pbr.roughness = roughness;
-    pbr.metallic = metallic;
-    return pbr;
-}
-
-PBR InitPBRSpecular(vec3 V, vec3 N, vec3 albedo, vec3 specular, float gloss, float AO)
-{
-    PBR pbr;
-    pbr.metallicWorkflow = false;
-    pbr.V = V;
-    pbr.N = N;
-    pbr.AO = AO;
-    pbr.albedo = albedo;
-    pbr.F0 = specular;
-    pbr.roughness = gloss;//saturate(1.0f - gloss);
-    pbr.metallic = 0.0f;
-    return pbr;
-}
-
-const float MAX_REFLECTION_LOD = 5.0f;
-
-vec3 Unreal4BRDF(PBR pbr, vec3 L)
-{
-    vec3 H = normalize(pbr.V + L);
-
-    float NdotV = abs(dot(pbr.N, pbr.V)) + 1e-5f; // Adding small value to avoid artifacts on edges
-    float NdotL = saturate(dot(pbr.N, L));
-    float HdotL = saturate(dot(H, L));
-
-    // TODO: Linear roughness vs squared
-    float alphaG = pbr.roughness * pbr.roughness;
-
-    vec3 F = FresnelSchlick(HdotL, pbr.F0);
-    float D = DistributionGGX(pbr.N, H, pbr.roughness);
-    float G = GeometrySmith(NdotV, NdotL, pbr.roughness);
-
-    vec3 num = D * G * F;
-    float denom = 4.0f * NdotV * NdotL;
-    vec3 specular = num / (denom + 0.05f);
-
-    vec3 refracted = vec3(1.0f) - F;
-    refracted *= 1.0f - pbr.metallic;
-    // NOTE: Lambertian diffuse brdf
-    vec3 diffuse = refracted * pbr.albedo / PI;
-    vec3 result = (specular + diffuse) * NdotL;
-
-    if (FrameData.debugF == 1) result = F;
-    else if (FrameData.debugG == 1) result = vec3(G, G, G);
-    else if (FrameData.debugD == 1) result = vec3(D, D, D);
-    else if (FrameData.debugNormals == 1) result = pbr.N;
-
-    return result;
-}
-
-vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
-{
-    return F0 + (max(vec3(1.0f - roughness), F0) - F0) * pow(1.0f - cosTheta, 5.0f);
-}
-
-vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, sampler2D brdfLut)
-{
-    float roughness;
-    if (pbr.metallicWorkflow)
-    {
-        roughness = pbr.roughness;
-    }
-    else
-    {
-        roughness = 1.0f - pbr.roughness;
-    }
-    // NOTE: Specular irradance
-    float NdotV = saturate(dot(pbr.N, pbr.V));
-    vec3 R = reflect(-pbr.V, pbr.N);
-
-    vec3 envIrradance = textureLod(enviromentMap, R, roughness * MAX_REFLECTION_LOD).rgb;
-    // TODO: This might be wrong (use NdotL instead?)
-    vec3 Fenv = FresnelSchlickRoughness(NdotV, pbr.F0, roughness);
-    vec2 envBRDF = texture(brdfLut, vec2(NdotV, roughness)).rg;
-    vec3 envSpecular = envIrradance * (Fenv * envBRDF.r + envBRDF.g);
-
-    // NOTE: Diffuse irradance
-    vec3 kS = Fenv;
-    vec3 kD = vec3(1.0f) - kS;
-    kD *= 1.0f - pbr.metallic;
-    vec3 diffIrradance = texture(irradanceMap, pbr.N).rgb;
-    vec3 diffuse = diffIrradance * pbr.albedo;
-
-    vec3 irradance = (kD * diffuse + envSpecular) * pbr.AO;
-    return irradance;
-}
-
-#line 4
-#line 100000
-
-#define NUM_SHADOW_CASCADES 3
-
-// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl
-const vec2 PoissonSamples[64] = vec2[64]
-(
-    vec2(-0.5119625f, -0.4827938f),
-    vec2(-0.2171264f, -0.4768726f),
-    vec2(-0.7552931f, -0.2426507f),
-    vec2(-0.7136765f, -0.4496614f),
-    vec2(-0.5938849f, -0.6895654f),
-    vec2(-0.3148003f, -0.7047654f),
-    vec2(-0.42215f, -0.2024607f),
-    vec2(-0.9466816f, -0.2014508f),
-    vec2(-0.8409063f, -0.03465778f),
-    vec2(-0.6517572f, -0.07476326f),
-    vec2(-0.1041822f, -0.02521214f),
-    vec2(-0.3042712f, -0.02195431f),
-    vec2(-0.5082307f, 0.1079806f),
-    vec2(-0.08429877f, -0.2316298f),
-    vec2(-0.9879128f, 0.1113683f),
-    vec2(-0.3859636f, 0.3363545f),
-    vec2(-0.1925334f, 0.1787288f),
-    vec2(0.003256182f, 0.138135f),
-    vec2(-0.8706837f, 0.3010679f),
-    vec2(-0.6982038f, 0.1904326f),
-    vec2(0.1975043f, 0.2221317f),
-    vec2(0.1507788f, 0.4204168f),
-    vec2(0.3514056f, 0.09865579f),
-    vec2(0.1558783f, -0.08460935f),
-    vec2(-0.0684978f, 0.4461993f),
-    vec2(0.3780522f, 0.3478679f),
-    vec2(0.3956799f, -0.1469177f),
-    vec2(0.5838975f, 0.1054943f),
-    vec2(0.6155105f, 0.3245716f),
-    vec2(0.3928624f, -0.4417621f),
-    vec2(0.1749884f, -0.4202175f),
-    vec2(0.6813727f, -0.2424808f),
-    vec2(-0.6707711f, 0.4912741f),
-    vec2(0.0005130528f, -0.8058334f),
-    vec2(0.02703013f, -0.6010728f),
-    vec2(-0.1658188f, -0.9695674f),
-    vec2(0.4060591f, -0.7100726f),
-    vec2(0.7713396f, -0.4713659f),
-    vec2(0.573212f, -0.51544f),
-    vec2(-0.3448896f, -0.9046497f),
-    vec2(0.1268544f, -0.9874692f),
-    vec2(0.7418533f, -0.6667366f),
-    vec2(0.3492522f, 0.5924662f),
-    vec2(0.5679897f, 0.5343465f),
-    vec2(0.5663417f, 0.7708698f),
-    vec2(0.7375497f, 0.6691415f),
-    vec2(0.2271994f, -0.6163502f),
-    vec2(0.2312844f, 0.8725659f),
-    vec2(0.4216993f, 0.9002838f),
-    vec2(0.4262091f, -0.9013284f),
-    vec2(0.2001408f, -0.808381f),
-    vec2(0.149394f, 0.6650763f),
-    vec2(-0.09640376f, 0.9843736f),
-    vec2(0.7682328f, -0.07273844f),
-    vec2(0.04146584f, 0.8313184f),
-    vec2(0.9705266f, -0.1143304f),
-    vec2(0.9670017f, 0.1293385f),
-    vec2(0.9015037f, -0.3306949f),
-    vec2(-0.5085648f, 0.7534177f),
-    vec2(0.9055501f, 0.3758393f),
-    vec2(0.7599946f, 0.1809109f),
-    vec2(-0.2483695f, 0.7942952f),
-    vec2(-0.4241052f, 0.5581087f),
-    vec2(-0.1020106f, 0.6724468f)
-);
-
-vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]
-(
-    vec3(1.0f, 0.0f, 0.0f),
-    vec3(0.0f, 1.0f, 0.0f),
-    vec3(0.0f, 0.0f, 1.0f)
-);
-
-int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)
-{
-    int cascadeNum = 0;
-
-    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)
-    {
-        if (viewSpaceDepth < bounds[i])
-        {
-            cascadeNum = i;
-            break;
-        }
-    }
-    return cascadeNum;
-}
-
-vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,
-               vec3 lightSpaceP, float viewSpaceDepth,
-               float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-    int sampleCount = 0;
-    for (int y = -2; y <= 1; y++)
-    {
-        for (int x = -2; x <= 1; x++)
-        {
-            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);
-            kShadow += texture(shadowMap, uv);
-            sampleCount++;
-        }
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,
-                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,
-                      float filterSampleScale, int showCascadeBounds)
-{
-    float kShadow = 0.0f;
-    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;
-
-#if RANDOMIZE_OFFSETS
-    int randomTextureSize = textureSize(randomTexture, 0);
-    // TODO: Better random here
-    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;
-    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;
-    mat2 randomRotationMtx;
-    randomRotationMtx[0] = vec2(cos(theta), sin(theta));
-    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));
-    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));
-    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));
-#endif
-
-    const int sampleCount = 16;
-
-    for (int i = 0; i < sampleCount; i++)
-    {
-#if RANDOMIZE_OFFSETS
-        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;
-#else
-        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;
-#endif
-        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);
-        kShadow += texture(shadowMap, uv);
-    }
-    kShadow /= sampleCount;
-
-    vec3 result;
-    if (showCascadeBounds == 1)
-    {
-        vec3 cascadeColor = CascadeColors[cascadeIndex];
-        result = vec3(kShadow) * cascadeColor;
-    }
-    else
-    {
-        result = vec3(kShadow);
-    }
-    return result;
-}
-
-vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)
-{
-    float viewSpaceDepth = -viewSpacePos.z;
-    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);
-    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;
-    lightSpaceP = lightSpaceP * 0.5f + 0.5f;
-    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);
-    return kShadow;
-}
-
-#line 5
-
-out vec4 resultColor;
-
-layout (location = 4) in VertOut
-{
-    vec3 fragPos;
-    vec3 normal;
-    vec2 uv;
-    mat3 tbn;
-    vec3 viewPosition;
-    vec4 lightSpacePos[3];
-} fragIn;
-
-layout (binding = 0) uniform samplerCube IrradanceMap;
-layout (binding = 1) uniform samplerCube EnviromentMap;
-layout (binding = 2) uniform sampler2D BRDFLut;
-
-layout (binding = 3) uniform sampler2D AlbedoMap;
-layout (binding = 4) uniform sampler2D NormalMap;
-
-layout (binding = 5) uniform sampler2D RoughnessMap;
-layout (binding = 6) uniform sampler2D MetallicMap;
-
-layout (binding = 7) uniform sampler2D SpecularMap;
-layout (binding = 8) uniform sampler2D GlossMap;
-layout (binding = 10) uniform sampler2D AOMap;
-layout (binding = 11) uniform sampler2D EmissionMap;
-
-layout (binding = 9) uniform sampler2DArrayShadow ShadowMap;
-//uniform sampler2D uAOMap;
-
-void main()
-{
-    vec3 V = normalize(FrameData.viewPos - fragIn.fragPos);
-
-    PBR context;
-
-    vec3 N;
-    if (MeshData.pbrUseNormalMap == 1)
-    {
-        vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;
-        if (MeshData.normalFormat == 0)
-        {
-            // OpenGL format
-        }
-        else
-        {
-            // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
-            n.y = -n.y;
-        }
-        N = normalize(n);
-        N = normalize(fragIn.tbn * N);
-    }
-    else
-    {
-        N = normalize(fragIn.normal);
-    }
-
-    vec3 albedo;
-    if (MeshData.pbrUseAlbedoMap == 1)
-    {
-        albedo = texture(AlbedoMap, fragIn.uv).xyz;
-    }
-    else
-    {
-        albedo = MeshData.pbrAlbedoValue;
-    }
-
-    float AO;
-    if (MeshData.pbrUseAOMap == 1)
-    {
-        AO = texture(AOMap, fragIn.uv).x;
-    }
-    else
-    {
-        AO = 1.0f;
-    }
-
-    vec3 emissionColor = vec3(0.0f);
-    if (MeshData.emitsLight == 1)
-    {
-        if (MeshData.pbrUseEmissionMap == 1)
-        {
-            emissionColor = texture(EmissionMap, fragIn.uv).xyz;
-        }
-        else
-        {
-            emissionColor = MeshData.pbrEmissionValue;
-        }
-    }
-
-    if (MeshData.metallicWorkflow == 1)
-    {
-        float roughness;
-        if (MeshData.pbrUseRoughnessMap == 1)
-        {
-            roughness = texture(RoughnessMap, fragIn.uv).x;
-        }
-        else
-        {
-            roughness = MeshData.pbrRoughnessValue;
-        }
-
-        float metallic;
-        if (MeshData.pbrUseMetallicMap == 1)
-        {
-            metallic = texture(MetallicMap, fragIn.uv).x;
-        }
-        else
-        {
-            metallic = MeshData.pbrMetallicValue;
-        }
-
-        context = InitPBRMetallic(V, N, albedo, metallic, roughness, AO);
-    }
-    else // Specular workflow
-    {
-        vec3 specular;
-        if (MeshData.pbrUseSpecularMap == 1)
-        {
-            specular = texture(SpecularMap, fragIn.uv).xyz;
-        }
-        else
-        {
-            specular = MeshData.pbrSpecularValue;
-        }
-
-        float gloss;
-        if (MeshData.pbrUseGlossMap == 1)
-        {
-            gloss = texture(GlossMap, fragIn.uv).x;
-        }
-        else
-        {
-            gloss = MeshData.pbrGlossValue;
-        }
-         context = InitPBRSpecular(V, N, albedo, specular, gloss, AO);
-    }
-
-    vec3 L0 = vec3(0.0f);
-
-    vec3 L = normalize(-FrameData.dirLight.dir);
-    vec3 H = normalize(V + L);
-
-    vec3 irradance = FrameData.dirLight.diffuse;
-    L0 += Unreal4BRDF(context, L) * irradance;
-
-    vec3 envIrradance = IBLIrradance(context, IrradanceMap, EnviromentMap, BRDFLut);
-
-    vec3 kShadow = CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);
-
-    L0 = min(vec3(1.0f), L0);
-
-    resultColor = vec4((envIrradance + L0 * kShadow + emissionColor), 1.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 Pos;\n"
+        "layout (location = 1) in vec3 Normal;\n"
+        "layout (location = 2) in vec2 UV;\n"
+        "layout (location = 3) in vec3 Tangent;\n"
+        "layout (location = 4) out VertOut\n"
+        "{\n"
+        "    vec3 fragPos;\n"
+        "    vec3 normal;\n"
+        "    vec2 uv;\n"
+        "    mat3 tbn;\n"
+        "    vec3 viewPosition;\n"
+        "    vec4 lightSpacePos[3];\n"
+        "} vertOut;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 n = normalize(MeshData.normalMatrix * Normal);\n"
+        "    vec3 t = normalize(MeshData.normalMatrix * Tangent);\n"
+        "    t = normalize(t - dot(t, n) * n);\n"
+        "    vec3 b = normalize(cross(n, t));\n"
+        "    mat3 tbn = mat3(t, b, n);\n"
+        "    gl_Position = FrameData.viewProjMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.fragPos = (MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;\n"
+        "    vertOut.uv = UV;\n"
+        "    vertOut.normal = n;\n"
+        "    vertOut.tbn = tbn;\n"
+        "    vertOut.viewPosition = (FrameData.viewMatrix * MeshData.modelMatrix * vec4(Pos, 1.0f)).xyz;\n"
+        "    vertOut.lightSpacePos[0] = FrameData.lightSpaceMatrices[0] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.lightSpacePos[1] = FrameData.lightSpaceMatrices[1] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "    vertOut.lightSpacePos[2] = FrameData.lightSpaceMatrices[2] * MeshData.modelMatrix * vec4(Pos, 1.0f);\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 3\n"
+        "#line 100000\n"
+        "vec3 FresnelSchlick(float cosTheta, vec3 F0)\n"
+        "{\n"
+        "    return F0 + (vec3(1.0f) - F0) * pow(1.0f - cosTheta, 5.0f);\n"
+        "}\n"
+        "// TODO: Optimize these\n"
+        "float DistributionGGX(float NdotH, float alphaG)\n"
+        "{\n"
+        "    float NdotHSq = NdotH * NdotH;\n"
+        "    float num = alphaG;\n"
+        "    float denom = (NdotHSq * (alphaG - 1.0f) + 1.0f);\n"
+        "    denom = PI * denom * denom;\n"
+        "    return num / max(denom, 0.001f);\n"
+        "}\n"
+        "float GeometrySchlickGGX(float NdotV, float roughness)\n"
+        "{\n"
+        "    // Remapping and squaring roughness for analytical light sources\n"
+        "    // [ Real Shading in Unreal Engine 4 (Brian Karis), Siggraph 2013, p.3]\n"
+        "    float k = ((roughness + 1.0f) * (roughness + 1.0f)) / 8.0f;\n"
+        "    float num = NdotV;\n"
+        "    float denom = NdotV * (1.0f - k) + k;\n"
+        "    return num / denom;\n"
+        "}\n"
+        "float GeometrySmithGGX(float NdotV, float NdotL, float roughness)\n"
+        "{\n"
+        "    float ggx1 = GeometrySchlickGGX(NdotV, roughness);\n"
+        "    float ggx2 = GeometrySchlickGGX(NdotL, roughness);\n"
+        "    return ggx1 * ggx2;\n"
+        "}\n"
+        "struct PBR\n"
+        "{\n"
+        "    bool metallicWorkflow;\n"
+        "    vec3 V;\n"
+        "    vec3 N;\n"
+        "    vec3 F0;\n"
+        "    float AO;\n"
+        "    vec3 emissionColor;\n"
+        "    // NOTE: Metallic/Specular\n"
+        "    vec3 albedo;\n"
+        "    // NOTE: Metallic\n"
+        "    float metallic;\n"
+        "    float roughness;\n"
+        "};\n"
+        "PBR InitPBRMetallic(vec3 V, vec3 N, vec3 albedo, float metallic, float roughness, float AO)\n"
+        "{\n"
+        "    PBR pbr;\n"
+        "    pbr.metallicWorkflow = true;\n"
+        "    pbr.V = V;\n"
+        "    pbr.N = N;\n"
+        "    pbr.AO = AO;\n"
+        "    pbr.albedo = albedo;\n"
+        "    // TODO: Specify F0 for dielectrics\n"
+        "    vec3 F0 = vec3(0.04f);\n"
+        "    pbr.F0 = mix(F0, albedo, metallic);\n"
+        "    pbr.roughness = roughness;\n"
+        "    pbr.metallic = metallic;\n"
+        "    return pbr;\n"
+        "}\n"
+        "PBR InitPBRSpecular(vec3 V, vec3 N, vec3 albedo, vec3 specular, float gloss, float AO)\n"
+        "{\n"
+        "    PBR pbr;\n"
+        "    pbr.metallicWorkflow = false;\n"
+        "    pbr.V = V;\n"
+        "    pbr.N = N;\n"
+        "    pbr.AO = AO;\n"
+        "    pbr.albedo = albedo;\n"
+        "    pbr.F0 = specular;\n"
+        "    pbr.roughness = gloss;//saturate(1.0f - gloss);\n"
+        "    pbr.metallic = 0.0f;\n"
+        "    return pbr;\n"
+        "}\n"
+        "const float MAX_REFLECTION_LOD = 5.0f;\n"
+        "vec3 Unreal4BRDF(PBR pbr, vec3 L)\n"
+        "{\n"
+        "    vec3 H = normalize(pbr.V + L);\n"
+        "    float NdotV = saturate(dot(pbr.N, pbr.V)) + 1e-5f; // Adding small value to avoid artifacts on edges\n"
+        "    float NdotL = saturate(dot(pbr.N, L));\n"
+        "    float HdotL = saturate(dot(H, L));\n"
+        "    float NdotH = saturate(dot(pbr.N, H));\n"
+        "    float roughness = pbr.roughness;\n"
+        "    float alpha = pbr.roughness;\n"
+        "    float alphaG = pbr.roughness * pbr.roughness;\n"
+        "    vec3 F = FresnelSchlick(HdotL, pbr.F0);\n"
+        "    float D = DistributionGGX(NdotH, alphaG);\n"
+        "    float G = GeometrySmithGGX(NdotV, NdotL, pbr.roughness);\n"
+        "    vec3 num = D * G * F;\n"
+        "    float denom = 4.0f * NdotV * NdotL;\n"
+        "    vec3 specular = num / (denom + 0.05f);\n"
+        "    vec3 refracted = vec3(1.0f) - F;\n"
+        "    refracted *= 1.0f - pbr.metallic;\n"
+        "    // NOTE: Lambertian diffuse brdf\n"
+        "    vec3 diffuse = refracted * pbr.albedo / PI;\n"
+        "    vec3 result = (specular + diffuse) * NdotL;\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)\n"
+        "{\n"
+        "    return F0 + (max(vec3(1.0f - roughness), F0) - F0) * pow(1.0f - cosTheta, 5.0f);\n"
+        "}\n"
+        "vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, sampler2D brdfLut)\n"
+        "{\n"
+        "    float roughness;\n"
+        "    if (pbr.metallicWorkflow)\n"
+        "    {\n"
+        "        roughness = pbr.roughness;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        roughness = 1.0f - pbr.roughness;\n"
+        "    }\n"
+        "    // NOTE: Specular irradance\n"
+        "    float NdotV = saturate(dot(pbr.N, pbr.V));\n"
+        "    vec3 R = reflect(-pbr.V, pbr.N);\n"
+        "    vec3 envIrradance = textureLod(enviromentMap, R, roughness * MAX_REFLECTION_LOD).rgb;\n"
+        "    // TODO: This might be wrong (use NdotL instead?)\n"
+        "    vec3 Fenv = FresnelSchlickRoughness(NdotV, pbr.F0, roughness);\n"
+        "    vec2 envBRDF = texture(brdfLut, vec2(NdotV, roughness)).rg;\n"
+        "    vec3 envSpecular = envIrradance * (Fenv * envBRDF.r + envBRDF.g);\n"
+        "    // NOTE: Diffuse irradance\n"
+        "    vec3 kS = Fenv;\n"
+        "    vec3 kD = vec3(1.0f) - kS;\n"
+        "    kD *= 1.0f - pbr.metallic;\n"
+        "    vec3 diffIrradance = texture(irradanceMap, pbr.N).rgb;\n"
+        "    vec3 diffuse = diffIrradance * pbr.albedo;\n"
+        "    vec3 irradance = (kD * diffuse + envSpecular) * pbr.AO;\n"
+        "    return irradance;\n"
+        "}\n"
+        "#line 4\n"
+        "#line 100000\n"
+        "#define NUM_SHADOW_CASCADES 3\n"
+        "// NOTE: Reference: https://github.com/TheRealMJP/Shadows/blob/master/Shadows/PCFKernels.hlsl\n"
+        "const vec2 PoissonSamples[64] = vec2[64]\n"
+        "(\n"
+        "    vec2(-0.5119625f, -0.4827938f),\n"
+        "    vec2(-0.2171264f, -0.4768726f),\n"
+        "    vec2(-0.7552931f, -0.2426507f),\n"
+        "    vec2(-0.7136765f, -0.4496614f),\n"
+        "    vec2(-0.5938849f, -0.6895654f),\n"
+        "    vec2(-0.3148003f, -0.7047654f),\n"
+        "    vec2(-0.42215f, -0.2024607f),\n"
+        "    vec2(-0.9466816f, -0.2014508f),\n"
+        "    vec2(-0.8409063f, -0.03465778f),\n"
+        "    vec2(-0.6517572f, -0.07476326f),\n"
+        "    vec2(-0.1041822f, -0.02521214f),\n"
+        "    vec2(-0.3042712f, -0.02195431f),\n"
+        "    vec2(-0.5082307f, 0.1079806f),\n"
+        "    vec2(-0.08429877f, -0.2316298f),\n"
+        "    vec2(-0.9879128f, 0.1113683f),\n"
+        "    vec2(-0.3859636f, 0.3363545f),\n"
+        "    vec2(-0.1925334f, 0.1787288f),\n"
+        "    vec2(0.003256182f, 0.138135f),\n"
+        "    vec2(-0.8706837f, 0.3010679f),\n"
+        "    vec2(-0.6982038f, 0.1904326f),\n"
+        "    vec2(0.1975043f, 0.2221317f),\n"
+        "    vec2(0.1507788f, 0.4204168f),\n"
+        "    vec2(0.3514056f, 0.09865579f),\n"
+        "    vec2(0.1558783f, -0.08460935f),\n"
+        "    vec2(-0.0684978f, 0.4461993f),\n"
+        "    vec2(0.3780522f, 0.3478679f),\n"
+        "    vec2(0.3956799f, -0.1469177f),\n"
+        "    vec2(0.5838975f, 0.1054943f),\n"
+        "    vec2(0.6155105f, 0.3245716f),\n"
+        "    vec2(0.3928624f, -0.4417621f),\n"
+        "    vec2(0.1749884f, -0.4202175f),\n"
+        "    vec2(0.6813727f, -0.2424808f),\n"
+        "    vec2(-0.6707711f, 0.4912741f),\n"
+        "    vec2(0.0005130528f, -0.8058334f),\n"
+        "    vec2(0.02703013f, -0.6010728f),\n"
+        "    vec2(-0.1658188f, -0.9695674f),\n"
+        "    vec2(0.4060591f, -0.7100726f),\n"
+        "    vec2(0.7713396f, -0.4713659f),\n"
+        "    vec2(0.573212f, -0.51544f),\n"
+        "    vec2(-0.3448896f, -0.9046497f),\n"
+        "    vec2(0.1268544f, -0.9874692f),\n"
+        "    vec2(0.7418533f, -0.6667366f),\n"
+        "    vec2(0.3492522f, 0.5924662f),\n"
+        "    vec2(0.5679897f, 0.5343465f),\n"
+        "    vec2(0.5663417f, 0.7708698f),\n"
+        "    vec2(0.7375497f, 0.6691415f),\n"
+        "    vec2(0.2271994f, -0.6163502f),\n"
+        "    vec2(0.2312844f, 0.8725659f),\n"
+        "    vec2(0.4216993f, 0.9002838f),\n"
+        "    vec2(0.4262091f, -0.9013284f),\n"
+        "    vec2(0.2001408f, -0.808381f),\n"
+        "    vec2(0.149394f, 0.6650763f),\n"
+        "    vec2(-0.09640376f, 0.9843736f),\n"
+        "    vec2(0.7682328f, -0.07273844f),\n"
+        "    vec2(0.04146584f, 0.8313184f),\n"
+        "    vec2(0.9705266f, -0.1143304f),\n"
+        "    vec2(0.9670017f, 0.1293385f),\n"
+        "    vec2(0.9015037f, -0.3306949f),\n"
+        "    vec2(-0.5085648f, 0.7534177f),\n"
+        "    vec2(0.9055501f, 0.3758393f),\n"
+        "    vec2(0.7599946f, 0.1809109f),\n"
+        "    vec2(-0.2483695f, 0.7942952f),\n"
+        "    vec2(-0.4241052f, 0.5581087f),\n"
+        "    vec2(-0.1020106f, 0.6724468f)\n"
+        ");\n"
+        "vec3 CascadeColors[NUM_SHADOW_CASCADES] = vec3[NUM_SHADOW_CASCADES]\n"
+        "(\n"
+        "    vec3(1.0f, 0.0f, 0.0f),\n"
+        "    vec3(0.0f, 1.0f, 0.0f),\n"
+        "    vec3(0.0f, 0.0f, 1.0f)\n"
+        ");\n"
+        "int GetShadowCascadeIndex(float viewSpaceDepth, vec3 bounds)\n"
+        "{\n"
+        "    int cascadeNum = 0;\n"
+        "    for (int i = 0; i < NUM_SHADOW_CASCADES; i++)\n"
+        "    {\n"
+        "        if (viewSpaceDepth < bounds[i])\n"
+        "        {\n"
+        "            cascadeNum = i;\n"
+        "            break;\n"
+        "        }\n"
+        "    }\n"
+        "    return cascadeNum;\n"
+        "}\n"
+        "vec3 ShadowPCF(in sampler2DArrayShadow shadowMap, int cascadeIndex,\n"
+        "               vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "               float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "    int sampleCount = 0;\n"
+        "    for (int y = -2; y <= 1; y++)\n"
+        "    {\n"
+        "        for (int x = -2; x <= 1; x++)\n"
+        "        {\n"
+        "            vec4 uv = vec4(lightSpaceP.xy + vec2(x, y) * sampleScale, float(cascadeIndex), lightSpaceP.z);\n"
+        "            kShadow += texture(shadowMap, uv);\n"
+        "            sampleCount++;\n"
+        "        }\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 ShadowRandomDisc(in sampler2DArrayShadow shadowMap, in sampler1D randomTexture,\n"
+        "                      int cascadeIndex, vec3 lightSpaceP, float viewSpaceDepth,\n"
+        "                      float filterSampleScale, int showCascadeBounds)\n"
+        "{\n"
+        "    float kShadow = 0.0f;\n"
+        "    vec2 sampleScale = (1.0f / textureSize(shadowMap, 0).xy) * filterSampleScale;\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "    int randomTextureSize = textureSize(randomTexture, 0);\n"
+        "    // TODO: Better random here\n"
+        "    int randomSamplePos = int(gl_FragCoord.x + 845.0f * gl_FragCoord.y) % randomTextureSize;\n"
+        "    float theta = texelFetch(randomTexture, randomSamplePos, 0).r * 2.0f * PI;\n"
+        "    mat2 randomRotationMtx;\n"
+        "    randomRotationMtx[0] = vec2(cos(theta), sin(theta));\n"
+        "    randomRotationMtx[1] = vec2(-sin(theta), cos(theta));\n"
+        "    //randomRotationMtx[0] = vec2(cos(theta), -sin(theta));\n"
+        "    //randomRotationMtx[1] = vec2(sin(theta), cos(theta));\n"
+        "#endif\n"
+        "    const int sampleCount = 16;\n"
+        "    for (int i = 0; i < sampleCount; i++)\n"
+        "    {\n"
+        "#if RANDOMIZE_OFFSETS\n"
+        "        vec2 sampleOffset = (randomRotationMtx * PoissonSamples[i]) * sampleScale;\n"
+        "#else\n"
+        "        vec2 sampleOffset = PoissonSamples[i] *  sampleScale;\n"
+        "#endif\n"
+        "        vec4 uv = vec4(lightSpaceP.xy + sampleOffset, cascadeIndex, lightSpaceP.z);\n"
+        "        kShadow += texture(shadowMap, uv);\n"
+        "    }\n"
+        "    kShadow /= sampleCount;\n"
+        "    vec3 result;\n"
+        "    if (showCascadeBounds == 1)\n"
+        "    {\n"
+        "        vec3 cascadeColor = CascadeColors[cascadeIndex];\n"
+        "        result = vec3(kShadow) * cascadeColor;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        result = vec3(kShadow);\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n"
+        "vec3 CalcShadow(vec3 viewSpacePos, vec3 cascadeSplits, vec4 lightSpacePos[3], sampler2DArrayShadow shadowMap, float sampleScale, int debugCascadeBounds)\n"
+        "{\n"
+        "    float viewSpaceDepth = -viewSpacePos.z;\n"
+        "    int cascadeIndex = GetShadowCascadeIndex(-viewSpacePos.z, cascadeSplits);\n"
+        "    vec3 lightSpaceP = lightSpacePos[cascadeIndex].xyz / lightSpacePos[cascadeIndex].w;\n"
+        "    lightSpaceP = lightSpaceP * 0.5f + 0.5f;\n"
+        "    vec3 kShadow = ShadowPCF(shadowMap, cascadeIndex, lightSpaceP, viewSpaceDepth, sampleScale, debugCascadeBounds);\n"
+        "    return kShadow;\n"
+        "}\n"
+        "#line 5\n"
+        "out vec4 resultColor;\n"
+        "layout (location = 4) in VertOut\n"
+        "{\n"
+        "    vec3 fragPos;\n"
+        "    vec3 normal;\n"
+        "    vec2 uv;\n"
+        "    mat3 tbn;\n"
+        "    vec3 viewPosition;\n"
+        "    vec4 lightSpacePos[3];\n"
+        "} fragIn;\n"
+        "layout (binding = 0) uniform samplerCube IrradanceMap;\n"
+        "layout (binding = 1) uniform samplerCube EnviromentMap;\n"
+        "layout (binding = 2) uniform sampler2D BRDFLut;\n"
+        "layout (binding = 3) uniform sampler2D AlbedoMap;\n"
+        "layout (binding = 4) uniform sampler2D NormalMap;\n"
+        "layout (binding = 5) uniform sampler2D RoughnessMap;\n"
+        "layout (binding = 6) uniform sampler2D MetallicMap;\n"
+        "layout (binding = 7) uniform sampler2D SpecularMap;\n"
+        "layout (binding = 8) uniform sampler2D GlossMap;\n"
+        "layout (binding = 10) uniform sampler2D AOMap;\n"
+        "layout (binding = 11) uniform sampler2D EmissionMap;\n"
+        "layout (binding = 9) uniform sampler2DArrayShadow ShadowMap;\n"
+        "//uniform sampler2D uAOMap;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 V = normalize(FrameData.viewPos - fragIn.fragPos);\n"
+        "    PBR context;\n"
+        "    vec3 N;\n"
+        "    if (MeshData.pbrUseNormalMap == 1)\n"
+        "    {\n"
+        "        vec3 n = texture(NormalMap, fragIn.uv).xyz * 2.0f - 1.0f;\n"
+        "        if (MeshData.normalFormat == 0)\n"
+        "        {\n"
+        "            // OpenGL format\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space\n"
+        "            n.y = -n.y;\n"
+        "        }\n"
+        "        N = normalize(n);\n"
+        "        N = normalize(fragIn.tbn * N);\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        N = normalize(fragIn.normal);\n"
+        "    }\n"
+        "    vec3 albedo;\n"
+        "    if (MeshData.pbrUseAlbedoMap == 1)\n"
+        "    {\n"
+        "        albedo = texture(AlbedoMap, fragIn.uv).xyz;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        albedo = MeshData.pbrAlbedoValue;\n"
+        "    }\n"
+        "    float AO;\n"
+        "    if (MeshData.pbrUseAOMap == 1)\n"
+        "    {\n"
+        "        AO = texture(AOMap, fragIn.uv).x;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        AO = 1.0f;\n"
+        "    }\n"
+        "    vec3 emissionColor = vec3(0.0f);\n"
+        "    if (MeshData.emitsLight == 1)\n"
+        "    {\n"
+        "        if (MeshData.pbrUseEmissionMap == 1)\n"
+        "        {\n"
+        "            emissionColor = texture(EmissionMap, fragIn.uv).xyz;\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            emissionColor = MeshData.pbrEmissionValue;\n"
+        "        }\n"
+        "    }\n"
+        "    if (MeshData.metallicWorkflow == 1)\n"
+        "    {\n"
+        "        float roughness;\n"
+        "        if (MeshData.pbrUseRoughnessMap == 1)\n"
+        "        {\n"
+        "            roughness = texture(RoughnessMap, fragIn.uv).x;\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            roughness = MeshData.pbrRoughnessValue;\n"
+        "        }\n"
+        "        float metallic;\n"
+        "        if (MeshData.pbrUseMetallicMap == 1)\n"
+        "        {\n"
+        "            metallic = texture(MetallicMap, fragIn.uv).x;\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            metallic = MeshData.pbrMetallicValue;\n"
+        "        }\n"
+        "        context = InitPBRMetallic(V, N, albedo, metallic, roughness, AO);\n"
+        "    }\n"
+        "    else // Specular workflow\n"
+        "    {\n"
+        "        vec3 specular;\n"
+        "        if (MeshData.pbrUseSpecularMap == 1)\n"
+        "        {\n"
+        "            specular = texture(SpecularMap, fragIn.uv).xyz;\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            specular = MeshData.pbrSpecularValue;\n"
+        "        }\n"
+        "        float gloss;\n"
+        "        if (MeshData.pbrUseGlossMap == 1)\n"
+        "        {\n"
+        "            gloss = texture(GlossMap, fragIn.uv).x;\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            gloss = MeshData.pbrGlossValue;\n"
+        "        }\n"
+        "         context = InitPBRSpecular(V, N, albedo, specular, gloss, AO);\n"
+        "    }\n"
+        "    vec3 L0 = vec3(0.0f);\n"
+        "    vec3 L = normalize(-FrameData.dirLight.dir);\n"
+        "    vec3 H = normalize(V + L);\n"
+        "    vec3 irradance = FrameData.dirLight.diffuse;\n"
+        "    L0 += Unreal4BRDF(context, L) * irradance;\n"
+        "    vec3 envIrradance = IBLIrradance(context, IrradanceMap, EnviromentMap, BRDFLut);\n"
+        "    vec3 kShadow = CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);\n"
+        "    L0 = min(vec3(1.0f), L0);\n"
+        "    resultColor = vec4((envIrradance + L0 * kShadow + emissionColor), 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec3 Normal;
-
-layout (location = 0) uniform int CascadeIndex;
-
-void main()
-{
-    mat4 viewProj = FrameData.lightSpaceMatrices[CascadeIndex];
-    vec3 normal = normalize(MeshData.normalMatrix * normalize(Normal));
-    float NdotL = dot(normal, FrameData.dirLight.pos);
-    vec3 p = (MeshData.modelMatrix * vec4(Position, 1.0f)).xyz;
-    gl_Position = viewProj * vec4(p, 1.0f);
-}
-)", 
-R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-out vec4 color;
-
-void main()
-{
-    gl_FragDepth = gl_FragCoord.z + FrameData.constShadowBias;
-    color = vec4(gl_FragCoord.z, gl_FragCoord.z, gl_FragCoord.z, 1.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 Position;\n"
+        "layout (location = 1) in vec3 Normal;\n"
+        "layout (location = 0) uniform int CascadeIndex;\n"
+        "void main()\n"
+        "{\n"
+        "    mat4 viewProj = FrameData.lightSpaceMatrices[CascadeIndex];\n"
+        "    vec3 normal = normalize(MeshData.normalMatrix * normalize(Normal));\n"
+        "    float NdotL = dot(normal, FrameData.dirLight.pos);\n"
+        "    vec3 p = (MeshData.modelMatrix * vec4(Position, 1.0f)).xyz;\n"
+        "    gl_Position = viewProj * vec4(p, 1.0f);\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "out vec4 color;\n"
+        "void main()\n"
+        "{\n"
+        "    gl_FragDepth = gl_FragCoord.z + FrameData.constShadowBias;\n"
+        "    color = vec4(gl_FragCoord.z, gl_FragCoord.z, gl_FragCoord.z, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-layout (location = 0) out vec3 UV;
-
-vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),
-                         vec2(1.0f, -1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(-1.0f, 1.0f),
-                         vec2(-1.0f, -1.0f));
-
-void main()
-{
-    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);
-    gl_Position = vertexPos;
-    gl_Position = gl_Position.xyww;
-    UV = mat3(FrameData.invViewMatrix) * (FrameData.invProjMatrix * gl_Position).xyz;
-}
-)", 
-R"(#version 450
-layout (location = 0) in vec3 UV;
-
-out vec4 Color;
-
-layout (binding = 0) uniform samplerCube CubeTexture;
-
-void main()
-{
-    // NOTE: Temporary using low-res mip of enviroment map
-    Color = textureLod(CubeTexture, UV, 5.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) out vec3 UV;\n"
+        "vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),\n"
+        "                         vec2(1.0f, -1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, -1.0f));\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);\n"
+        "    gl_Position = vertexPos;\n"
+        "    gl_Position = gl_Position.xyww;\n"
+        "    UV = mat3(FrameData.invViewMatrix) * (FrameData.invProjMatrix * gl_Position).xyz;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "layout (location = 0) in vec3 UV;\n"
+        "out vec4 Color;\n"
+        "layout (binding = 0) uniform samplerCube CubeTexture;\n"
+        "void main()\n"
+        "{\n"
+        "    // NOTE: Temporary using low-res mip of enviroment map\n"
+        "    Color = textureLod(CubeTexture, UV, 5.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-
-vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),
-                         vec2(1.0f, -1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(-1.0f, 1.0f),
-                         vec2(-1.0f, -1.0f));
-
-layout (location = 0) out vec2 UV;
-
-void main()
-{
-    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);
-    gl_Position = vertexPos;
-    UV = vertexPos.xy / 2.0f + 0.5f;
-}
-)", 
-R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-#line 100000
-// [ https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve ]
-vec3 ACESFilmApproxTonemap(vec3 x) {
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return saturate((x*(a*x+b))/(x*(c*x+d)+e));
-}
-
-// [ http://filmicworlds.com/blog/filmic-tonemapping-operators/ ]
-vec3 Uncharted2Tonemap(vec3 x) {
-    const float A = 0.22;
-    const float B = 0.30f;
-    const float C = 0.10f;
-    const float D = 0.20f;
-    const float E = 0.01f;
-    const float F = 0.22f;
-    const float W = 11.2f;
-
-    return ((x * (A * x + C * B) + D * E) / ( x * (A * x + B) + D * F)) - E / F;
-}
-
-vec3 Uncharted2TonemapLuminance(vec3 x) {
-    float lum = Luminance(x);
-    float mappedLum = Uncharted2Tonemap(vec3(lum)).r;
-    float lumScale = mappedLum / lum;
-    return x * lumScale;
-}
-
-vec3 ReinhardTonemap(vec3 x) {
-    return vec3(1.0f) - exp(-x);
-}
-
-// [ BakingLab and Stephen Hill ACES filmic tonemapping approximation https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl]
-
-// sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT
-const mat3 ACESInputMat = mat3(
-    vec3(0.59719f, 0.35458f, 0.04823f),
-    vec3(0.07600f, 0.90834f, 0.01566f),
-    vec3(0.02840f, 0.13383f, 0.83777f)
-);
-
-// ODT_SAT => XYZ => D60_2_D65 => sRGB
-const mat3 ACESOutputMat = mat3(
-    vec3( 1.60475f, -0.53108f, -0.07367f),
-    vec3(-0.10208f,  1.10813f, -0.00605f),
-    vec3(-0.00327f, -0.07276f,  1.07602f)
-);
-
-vec3 RRTAndODTFit(vec3 v) {
-    vec3 a = v * (v + 0.0245786f) - 0.000090537f;
-    vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
-    return a / b;
-}
-
-vec3 ACESFilmStephenHillTonemap(vec3 color) {
-    color = ACESInputMat * color;
-
-    // Apply RRT and ODT
-    color = RRTAndODTFit(color);
-
-    color = ACESOutputMat * color;
-
-    // Clamp to [0, 1]
-    color = saturate(color);
-
-    return color;
-}
-
-vec3 ACESFilmStephenHillTonemapLuminance(vec3 x) {
-    float lum = Luminance(x);
-    float mappedLum = ACESFilmStephenHillTonemap(vec3(lum)).r;
-    float lumScale = mappedLum / lum;
-    return x * lumScale;
-}
-
-#line 3
-
-layout (location = 0) in vec2 UV;
-
-out vec4 fragColorResult;
-
-layout (binding = 0) uniform sampler2D ColorSourceLinear;
-
-float D3DX_FLOAT_to_SRGB(float val)
-{
-    if (val < 0.0031308f)
-    {
-        val *= 12.92f;
-    }
-    else
-    {
-        val = 1.055f * pow(val, 1.0f / FrameData.gamma) - 0.055f;
-    }
-    return val;
-}
-
-vec3 D3DX_RGB_to_SRGB(vec3 rgb)
-{
-    rgb.r = D3DX_FLOAT_to_SRGB(rgb.r);
-    rgb.g = D3DX_FLOAT_to_SRGB(rgb.g);
-    rgb.b = D3DX_FLOAT_to_SRGB(rgb.b);
-    return rgb;
-}
-
-void main()
-{
-    vec3 hdrSample = texture(ColorSourceLinear, UV).xyz;
-
-    vec3 ldrSample = ACESFilmApproxTonemap(hdrSample * FrameData.exposure);
-    //vec3 ldrSample = ACESFilmStephenHillTonemap(hdrSample * FrameData.exposure);
-    //vec3 ldrSample = Uncharted2Tonemap(hdrSample * FrameData.exposure);
-    //vec3 ldrSample = ReinhardTonemap(hdrSample * FrameData.exposure);
-    //vec3 ldrSample = Uncharted2TonemapLuminance(hdrSample * FrameData.exposure);
-    //vec3 ldrSample = ACESFilmStephenHillTonemapLuminance(hdrSample * FrameData.exposure);
-
-    vec3 resultSample = D3DX_RGB_to_SRGB(ldrSample * FrameData.exposure);
-    fragColorResult = vec4(resultSample, 1.0f);
-}
-)"
+        "#version 450\n"
+        "vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),\n"
+        "                         vec2(1.0f, -1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, -1.0f));\n"
+        "layout (location = 0) out vec2 UV;\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);\n"
+        "    gl_Position = vertexPos;\n"
+        "    UV = vertexPos.xy / 2.0f + 0.5f;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "#line 100000\n"
+        "// [ https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve ]\n"
+        "vec3 ACESFilmApproxTonemap(vec3 x) {\n"
+        "    float a = 2.51f;\n"
+        "    float b = 0.03f;\n"
+        "    float c = 2.43f;\n"
+        "    float d = 0.59f;\n"
+        "    float e = 0.14f;\n"
+        "    return saturate((x*(a*x+b))/(x*(c*x+d)+e));\n"
+        "}\n"
+        "// [ http://filmicworlds.com/blog/filmic-tonemapping-operators/ ]\n"
+        "vec3 Uncharted2Tonemap(vec3 x) {\n"
+        "    const float A = 0.22;\n"
+        "    const float B = 0.30f;\n"
+        "    const float C = 0.10f;\n"
+        "    const float D = 0.20f;\n"
+        "    const float E = 0.01f;\n"
+        "    const float F = 0.22f;\n"
+        "    const float W = 11.2f;\n"
+        "    return ((x * (A * x + C * B) + D * E) / ( x * (A * x + B) + D * F)) - E / F;\n"
+        "}\n"
+        "vec3 Uncharted2TonemapLuminance(vec3 x) {\n"
+        "    float lum = Luminance(x);\n"
+        "    float mappedLum = Uncharted2Tonemap(vec3(lum)).r;\n"
+        "    float lumScale = mappedLum / lum;\n"
+        "    return x * lumScale;\n"
+        "}\n"
+        "vec3 ReinhardTonemap(vec3 x) {\n"
+        "    return vec3(1.0f) - exp(-x);\n"
+        "}\n"
+        "// [ BakingLab and Stephen Hill ACES filmic tonemapping approximation https://github.com/TheRealMJP/BakingLab/blob/master/BakingLab/ACES.hlsl]\n"
+        "// sRGB => XYZ => D65_2_D60 => AP1 => RRT_SAT\n"
+        "const mat3 ACESInputMat = mat3(\n"
+        "    vec3(0.59719f, 0.07600f, 0.02840f),\n"
+        "    vec3(0.35458f, 0.90834f, 0.13383f),\n"
+        "    vec3(0.04823f, 0.01566f, 0.83777f)\n"
+        ");\n"
+        "#if 0\n"
+        "    vec3(0.59719f, 0.35458f, 0.04823f),\n"
+        "    vec3(0.07600f, 0.90834f, 0.01566f),\n"
+        "    vec3(0.02840f, 0.13383f, 0.83777f)\n"
+        ");\n"
+        "#endif\n"
+        "// ODT_SAT => XYZ => D60_2_D65 => sRGB\n"
+        "const mat3 ACESOutputMat = mat3(\n"
+        "    vec3(1.60475f, -0.10208f, -0.00327f),\n"
+        "    vec3(-0.53108f, 1.10813f, -0.07276f),\n"
+        "    vec3(-0.07367f, -0.00605f, 1.07602f)\n"
+        ");\n"
+        "#if 0\n"
+        "    vec3( 1.60475f, -0.53108f, -0.07367f),\n"
+        "    vec3(-0.10208f,  1.10813f, -0.00605f),\n"
+        "    vec3(-0.00327f, -0.07276f,  1.07602f)\n"
+        ");\n"
+        "#endif\n"
+        "vec3 RRTAndODTFit(vec3 v) {\n"
+        "    vec3 a = v * (v + 0.0245786f) - 0.000090537f;\n"
+        "    vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;\n"
+        "    return a / b;\n"
+        "}\n"
+        "vec3 ACESFilmStephenHillTonemap(vec3 color) {\n"
+        "    color = ACESInputMat * color;\n"
+        "    // Apply RRT and ODT\n"
+        "    color = RRTAndODTFit(color);\n"
+        "    color = ACESOutputMat * color;\n"
+        "    // Clamp to [0, 1]\n"
+        "    color = saturate(color);\n"
+        "    return color;\n"
+        "}\n"
+        "vec3 ACESFilmStephenHillTonemapLuminance(vec3 x) {\n"
+        "    float lum = Luminance(x);\n"
+        "    float mappedLum = ACESFilmStephenHillTonemap(vec3(lum)).r;\n"
+        "    float lumScale = mappedLum / lum;\n"
+        "    return x * lumScale;\n"
+        "}\n"
+        "#line 3\n"
+        "layout (location = 0) in vec2 UV;\n"
+        "out vec4 fragColorResult;\n"
+        "layout (binding = 0) uniform sampler2D ColorSourceLinear;\n"
+        "float D3DX_FLOAT_to_SRGB(float val)\n"
+        "{\n"
+        "    if (val < 0.0031308f)\n"
+        "    {\n"
+        "        val *= 12.92f;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        val = 1.055f * pow(val, 1.0f / FrameData.gamma) - 0.055f;\n"
+        "    }\n"
+        "    return val;\n"
+        "}\n"
+        "vec3 D3DX_RGB_to_SRGB(vec3 rgb)\n"
+        "{\n"
+        "    rgb.r = D3DX_FLOAT_to_SRGB(rgb.r);\n"
+        "    rgb.g = D3DX_FLOAT_to_SRGB(rgb.g);\n"
+        "    rgb.b = D3DX_FLOAT_to_SRGB(rgb.b);\n"
+        "    return rgb;\n"
+        "}\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 hdrSample = texture(ColorSourceLinear, UV).xyz;\n"
+        "    vec3 ldrSample = ACESFilmApproxTonemap(hdrSample * FrameData.exposure);\n"
+        "    //vec3 ldrSample = ACESFilmStephenHillTonemap(hdrSample * FrameData.exposure);\n"
+        "    //vec3 ldrSample = Uncharted2Tonemap(hdrSample * FrameData.exposure);\n"
+        "    //vec3 ldrSample = ReinhardTonemap(hdrSample * FrameData.exposure);\n"
+        "    //vec3 ldrSample = Uncharted2TonemapLuminance(hdrSample * FrameData.exposure);\n"
+        "    //vec3 ldrSample = ACESFilmStephenHillTonemapLuminance(hdrSample * FrameData.exposure);\n"
+        "    vec3 resultSample = D3DX_RGB_to_SRGB(ldrSample * FrameData.exposure);\n"
+        "    fragColorResult = vec4(resultSample, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-
-vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),
-                         vec2(1.0f, -1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(-1.0f, 1.0f),
-                         vec2(-1.0f, -1.0f));
-
-layout (location = 0) out vec2 UV;
-
-void main()
-{
-    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);
-    gl_Position = vertexPos;
-    UV = vertexPos.xy / 2.0f + 0.5f;
-}
-)", 
-R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-layout (location = 0) in vec2 UV;
-
-out vec4 fragColorResult;
-
-layout (binding = 0)uniform sampler2D ColorSourcePerceptual;
-
-// TODO: Are these coefficients correct?
-float Luma(vec3 rgb)
-{
-    float result = dot(rgb, vec3(0.299f, 0.587f, 0.114f));
-    return result;
-}
-
-#define EDGE_MIN_THRESHOLD 0.0625f  //0.0312f
-#define EDGE_MAX_THRESHOLD 0.0625f  //0.125f
-#define ITERATIONS 12
-#define SUBPIXEL_QUALITY 0.75f
-
-float STEPS[6] = float[](1.0f, 1.5f, 2.0f, 2.0f, 2.0f, 8.0f);
-#define QUALITY(i) (STEPS[min(0, max(5, i))])
-
-void main()
-{
-    vec2 invScreenSize = vec2(1.0f) / FrameData.screenSize;
-    // STUDY: Dependent texture reads
-    vec3 sampleCenter = texture(ColorSourcePerceptual, UV).xyz;
-
-    float lumaCenter = Luma(sampleCenter);
-    float lumaDown = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(0, -1)).xyz);
-    float lumaUp = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(0, 1)).xyz);
-    float lumaLeft = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(-1, 0)).xyz);
-    float lumaRight = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(1, 0)).xyz);
-
-    float lumaMin = min(lumaCenter, min(min(lumaDown, lumaUp), min(lumaLeft, lumaRight)));
-    float lumaMax = max(lumaCenter, max(max(lumaDown, lumaUp), max(lumaLeft, lumaRight)));
-    float lumaRange = lumaMax - lumaMin;
-
-    if (lumaRange >= max(EDGE_MIN_THRESHOLD, lumaMax * EDGE_MAX_THRESHOLD))
-    {
-        float lumaDownLeft = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(-1, -1)).xyz);
-        float lumaUpRight = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(1, 1)).xyz);
-        float lumaUpLeft = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(-1, 1)).xyz);
-        float lumaDownRight = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(1, -1)).xyz);
-
-        float lumaDownUp = lumaDown + lumaUp;
-        float lumaLeftRight = lumaLeft + lumaRight;
-        float lumaLeftCorners = lumaDownLeft + lumaUpLeft;
-        float lumaDownCorners = lumaDownLeft + lumaDownRight;
-        float lumaRightCorners = lumaDownRight + lumaUpRight;
-        float lumaUpCorners = lumaUpRight + lumaUpLeft;
-
-        float gradH = abs(-2.0f * lumaLeft + lumaLeftCorners) + abs(-2.0f * lumaCenter + lumaDownUp) * 2.0f + abs(-2.0 * lumaRight + lumaRightCorners);
-        float gradV = abs(-2.0f * lumaUp + lumaUpCorners) + abs(-2.0f * lumaCenter + lumaLeftRight) * 2.0f + abs(-2.0f * lumaDown + lumaDownCorners);
-        bool isHorizontal = (gradH >= gradV);
-
-        float luma1 = isHorizontal ? lumaDown : lumaLeft;
-        float luma2 = isHorizontal ? lumaUp : lumaRight;
-        float grad1 = abs(luma1 - lumaCenter);
-        float grad2 = abs(luma2 - lumaCenter);
-        bool is1Steepest = grad1 >= grad2;
-        float gradScaled = 0.25f * max(grad1, grad2);
-
-        // TODO: dFdx() dFdy() ?
-        float stepLength = isHorizontal ? invScreenSize.y : invScreenSize.x;
-        float lumaLocalAvg = 0.0f;
-        if (is1Steepest)
-        {
-            stepLength = -stepLength;
-            lumaLocalAvg = 0.5f * (luma1 + lumaCenter);
-        }
-        else
-        {
-            lumaLocalAvg = 0.5f * (luma2 + lumaCenter);
-        }
-
-        vec2 currUV = UV;
-        isHorizontal ? (currUV.y = currUV.y + stepLength * 0.5f) : (currUV.x = currUV.x + stepLength * 0.5f);
-
-        vec2 offset = isHorizontal ? vec2(invScreenSize.x, 0.0f) : vec2(0.0f, invScreenSize.y);
-        vec2 uv1 = currUV - offset;
-        vec2 uv2 = currUV + offset;
-
-        float lumaEnd1 = Luma(texture(ColorSourcePerceptual, uv1).xyz);
-        float lumaEnd2 = Luma(texture(ColorSourcePerceptual, uv2).xyz);
-        lumaEnd1 -= lumaLocalAvg;
-        lumaEnd2 -= lumaLocalAvg;
-        bool reached1 = abs(lumaEnd1) >= gradScaled;
-        bool reached2 = abs(lumaEnd2) >= gradScaled;
-        bool reachedBoth = reached1 && reached2;
-        if (!reached1) uv1 -= offset;
-        if (!reached2) uv2 += offset;
-
-        if (!reachedBoth)
-        {
-            for (int i = 1; i < ITERATIONS; i++)
-            {
-                if (!reached1)
-                {
-                    lumaEnd1 = Luma(texture(ColorSourcePerceptual, uv1).xyz);
-                    lumaEnd1 -= lumaLocalAvg;
-                }
-                if (!reached2)
-                {
-                    lumaEnd2 = Luma(texture(ColorSourcePerceptual, uv2).xyz);
-                    lumaEnd2 -= lumaLocalAvg;
-                }
-                reached1 = abs(lumaEnd1) >= gradScaled;
-                reached2 = abs(lumaEnd2) >= gradScaled;
-                reachedBoth = reached1 && reached2;
-                if (!reached1) uv1 -= offset * QUALITY(i);
-                if (!reached2) uv2 += offset * QUALITY(i);
-                if (reachedBoth) break;
-            }
-        }
-
-        float dist1 = isHorizontal ? (UV.x - uv1.x) : (UV.y - uv1.y);
-        float dist2 = isHorizontal ? (uv2.x - UV.x) : (uv2.y - UV.y);
-
-        bool isDir1 = (dist1 < dist2);
-        float minDist = min(dist1, dist2);
-        float edgeLen = (dist1 + dist2);
-
-        float pixelOffset = -minDist / edgeLen + 0.5f;
-
-        bool isLumaCenterSmaller = lumaCenter < lumaLocalAvg;
-        bool correctVariation = ((isDir1 ? lumaEnd1 : lumaEnd2) < 0.0f) != isLumaCenterSmaller;
-        pixelOffset = correctVariation ? pixelOffset : 0.0f;
-
-        vec2 resultUV = UV;
-        isHorizontal ? (resultUV.y = resultUV.y + pixelOffset * stepLength) : (resultUV.x = resultUV.x + pixelOffset * stepLength);
-
-        float lumaAvg = (1.0f / 12.0f) * (2.0f * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);
-        float subPixelOffset1 = clamp(abs(lumaAvg - lumaCenter) / lumaRange, 0.0f, 1.0f);
-        float subPixelOffset2 = (-2.0f * subPixelOffset1 + 3.0f) + subPixelOffset1 * subPixelOffset1;
-        float subPixelOffsetResult = subPixelOffset2 * subPixelOffset2 * SUBPIXEL_QUALITY;
-        pixelOffset = max(pixelOffset, subPixelOffsetResult);
-
-        fragColorResult = vec4(texture(ColorSourcePerceptual, resultUV).xyz, 1.0f);
-    }
-    else
-    {
-        fragColorResult = vec4(sampleCenter, 1.0f);
-    }
-    //fragColorResult = vec4(sampleCenter, 1.0f);
-}
-)"
+        "#version 450\n"
+        "vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),\n"
+        "                         vec2(1.0f, -1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, -1.0f));\n"
+        "layout (location = 0) out vec2 UV;\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);\n"
+        "    gl_Position = vertexPos;\n"
+        "    UV = vertexPos.xy / 2.0f + 0.5f;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec2 UV;\n"
+        "out vec4 fragColorResult;\n"
+        "layout (binding = 0)uniform sampler2D ColorSourcePerceptual;\n"
+        "// TODO: Are these coefficients correct?\n"
+        "float Luma(vec3 rgb)\n"
+        "{\n"
+        "    float result = dot(rgb, vec3(0.299f, 0.587f, 0.114f));\n"
+        "    return result;\n"
+        "}\n"
+        "#define EDGE_MIN_THRESHOLD 0.0625f  //0.0312f\n"
+        "#define EDGE_MAX_THRESHOLD 0.0625f  //0.125f\n"
+        "#define ITERATIONS 12\n"
+        "#define SUBPIXEL_QUALITY 0.75f\n"
+        "float STEPS[6] = float[](1.0f, 1.5f, 2.0f, 2.0f, 2.0f, 8.0f);\n"
+        "#define QUALITY(i) (STEPS[min(0, max(5, i))])\n"
+        "void main()\n"
+        "{\n"
+        "    vec2 invScreenSize = vec2(1.0f) / FrameData.screenSize;\n"
+        "    // STUDY: Dependent texture reads\n"
+        "    vec3 sampleCenter = texture(ColorSourcePerceptual, UV).xyz;\n"
+        "    float lumaCenter = Luma(sampleCenter);\n"
+        "    float lumaDown = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(0, -1)).xyz);\n"
+        "    float lumaUp = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(0, 1)).xyz);\n"
+        "    float lumaLeft = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(-1, 0)).xyz);\n"
+        "    float lumaRight = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(1, 0)).xyz);\n"
+        "    float lumaMin = min(lumaCenter, min(min(lumaDown, lumaUp), min(lumaLeft, lumaRight)));\n"
+        "    float lumaMax = max(lumaCenter, max(max(lumaDown, lumaUp), max(lumaLeft, lumaRight)));\n"
+        "    float lumaRange = lumaMax - lumaMin;\n"
+        "    if (lumaRange >= max(EDGE_MIN_THRESHOLD, lumaMax * EDGE_MAX_THRESHOLD))\n"
+        "    {\n"
+        "        float lumaDownLeft = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(-1, -1)).xyz);\n"
+        "        float lumaUpRight = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(1, 1)).xyz);\n"
+        "        float lumaUpLeft = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(-1, 1)).xyz);\n"
+        "        float lumaDownRight = Luma(textureOffset(ColorSourcePerceptual, UV, ivec2(1, -1)).xyz);\n"
+        "        float lumaDownUp = lumaDown + lumaUp;\n"
+        "        float lumaLeftRight = lumaLeft + lumaRight;\n"
+        "        float lumaLeftCorners = lumaDownLeft + lumaUpLeft;\n"
+        "        float lumaDownCorners = lumaDownLeft + lumaDownRight;\n"
+        "        float lumaRightCorners = lumaDownRight + lumaUpRight;\n"
+        "        float lumaUpCorners = lumaUpRight + lumaUpLeft;\n"
+        "        float gradH = abs(-2.0f * lumaLeft + lumaLeftCorners) + abs(-2.0f * lumaCenter + lumaDownUp) * 2.0f + abs(-2.0 * lumaRight + lumaRightCorners);\n"
+        "        float gradV = abs(-2.0f * lumaUp + lumaUpCorners) + abs(-2.0f * lumaCenter + lumaLeftRight) * 2.0f + abs(-2.0f * lumaDown + lumaDownCorners);\n"
+        "        bool isHorizontal = (gradH >= gradV);\n"
+        "        float luma1 = isHorizontal ? lumaDown : lumaLeft;\n"
+        "        float luma2 = isHorizontal ? lumaUp : lumaRight;\n"
+        "        float grad1 = abs(luma1 - lumaCenter);\n"
+        "        float grad2 = abs(luma2 - lumaCenter);\n"
+        "        bool is1Steepest = grad1 >= grad2;\n"
+        "        float gradScaled = 0.25f * max(grad1, grad2);\n"
+        "        // TODO: dFdx() dFdy() ?\n"
+        "        float stepLength = isHorizontal ? invScreenSize.y : invScreenSize.x;\n"
+        "        float lumaLocalAvg = 0.0f;\n"
+        "        if (is1Steepest)\n"
+        "        {\n"
+        "            stepLength = -stepLength;\n"
+        "            lumaLocalAvg = 0.5f * (luma1 + lumaCenter);\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            lumaLocalAvg = 0.5f * (luma2 + lumaCenter);\n"
+        "        }\n"
+        "        vec2 currUV = UV;\n"
+        "        isHorizontal ? (currUV.y = currUV.y + stepLength * 0.5f) : (currUV.x = currUV.x + stepLength * 0.5f);\n"
+        "        vec2 offset = isHorizontal ? vec2(invScreenSize.x, 0.0f) : vec2(0.0f, invScreenSize.y);\n"
+        "        vec2 uv1 = currUV - offset;\n"
+        "        vec2 uv2 = currUV + offset;\n"
+        "        float lumaEnd1 = Luma(texture(ColorSourcePerceptual, uv1).xyz);\n"
+        "        float lumaEnd2 = Luma(texture(ColorSourcePerceptual, uv2).xyz);\n"
+        "        lumaEnd1 -= lumaLocalAvg;\n"
+        "        lumaEnd2 -= lumaLocalAvg;\n"
+        "        bool reached1 = abs(lumaEnd1) >= gradScaled;\n"
+        "        bool reached2 = abs(lumaEnd2) >= gradScaled;\n"
+        "        bool reachedBoth = reached1 && reached2;\n"
+        "        if (!reached1) uv1 -= offset;\n"
+        "        if (!reached2) uv2 += offset;\n"
+        "        if (!reachedBoth)\n"
+        "        {\n"
+        "            for (int i = 1; i < ITERATIONS; i++)\n"
+        "            {\n"
+        "                if (!reached1)\n"
+        "                {\n"
+        "                    lumaEnd1 = Luma(texture(ColorSourcePerceptual, uv1).xyz);\n"
+        "                    lumaEnd1 -= lumaLocalAvg;\n"
+        "                }\n"
+        "                if (!reached2)\n"
+        "                {\n"
+        "                    lumaEnd2 = Luma(texture(ColorSourcePerceptual, uv2).xyz);\n"
+        "                    lumaEnd2 -= lumaLocalAvg;\n"
+        "                }\n"
+        "                reached1 = abs(lumaEnd1) >= gradScaled;\n"
+        "                reached2 = abs(lumaEnd2) >= gradScaled;\n"
+        "                reachedBoth = reached1 && reached2;\n"
+        "                if (!reached1) uv1 -= offset * QUALITY(i);\n"
+        "                if (!reached2) uv2 += offset * QUALITY(i);\n"
+        "                if (reachedBoth) break;\n"
+        "            }\n"
+        "        }\n"
+        "        float dist1 = isHorizontal ? (UV.x - uv1.x) : (UV.y - uv1.y);\n"
+        "        float dist2 = isHorizontal ? (uv2.x - UV.x) : (uv2.y - UV.y);\n"
+        "        bool isDir1 = (dist1 < dist2);\n"
+        "        float minDist = min(dist1, dist2);\n"
+        "        float edgeLen = (dist1 + dist2);\n"
+        "        float pixelOffset = -minDist / edgeLen + 0.5f;\n"
+        "        bool isLumaCenterSmaller = lumaCenter < lumaLocalAvg;\n"
+        "        bool correctVariation = ((isDir1 ? lumaEnd1 : lumaEnd2) < 0.0f) != isLumaCenterSmaller;\n"
+        "        pixelOffset = correctVariation ? pixelOffset : 0.0f;\n"
+        "        vec2 resultUV = UV;\n"
+        "        isHorizontal ? (resultUV.y = resultUV.y + pixelOffset * stepLength) : (resultUV.x = resultUV.x + pixelOffset * stepLength);\n"
+        "        float lumaAvg = (1.0f / 12.0f) * (2.0f * (lumaDownUp + lumaLeftRight) + lumaLeftCorners + lumaRightCorners);\n"
+        "        float subPixelOffset1 = clamp(abs(lumaAvg - lumaCenter) / lumaRange, 0.0f, 1.0f);\n"
+        "        float subPixelOffset2 = (-2.0f * subPixelOffset1 + 3.0f) + subPixelOffset1 * subPixelOffset1;\n"
+        "        float subPixelOffsetResult = subPixelOffset2 * subPixelOffset2 * SUBPIXEL_QUALITY;\n"
+        "        pixelOffset = max(pixelOffset, subPixelOffsetResult);\n"
+        "        fragColorResult = vec4(texture(ColorSourcePerceptual, resultUV).xyz, 1.0f);\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "        fragColorResult = vec4(sampleCenter, 1.0f);\n"
+        "    }\n"
+        "    //fragColorResult = vec4(sampleCenter, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-
-vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),
-                         vec2(1.0f, -1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(-1.0f, 1.0f),
-                         vec2(-1.0f, -1.0f));
-
-layout (location = 0) out vec2 UV;
-
-void main()
-{
-    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);
-    gl_Position = vertexPos;
-    UV = vertexPos.xy / 2.0f + 0.5f;
-}
-)", 
-R"(#version 450
-
-layout (location = 0) in vec2 UV;
-
-out vec4 ResultColor;
-
-const uint SAMPLE_COUNT = 1024u;
-const float PI_32 = 3.14159265358979323846f;
-
-// NOTE: http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
-float RadicalInverse_VdC(uint bits)
-{
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10;
-}
-
-vec2 Hammersley(uint i, uint n)
-{
-    return vec2(float(i) / float(n), RadicalInverse_VdC(i));
-}
-
-vec3 ImportanceSampleGGX(vec2 p, vec3 N, float a)
-{
-    // NOTE: Epic Games GGX
-    float aSq = a * a;
-    float phi = 2.0f * PI_32 * p.x;
-    float cosTheta = sqrt((1.0f - p.y) / (1.0f + (aSq * aSq - 1.0f) * p.y));
-    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
-
-    // NOTE: To cartesian
-    vec3 d;
-    d.x = cos(phi) * sinTheta;
-    d.y = sin(phi) * sinTheta;
-    d.z = cosTheta;
-
-    // NOTE: From tangent space to world
-    vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f); // ?????
-    vec3 right = normalize(cross(up, N));
-    up = cross(N, right);
-
-    vec3 sampleVec = right * d.x + up * d.y + N * d.z;
-    return normalize(sampleVec);
-}
-
-float GeometrySchlickGGX(float NdotV, float a)
-{
-    float k = (a * a) / 1.0f;
-    float nom = NdotV;
-    float denom = NdotV * (1.0f - k) + k;
-    return nom / denom;
-}
-
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float a)
-{
-    float NdotV = max(dot(N, V), 0.0f);
-    float NdotL = max(dot(N, L), 0.0f);
-    float ggx2 = GeometrySchlickGGX(NdotV, a);
-    float ggx1 = GeometrySchlickGGX(NdotL, a);
-    return ggx1 * ggx2;
-}
-
-vec2 IntegrateBRDF(float NdotV, float roughness)
-{
-    vec3 V;
-    V.x = sqrt(1.0f - NdotV * NdotV);
-    V.y = 0.0f;
-    V.z = NdotV;
-
-    float A = 0.0f;
-    float B = 0.0f;
-
-    vec3 N = vec3(0.0f, 0.0f, 1.0f);
-
-    for (uint i = 0u; i < SAMPLE_COUNT; i++)
-    {
-        vec2 Xi = Hammersley(i, SAMPLE_COUNT);
-        vec3 H = ImportanceSampleGGX(Xi, N, roughness);
-        vec3 L = normalize(2.0f * dot(V, H) * H - V);
-
-        float NdotL = max(L.z, 0.0f);
-        float NdotH = max(H.z, 0.0f);
-        float VdotH = max(dot(V, H), 0.0f);
-
-        if (NdotL > 0.0f)
-        {
-            float G = GeometrySmith(N, V, L, roughness);
-            float G_Vis = (G * VdotH) / (NdotH * NdotV);
-            float Fc = pow(1.0f - VdotH, 5.0f);
-
-            A += (1.0f - Fc) * G_Vis;
-            B += Fc * G_Vis;
-        }
-    }
-    A /= float(SAMPLE_COUNT);
-    B /= float(SAMPLE_COUNT);
-
-    return vec2(A, B);
-}
-
-void main()
-{
-    ResultColor = vec4(IntegrateBRDF(UV.x, UV.y), 0.0f, 1.0f);
-}
-)"
+        "#version 450\n"
+        "vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),\n"
+        "                         vec2(1.0f, -1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, -1.0f));\n"
+        "layout (location = 0) out vec2 UV;\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);\n"
+        "    gl_Position = vertexPos;\n"
+        "    UV = vertexPos.xy / 2.0f + 0.5f;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "layout (location = 0) in vec2 UV;\n"
+        "out vec4 ResultColor;\n"
+        "const uint SAMPLE_COUNT = 1024u;\n"
+        "const float PI_32 = 3.14159265358979323846f;\n"
+        "// NOTE: http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html\n"
+        "float RadicalInverse_VdC(uint bits)\n"
+        "{\n"
+        "    bits = (bits << 16u) | (bits >> 16u);\n"
+        "    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);\n"
+        "    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);\n"
+        "    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);\n"
+        "    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);\n"
+        "    return float(bits) * 2.3283064365386963e-10;\n"
+        "}\n"
+        "vec2 Hammersley(uint i, uint n)\n"
+        "{\n"
+        "    return vec2(float(i) / float(n), RadicalInverse_VdC(i));\n"
+        "}\n"
+        "vec3 ImportanceSampleGGX(vec2 p, vec3 N, float a)\n"
+        "{\n"
+        "    // NOTE: Epic Games GGX\n"
+        "    float aSq = a * a;\n"
+        "    float phi = 2.0f * PI_32 * p.x;\n"
+        "    float cosTheta = sqrt((1.0f - p.y) / (1.0f + (aSq * aSq - 1.0f) * p.y));\n"
+        "    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);\n"
+        "    // NOTE: To cartesian\n"
+        "    vec3 d;\n"
+        "    d.x = cos(phi) * sinTheta;\n"
+        "    d.y = sin(phi) * sinTheta;\n"
+        "    d.z = cosTheta;\n"
+        "    // NOTE: From tangent space to world\n"
+        "    vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f); // ?????\n"
+        "    vec3 right = normalize(cross(up, N));\n"
+        "    up = cross(N, right);\n"
+        "    vec3 sampleVec = right * d.x + up * d.y + N * d.z;\n"
+        "    return normalize(sampleVec);\n"
+        "}\n"
+        "float GeometrySchlickGGX(float NdotV, float a)\n"
+        "{\n"
+        "    float k = (a * a) / 2.0f;\n"
+        "    float nom = NdotV;\n"
+        "    float denom = NdotV * (1.0f - k) + k;\n"
+        "    return nom / denom;\n"
+        "}\n"
+        "float GeometrySmith(vec3 N, vec3 V, vec3 L, float a)\n"
+        "{\n"
+        "    float NdotV = max(dot(N, V), 0.0f);\n"
+        "    float NdotL = max(dot(N, L), 0.0f);\n"
+        "    float ggx2 = GeometrySchlickGGX(NdotV, a);\n"
+        "    float ggx1 = GeometrySchlickGGX(NdotL, a);\n"
+        "    return ggx1 * ggx2;\n"
+        "}\n"
+        "vec2 IntegrateBRDF(float NdotV, float roughness)\n"
+        "{\n"
+        "    vec3 V;\n"
+        "    V.x = sqrt(1.0f - NdotV * NdotV);\n"
+        "    V.y = 0.0f;\n"
+        "    V.z = NdotV;\n"
+        "    float A = 0.0f;\n"
+        "    float B = 0.0f;\n"
+        "    vec3 N = vec3(0.0f, 0.0f, 1.0f);\n"
+        "    for (uint i = 0u; i < SAMPLE_COUNT; i++)\n"
+        "    {\n"
+        "        vec2 Xi = Hammersley(i, SAMPLE_COUNT);\n"
+        "        vec3 H = ImportanceSampleGGX(Xi, N, roughness);\n"
+        "        vec3 L = normalize(2.0f * dot(V, H) * H - V);\n"
+        "        float NdotL = max(L.z, 0.0f);\n"
+        "        float NdotH = max(H.z, 0.0f);\n"
+        "        float VdotH = max(dot(V, H), 0.0f);\n"
+        "        if (NdotL > 0.0f)\n"
+        "        {\n"
+        "            float G = GeometrySmith(N, V, L, roughness);\n"
+        "            float G_Vis = (G * VdotH) / (NdotH * NdotV);\n"
+        "            float Fc = pow(1.0f - VdotH, 5.0f);\n"
+        "            A += (1.0f - Fc) * G_Vis;\n"
+        "            B += Fc * G_Vis;\n"
+        "        }\n"
+        "    }\n"
+        "    A /= float(SAMPLE_COUNT);\n"
+        "    B /= float(SAMPLE_COUNT);\n"
+        "    return vec2(A, B);\n"
+        "}\n"
+        "void main()\n"
+        "{\n"
+        "    ResultColor = vec4(IntegrateBRDF(UV.x, UV.y), 0.0f, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-layout (location = 0) out vec3 UV;
-
-vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),
-                         vec2(1.0f, -1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(-1.0f, 1.0f),
-                         vec2(-1.0f, -1.0f));
-
-void main()
-{
-    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);
-    gl_Position = vertexPos;
-    gl_Position = gl_Position.xyww;
-    UV = mat3(FrameData.invViewMatrix) * (FrameData.invProjMatrix * gl_Position).xyz;
-}
-)", 
-R"(#version 450
-
-layout (location = 0) in vec3 UV;
-out vec4 resultColor;
-
-layout (binding = 0) uniform samplerCube uSourceCubemap;
-layout (location = 0) uniform float uRoughness;
-layout (location = 1) uniform int uResolution;
-
-const float PI_32 = 3.14159265358979323846f;
-
-// NOTE: http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
-float RadicalInverse_VdC(uint bits)
-{
-    bits = (bits << 16u) | (bits >> 16u);
-    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10;
-}
-
-vec2 Hammersley(uint i, uint n)
-{
-    return vec2(float(i) / float(n), RadicalInverse_VdC(i));
-}
-
-vec3 ImportanceSampleGGX(vec2 p, vec3 N, float a)
-{
-    // NOTE: Epic Games GGX
-    float aSq = a * a;
-    float phi = 2.0f * PI_32 * p.x;
-    float cosTheta = sqrt((1.0f - p.y) / (1.0f + (aSq * aSq - 1.0f) * p.y));
-    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
-
-    // NOTE: To cartesian
-    vec3 d;
-    d.x = cos(phi) * sinTheta;
-    d.y = sin(phi) * sinTheta;
-    d.z = cosTheta;
-
-    // NOTE: From tangent space to world
-    vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f); // ?????
-    vec3 right = normalize(cross(up, N));
-    up = cross(N, right);
-
-    vec3 sampleVec = right * d.x + up * d.y + N * d.z;
-    return normalize(sampleVec);
-}
-
-float DistributionGGX(vec3 N, vec3 H, float a)
-{
-    float a4 = a * a * a * a;
-    float NdotH = max(dot(N, H), 0.0f);
-    float NdotHSq = NdotH * NdotH;
-
-    float num = a4;
-    float denom = (NdotHSq * (a4 - 1.0f) + 1.0f);
-    denom = PI_32 * denom * denom;
-
-    return num / max(denom, 0.001f);
-}
-
-const uint SAMPLES = 4096u;
-
-void main()
-{
-    vec3 N = normalize(UV);
-    vec3 R = N;
-    vec3 V = R;
-
-    float totalWeight = 0.0f;
-    vec3 prefColor = vec3(0.0f);
-
-    for (uint i = 0u; i < SAMPLES; i++)
-    {
-        vec2 p = Hammersley(i, SAMPLES);
-        vec3 H = ImportanceSampleGGX(p, N, uRoughness);
-        vec3 L = normalize(2.0f * dot(V, H) * H - V);
-
-        float NdotL = max(dot(N, L), 0.0f);
-        if (NdotL > 0.0f)
-        {
-            float D = DistributionGGX(N, H, uRoughness);
-            float NdotH = max(dot(N, H), 0.0f);
-            float HdotV = max(dot(H, V), 0.0f);
-            float PDF = D * NdotH / (4.0f * HdotV) + 0.0001;
-            float saTexel = 4.0f * PI_32 / (6.0f * uResolution * uResolution);
-            float saSample = 1.0f / (float(SAMPLES) * PDF + 0.0001f);
-            float mipLevel = uRoughness == 0.0f ? 0.0f : 0.5f * log2(saSample / saTexel);
-            prefColor += textureLod(uSourceCubemap, L, mipLevel).rgb * NdotL;
-            totalWeight += NdotL;
-        }
-    }
-
-    prefColor = prefColor / totalWeight;
-
-    resultColor = vec4(prefColor, 1.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) out vec3 UV;\n"
+        "vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),\n"
+        "                         vec2(1.0f, -1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, -1.0f));\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);\n"
+        "    gl_Position = vertexPos;\n"
+        "    gl_Position = gl_Position.xyww;\n"
+        "    UV = mat3(FrameData.invViewMatrix) * (FrameData.invProjMatrix * gl_Position).xyz;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "layout (location = 0) in vec3 UV;\n"
+        "out vec4 resultColor;\n"
+        "layout (binding = 0) uniform samplerCube uSourceCubemap;\n"
+        "layout (location = 0) uniform float uRoughness;\n"
+        "layout (location = 1) uniform int uResolution;\n"
+        "const float PI_32 = 3.14159265358979323846f;\n"
+        "// NOTE: http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html\n"
+        "float RadicalInverse_VdC(uint bits)\n"
+        "{\n"
+        "    bits = (bits << 16u) | (bits >> 16u);\n"
+        "    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);\n"
+        "    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);\n"
+        "    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);\n"
+        "    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);\n"
+        "    return float(bits) * 2.3283064365386963e-10;\n"
+        "}\n"
+        "vec2 Hammersley(uint i, uint n)\n"
+        "{\n"
+        "    return vec2(float(i) / float(n), RadicalInverse_VdC(i));\n"
+        "}\n"
+        "vec3 ImportanceSampleGGX(vec2 p, vec3 N, float a)\n"
+        "{\n"
+        "    // NOTE: Epic Games GGX\n"
+        "    float aSq = a * a;\n"
+        "    float phi = 2.0f * PI_32 * p.x;\n"
+        "    float cosTheta = sqrt((1.0f - p.y) / (1.0f + (aSq * aSq - 1.0f) * p.y));\n"
+        "    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);\n"
+        "    // NOTE: To cartesian\n"
+        "    vec3 d;\n"
+        "    d.x = cos(phi) * sinTheta;\n"
+        "    d.y = sin(phi) * sinTheta;\n"
+        "    d.z = cosTheta;\n"
+        "    // NOTE: From tangent space to world\n"
+        "    vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f); // ?????\n"
+        "    vec3 right = normalize(cross(up, N));\n"
+        "    up = cross(N, right);\n"
+        "    vec3 sampleVec = right * d.x + up * d.y + N * d.z;\n"
+        "    return normalize(sampleVec);\n"
+        "}\n"
+        "float DistributionGGX(vec3 N, vec3 H, float a)\n"
+        "{\n"
+        "    float a4 = a * a * a * a;\n"
+        "    float NdotH = max(dot(N, H), 0.0f);\n"
+        "    float NdotHSq = NdotH * NdotH;\n"
+        "    float num = a4;\n"
+        "    float denom = (NdotHSq * (a4 - 1.0f) + 1.0f);\n"
+        "    denom = PI_32 * denom * denom;\n"
+        "    return num / max(denom, 0.001f);\n"
+        "}\n"
+        "const uint SAMPLES = 4096u;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 N = normalize(UV);\n"
+        "    vec3 R = N;\n"
+        "    vec3 V = R;\n"
+        "    float totalWeight = 0.0f;\n"
+        "    vec3 prefColor = vec3(0.0f);\n"
+        "    for (uint i = 0u; i < SAMPLES; i++)\n"
+        "    {\n"
+        "        vec2 p = Hammersley(i, SAMPLES);\n"
+        "        vec3 H = ImportanceSampleGGX(p, N, uRoughness);\n"
+        "        vec3 L = normalize(2.0f * dot(V, H) * H - V);\n"
+        "        float NdotL = max(dot(N, L), 0.0f);\n"
+        "        if (NdotL > 0.0f)\n"
+        "        {\n"
+        "            float D = DistributionGGX(N, H, uRoughness);\n"
+        "            float NdotH = max(dot(N, H), 0.0f);\n"
+        "            float HdotV = max(dot(H, V), 0.0f);\n"
+        "            float PDF = D * NdotH / (4.0f * HdotV) + 0.0001;\n"
+        "            float saTexel = 4.0f * PI_32 / (6.0f * uResolution * uResolution);\n"
+        "            float saSample = 1.0f / (float(SAMPLES) * PDF + 0.0001f);\n"
+        "            float mipLevel = uRoughness == 0.0f ? 0.0f : 0.5f * log2(saSample / saTexel);\n"
+        "            prefColor += textureLod(uSourceCubemap, L, mipLevel).rgb * NdotL;\n"
+        "            totalWeight += NdotL;\n"
+        "        }\n"
+        "    }\n"
+        "    prefColor = prefColor / totalWeight;\n"
+        "    resultColor = vec4(prefColor, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-layout (location = 0) out vec3 UV;
-
-vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),
-                         vec2(1.0f, -1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(1.0f, 1.0f),
-                         vec2(-1.0f, 1.0f),
-                         vec2(-1.0f, -1.0f));
-
-void main()
-{
-    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);
-    gl_Position = vertexPos;
-    gl_Position = gl_Position.xyww;
-    UV = mat3(FrameData.invViewMatrix) * (FrameData.invProjMatrix * gl_Position).xyz;
-}
-)", 
-R"(#version 450
-
-layout (location = 0) in vec3 UV;
-out vec4 resultColor;
-
-layout (binding = 0) uniform samplerCube uSourceCubemap;
-
-const float PI_32 = 3.14159265358979323846f;
-
-void main()
-{
-    vec3 normal = normalize(UV);
-    vec3 irradance = vec3(0.0f);
-
-    vec3 up = vec3(0.0f, 1.0f, 0.0f);
-    vec3 right = cross(up, normal);
-    up = cross(normal, right);
-
-    float sampleDelta = 0.025f;
-    int sampleCount = 0;
-    for (float phi = 0.0f; phi < (2.0f * PI_32); phi += sampleDelta)
-    {
-        for (float theta = 0.0f; theta < (0.5f * PI_32); theta += sampleDelta)
-        {
-            vec3 tgSample = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
-            vec3 sampleDir = tgSample.x * right + tgSample.y * up + tgSample.z * normal;
-            irradance += texture(uSourceCubemap, sampleDir).xyz * cos(theta) * sin(theta);
-            sampleCount++;
-        }
-    }
-
-    irradance = PI_32 * irradance * (1.0f / float(sampleCount));
-
-    resultColor = vec4(irradance, 1.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) out vec3 UV;\n"
+        "vec2 VERTICES[] = vec2[](vec2(-1.0f, -1.0f),\n"
+        "                         vec2(1.0f, -1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, 1.0f),\n"
+        "                         vec2(-1.0f, -1.0f));\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertexPos = vec4(VERTICES[min(gl_VertexID, 6)], 0.0f, 1.0f);\n"
+        "    gl_Position = vertexPos;\n"
+        "    gl_Position = gl_Position.xyww;\n"
+        "    UV = mat3(FrameData.invViewMatrix) * (FrameData.invProjMatrix * gl_Position).xyz;\n"
+        "}\n"
+,
+        "#version 450\n"
+        "layout (location = 0) in vec3 UV;\n"
+        "out vec4 resultColor;\n"
+        "layout (binding = 0) uniform samplerCube uSourceCubemap;\n"
+        "const float PI_32 = 3.14159265358979323846f;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 normal = normalize(UV);\n"
+        "    vec3 irradance = vec3(0.0f);\n"
+        "    vec3 up = vec3(0.0f, 1.0f, 0.0f);\n"
+        "    vec3 right = cross(up, normal);\n"
+        "    up = cross(normal, right);\n"
+        "    float sampleDelta = 0.025f;\n"
+        "    int sampleCount = 0;\n"
+        "    for (float phi = 0.0f; phi < (2.0f * PI_32); phi += sampleDelta)\n"
+        "    {\n"
+        "        for (float theta = 0.0f; theta < (0.5f * PI_32); theta += sampleDelta)\n"
+        "        {\n"
+        "            vec3 tgSample = vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));\n"
+        "            vec3 sampleDir = tgSample.x * right + tgSample.y * up + tgSample.z * normal;\n"
+        "            irradance += texture(uSourceCubemap, sampleDir).xyz * cos(theta) * sin(theta);\n"
+        "            sampleCount++;\n"
+        "        }\n"
+        "    }\n"
+        "    irradance = PI_32 * irradance * (1.0f / float(sampleCount));\n"
+        "    resultColor = vec4(irradance, 1.0f);\n"
+        "}\n"
     },
     {
-        R"(#version 450
-#line 100000
-#define PI (3.14159265359)
-
-struct DirLight
-{
-    vec3 pos;
-    vec3 dir;
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-};
-
-layout (std140, binding = 0) uniform ShaderFrameData
-{
-    mat4 viewProjMatrix;
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 invViewMatrix;
-    mat4 invProjMatrix;
-    mat4 lightSpaceMatrices[3];
-    DirLight dirLight;
-    vec3 viewPos;
-    vec3 shadowCascadeSplits;
-    int showShadowCascadeBoundaries;
-    float shadowFilterSampleScale;
-    int debugF;
-    int debugG;
-    int debugD;
-    int debugNormals;
-    float constShadowBias;
-    float gamma;
-    float exposure;
-    vec2 screenSize;
-} FrameData;
-
-layout (std140, binding = 1) uniform ShaderMeshData
-{
-    mat4 modelMatrix;
-    mat3 normalMatrix;
-    vec3 lineColor;
-
-    int metallicWorkflow;
-    int emitsLight;
-
-    int pbrUseAlbedoMap;
-    int pbrUseRoughnessMap;
-    int pbrUseMetallicMap;
-    int pbrUseSpecularMap;
-    int pbrUseGlossMap;
-    int pbrUseNormalMap;
-    int pbrUseAOMap;
-    int pbrUseEmissionMap;
-
-    vec3 pbrAlbedoValue;
-    float pbrRoughnessValue;
-    float pbrMetallicValue;
-    vec3 pbrSpecularValue;
-    float pbrGlossValue;
-    vec3 pbrEmissionValue;
-
-    int phongUseDiffuseMap;
-    int phongUseSpecularMap;
-    vec3 customPhongDiffuse;
-    vec3 customPhongSpecular;
-    int normalFormat;
-} MeshData;
-
-float saturate(float x)
-{
-  return max(0.0f, min(1.0f, x));
-}
-
-vec3 saturate(vec3 x)
-{
-  return max(vec3(0.0f), min(vec3(1.0f), x));
-}
-
-// [ Real Time Rendering 4th edition, p.278 ]
-float Luminance(vec3 color) {
-    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;
-}
-
-#line 2
-
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec3 Normal;
-layout (location = 2) in vec2 UV;
-
-void main()
-{
-    gl_Position = FrameData.viewProjMatrix * MeshData.modelMatrix * vec4(Position, 1.0f);
-}
-)", 
-R"(#version 450
-
-out vec4 Color;
-
-void main()
-{
-    Color = vec4(0.2f, 0.6f, 0.9f, 1.0f);
-}
-)"
+        "#version 450\n"
+        "#line 100000\n"
+        "#define PI (3.14159265359)\n"
+        "struct DirLight\n"
+        "{\n"
+        "    vec3 pos;\n"
+        "    vec3 dir;\n"
+        "    vec3 ambient;\n"
+        "    vec3 diffuse;\n"
+        "    vec3 specular;\n"
+        "};\n"
+        "layout (std140, binding = 0) uniform ShaderFrameData\n"
+        "{\n"
+        "    mat4 viewProjMatrix;\n"
+        "    mat4 viewMatrix;\n"
+        "    mat4 projectionMatrix;\n"
+        "    mat4 invViewMatrix;\n"
+        "    mat4 invProjMatrix;\n"
+        "    mat4 lightSpaceMatrices[3];\n"
+        "    DirLight dirLight;\n"
+        "    vec3 viewPos;\n"
+        "    vec3 shadowCascadeSplits;\n"
+        "    int showShadowCascadeBoundaries;\n"
+        "    float shadowFilterSampleScale;\n"
+        "    int debugF;\n"
+        "    int debugG;\n"
+        "    int debugD;\n"
+        "    int debugNormals;\n"
+        "    float constShadowBias;\n"
+        "    float gamma;\n"
+        "    float exposure;\n"
+        "    vec2 screenSize;\n"
+        "} FrameData;\n"
+        "layout (std140, binding = 1) uniform ShaderMeshData\n"
+        "{\n"
+        "    mat4 modelMatrix;\n"
+        "    mat3 normalMatrix;\n"
+        "    vec3 lineColor;\n"
+        "    int metallicWorkflow;\n"
+        "    int emitsLight;\n"
+        "    int pbrUseAlbedoMap;\n"
+        "    int pbrUseRoughnessMap;\n"
+        "    int pbrUseMetallicMap;\n"
+        "    int pbrUseSpecularMap;\n"
+        "    int pbrUseGlossMap;\n"
+        "    int pbrUseNormalMap;\n"
+        "    int pbrUseAOMap;\n"
+        "    int pbrUseEmissionMap;\n"
+        "    vec3 pbrAlbedoValue;\n"
+        "    float pbrRoughnessValue;\n"
+        "    float pbrMetallicValue;\n"
+        "    vec3 pbrSpecularValue;\n"
+        "    float pbrGlossValue;\n"
+        "    vec3 pbrEmissionValue;\n"
+        "    int phongUseDiffuseMap;\n"
+        "    int phongUseSpecularMap;\n"
+        "    vec3 customPhongDiffuse;\n"
+        "    vec3 customPhongSpecular;\n"
+        "    int normalFormat;\n"
+        "} MeshData;\n"
+        "float saturate(float x)\n"
+        "{\n"
+        "  return max(0.0f, min(1.0f, x));\n"
+        "}\n"
+        "vec3 saturate(vec3 x)\n"
+        "{\n"
+        "  return max(vec3(0.0f), min(vec3(1.0f), x));\n"
+        "}\n"
+        "// [ Real Time Rendering 4th edition, p.278 ]\n"
+        "float Luminance(vec3 color) {\n"
+        "    return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722;\n"
+        "}\n"
+        "#line 2\n"
+        "layout (location = 0) in vec3 Position;\n"
+        "layout (location = 1) in vec3 Normal;\n"
+        "layout (location = 2) in vec2 UV;\n"
+        "void main()\n"
+        "{\n"
+        "    gl_Position = FrameData.viewProjMatrix * MeshData.modelMatrix * vec4(Position, 1.0f);\n"
+        "}\n"
+,
+        "#version 450\n"
+        "out vec4 Color;\n"
+        "void main()\n"
+        "{\n"
+        "    Color = vec4(0.2f, 0.6f, 0.9f, 1.0f);\n"
+        "}\n"
     },
 };

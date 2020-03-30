@@ -30,6 +30,5 @@ void main()
     }
 
     irradance = PI_32 * irradance * (1.0f / float(sampleCount));
-
     resultColor = vec4(irradance, 1.0f);
 }

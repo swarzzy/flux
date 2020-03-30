@@ -190,10 +190,10 @@ void FluxUpdate(Context* context) {
     auto camera = &context->camera;
 
     DirectionalLight light = {};
-    light.dir = Normalize(V3(0.0f, -1.0f, -1.0f));
-    light.from = V3(0.0f, 5.0f, 5.0f);
+    light.dir = Normalize(V3(0.2f, -1.0f, -0.1f));
+    light.from = V3(4.0f, 200.0f, 0.0f);
     light.ambient = V3(0.3f);
-    light.diffuse = V3(0.8f);
+    light.diffuse = V3(5.8f);
     light.specular = V3(1.0f);
     RenderCommandSetDirLight lightCommand = { light };
     Push(group, &lightCommand);

@@ -27,7 +27,7 @@ struct Renderer {
     GLuint shadowMapFramebuffers[NumShadowCascades];
     GLuint shadowMapDepthTarget;
     GLuint shadowMapDebugColorTarget;
-    u32 shadowMapRes = 1024;
+    u32 shadowMapRes = 2048;
     GLuint randomValuesTexture;
     b32 stableShadows = true;
     b32 showShadowCascadesBoundaries;
@@ -720,7 +720,7 @@ m4x4 CalcShadowProjection(const CameraBase* camera, f32 nearPlane, f32 farPlane,
         f32 k = Sqrt(1.0f + ar * ar) * Tan(ToRad(camera->fovDeg) * 0.5f);
         f32 kSq = k * k;
         f32 f = farPlane;
-        f32 n = nearPlane;
+        f32 n = nearPlane;//  - 100.0f; // TODO: Manual offsets
         if (kSq >= ((f - n) / (f + n))) {
             bSphereP = V4(0.0f, 0.0f, -f, 1.0f);
             bSphereR = f * k;

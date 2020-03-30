@@ -6,8 +6,8 @@ struct CameraBase {
     v3 front = V3(0.0f, 0.0f, 1.0f);
     f32 fovDeg = 45.0f;
     f32 aspectRatio = 16.0f / 9.0f;
-    f32 nearPlane = 0.1f;
-    f32 farPlane = 200.0f;
+    f32 nearPlane = 0.01f;
+    f32 farPlane = 400.0f;
     v3 mouseRay;
     // NOTE: OpenGL conformant
     m4x4 viewMatrix;

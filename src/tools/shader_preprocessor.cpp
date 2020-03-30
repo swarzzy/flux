@@ -1,4 +1,5 @@
 #define PLATFORM_WINDOWS
+#include <windows.h>
 #include "../flux_platform.h"
 #include "../flux_intrinsics.cpp"
 #include <vector>
@@ -132,6 +133,32 @@ std::string PreprocessShader(const std::string path, const std::string& source)
     return result;
 }
 
+void OutShaderSource(const char* shaderSource)
+{
+    auto at = shaderSource;
+    char lineBuffer[16384];
+    while(*at)
+    {
+        auto lineBegin = at;
+        u32 lineCount = 0;
+        while (*at != '\n' && *at != '\r' && *at != 0)
+        {
+            at++;
+            lineCount++;
+        }
+        if (lineCount)
+        {
+            assert(array_count(lineBuffer) >= lineCount + 2, "A shader source line is too big");
+            memcpy(lineBuffer, lineBegin, lineCount);
+            lineBuffer[lineCount] ='\\';
+            lineBuffer[lineCount + 1] ='n';
+            lineBuffer[lineCount + 2] = 0;
+            L("\"%s\"", lineBuffer);
+        }
+        at++;
+    }
+}
+
 int main(int argCount, char** args)
 {
     assert(argCount > 1);
@@ -192,7 +219,9 @@ int main(int argCount, char** args)
     {
         L("{");
         IDENT_PUSH();
-        L("R\"(%s)\", \nR\"(%s)\"", it.vertSource.c_str(), it.fragSource.c_str());
+        OutShaderSource(it.vertSource.c_str());
+        A(",\n");
+        OutShaderSource(it.fragSource.c_str());
         IDENT_POP();
         L("},");
     }
