@@ -191,6 +191,7 @@ struct Mesh {
     v3* normals;
     v2* uvs;
     v3* tangents;
+    v3* bitangents;
     v3* colors;
     u32* indices;
     BBoxAligned aabb;

@@ -129,7 +129,7 @@ void FluxUpdate(Context* context) {
     }
 
 
-    Update(&context->camera, GlobalAbsDeltaTime);
+    Update(&context->camera, 1.0f / 60.0f);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //DrawDebugPerformanceCounters();
@@ -182,6 +182,14 @@ void FluxUpdate(Context* context) {
         }
     }
 
+    auto entity = GetEntity(world, 11);
+    if (entity) {
+        entity->rotationAngles.y += GlobalGameDeltaTime * 50.0f;
+        if (entity->rotationAngles.y >= 360.0f) {
+            entity->rotationAngles.y = 0.0f;
+        }
+    }
+
     Update(world);
 
     auto group = &context->renderGroup;
@@ -190,7 +198,7 @@ void FluxUpdate(Context* context) {
     auto camera = &context->camera;
 
     DirectionalLight light = {};
-    light.dir = Normalize(V3(0.2f, -1.0f, -0.1f));
+    light.dir = Normalize(V3(0.3f, -1.0f, -0.95f));
     light.from = V3(4.0f, 200.0f, 0.0f);
     light.ambient = V3(0.3f);
     light.diffuse = V3(5.8f);

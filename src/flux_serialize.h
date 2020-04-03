@@ -104,6 +104,7 @@ struct StoredEntity {
     u32 id;
     v3 p;
     v3 scale;
+    v4 rotationAngles; // w is reserved for quaternions
     StoredMaterial material;
     u32 meshFileFormat;
     char meshFileName[MaxAssetPathSize];

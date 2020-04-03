@@ -44,7 +44,7 @@ u32 GetID(AssetNameTable* table, const char* name);
 
 
 enum struct TextureFilter : u32 {
-    None, Bilinear, Trilinear, Anisotropic, Default = Bilinear
+    None = 0, Bilinear, Trilinear, Anisotropic, Default = Bilinear
 };
 
 const char* ToString(TextureFilter value) {
@@ -59,7 +59,7 @@ const char* ToString(TextureFilter value) {
 }
 
 enum struct TextureFormat : u32 {
-    Unknown,
+    Unknown = 0,
     SRGBA8,
     SRGB8,
     RGBA8,
@@ -92,7 +92,7 @@ const char* ToString(TextureFormat value) {
 }
 
 enum struct TextureWrapMode : u32 {
-    Repeat, ClampToEdge, Default = Repeat
+    Repeat = 0, ClampToEdge, Default = Repeat
 };
 
 const char* ToString(TextureWrapMode value) {
@@ -137,42 +137,6 @@ struct CubeTexture {
     };
 };
 
-#if 0
-struct Material {
-    enum  { Phong = 0, PBRMetallic, PBRSpecular, PBRMetallicCustom } workflow;
-    union {
-        struct {
-            Texture diffMap;
-            Texture specMap;
-        } phong;
-        struct {
-            Texture albedo;
-            Texture roughness;
-            Texture metallic;
-            Texture normals;
-        } pbrMetallic;
-        struct {
-            Texture albedo;
-            Texture specular;
-            Texture gloss;
-            Texture normals;
-        } pbrSpecular;
-        struct {
-            v3 albedo;
-            f32 roughness;
-            f32 metalness;
-        } pbrMetallicCustom;
-    };
-};
-#endif
-
-enum struct EntityMaterial {
-    Checkerboard = 0,
-    OldMetal,
-    Backpack,
-    _Count
-};
-
 enum struct AssetState : u32 {
     Unloaded = 0, Queued, JustLoaded, Loaded, Error
 };
@@ -190,7 +154,7 @@ inline const char* ToString(AssetState state) {
 }
 
 enum struct MeshFileFormat {
-    AAB, Flux
+    AAB = 0, Flux = 1
 };
 
 inline const char* ToString(MeshFileFormat value) {
@@ -259,7 +223,7 @@ struct AssetManager {
     HashMap<u32, MeshSlot, Hasher, Comparator> meshTable = HashMap<u32, MeshSlot, Hasher, Comparator>::Make();
     HashMap<u32, TextureSlot, Hasher, Comparator> textureTable = HashMap<u32, TextureSlot, Hasher, Comparator>::Make();
     u32 assetQueueUsage;
-    AssetQueueEntry assetQueue[32];
+    AssetQueueEntry assetQueue[512];
 
     static void Init(AssetManager* manager, Renderer* renderer) {
         manager->renderer = renderer;

@@ -1047,11 +1047,13 @@ void* Allocate(uptr size)
 {
     auto memory = malloc(size);
     assert(memory);
+    printf("[Platform] Allocate %llu bytes at address %llu\n", size, (u64)memory);
     return memory;
 }
 
 void Deallocate(void* ptr)
 {
+    printf("[Platform] Deallocating memory at address %llu\n", (u64)ptr);
     free(ptr);
 }
 

@@ -115,6 +115,7 @@ Mesh* ReadMeshFileFlux(void* file, u32 fileSize) {
         loaded->vertices = (v3*)((byte*)loadedData + (entry->vertices - header->data));
         loaded->normals = (v3*)((byte*)loadedData + (entry->normals - header->data));
         loaded->tangents = (v3*)((byte*)loadedData + (entry->tangents - header->data));
+        loaded->bitangents = entry->bitangents ? (v3*)((byte*)loadedData + (entry->bitangents - header->data)) : nullptr;
         loaded->indices = (u32*)((byte*)loadedData + (entry->indices - header->data));
         if (entry->uv) {
             loaded->uvs = (v2*)((byte*)loadedData + (entry->uv - header->data));
@@ -310,6 +311,7 @@ Mesh* LoadMeshAAB(const char* filename) {
                     mesh->uvs = (v2*)((byte*)fileData + header->uvOffset);
                     mesh->indices = (u32*)((byte*)fileData + header->indicesOffset);
                     mesh->tangents = (v3*)((byte*)fileData + header->tangentsOffset);
+                    mesh->bitangents = nullptr;
 
                     mesh->aabb = BBoxAligned::From(mesh);
                 } else {
@@ -575,8 +577,7 @@ AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileForm
     OpenMeshResult fileStatus = {};
     switch (format) {
     case MeshFileFormat::AAB: { fileStatus = OpenMeshFileAAB(filename); } break;
-    case MeshFileFormat::Flux: { fileStatus = OpenMeshFileFlux(filename); } break;
-    invalid_default();
+    case MeshFileFormat::Flux: { fileStatus = OpenMeshFileFlux(filename); } break;    invalid_default();
     }
 
     if (fileStatus.status == OpenMeshResult::Ok) {
@@ -662,7 +663,8 @@ void LoadMesh(AssetManager* manager, u32 id) {
             auto slotPtr = (MeshSlot*)queueEntry->meshSlot;
             *slotPtr = *slot;
 
-            PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadMeshWork);
+            // TODO: Spin-locking here for now. We should handle the case when platform queue is full propperly
+            while (!PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadMeshWork)) {}
         }
     }
 }
@@ -728,11 +730,12 @@ void LoadTexture(AssetManager* manager, u32 id) {
                 queueEntry->id = id;
                 queueEntry->type = AssetType::Texture;
                 queueEntry->texTransferBufferInfo = transferBuffer;
-                auto slotPtr = (TextureSlot*)queueEntry->textureSlot;
                 slot->state = AssetState::Queued;
+                auto slotPtr = (TextureSlot*)queueEntry->textureSlot;
                 *slotPtr = *slot;
 
-                PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadTextureWork);
+                // TODO: Spin-locking here for now. We should handle the case when platform queue is full propperly
+                while (!PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadTextureWork)) {}
             }
         } else {
             printf("[Asset manager] Failed to load the texture %s. Unable to get transfer buffer\n", slot->name);

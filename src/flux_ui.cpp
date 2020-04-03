@@ -271,7 +271,7 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
             ImGui::SameLine();
             if (ImGui::Button("Delete")) {
                 ui->selectedEntity = 0;
-                Delete(&world->entityTable, &entity->id);
+                DeleteEntity(world, entity->id);
             } else {
                 ImGui::Separator();
                 ImGui::Text("Position");
@@ -293,6 +293,10 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                     ImGui::DragFloat3("", entity->scale.data);
                 }
                 ImGui::PopID();
+
+                ImGui::Separator();
+                ImGui::Text("Rotation");
+                ImGui::SliderFloat3("Angles", entity->rotationAngles.data, 0.0f, 360.0f);
 
                 ImGui::Separator();
                 ImGui::Text("Mesh");

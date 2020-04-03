@@ -166,6 +166,7 @@ void* PlatformAllocClear(uptr size) {
 #define glGetIntegerv gl_call(glGetIntegerv)
 #define glDeleteBuffers gl_call(glDeleteBuffers)
 #define glMapBufferRange gl_call(glMapBufferRange)
+#define glMapNamedBufferRange gl_call(glMapNamedBufferRange)
 
 #include "flux_memory.h"
 // NOTE: Libs
@@ -187,6 +188,8 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
         _GlobalPlatform = platform;
+
+        platform->gameSpeed = 1.0f;
 
 #if defined(DEBUG_OPENGL)
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);

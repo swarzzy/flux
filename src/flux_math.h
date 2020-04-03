@@ -1,3 +1,4 @@
+
 #pragma once
 #include "flux_option.h"
 #include <stdlib.h>
@@ -504,6 +505,53 @@ m4x4 LookAtGLRH(v3 eye, v3 target, v3 up) {
     return m;
 }
 
+m3x3 RotateX(f32 angleDeg) {
+    m3x3 m = {};
+    f32 c = Cos(ToRad(angleDeg));
+    f32 s = Sin(ToRad(angleDeg));
+
+    m._11 = 1.0f;
+    m._22 = c;
+    m._33 = c;
+    m._32 = -s;
+    m._23 = s;
+
+    return m;
+}
+
+m3x3 RotateY(f32 angleDeg) {
+    m3x3 m = {};
+    f32 c = Cos(ToRad(angleDeg));
+    f32 s = Sin(ToRad(angleDeg));
+
+    m._11 = c;
+    m._22 = 1.0f;
+    m._33 = c;
+    m._31 = -s;
+    m._13 = s;
+
+    return m;
+}
+
+m3x3 RotateZ(f32 angleDeg) {
+    m3x3 m = {};
+    f32 c = Cos(ToRad(angleDeg));
+    f32 s = Sin(ToRad(angleDeg));
+
+    m._11 = c;
+    m._22 = c;
+    m._21 = -s;
+    m._12 = s;
+    m._33 = 1.0f;
+
+    return m;
+}
+
+// TODO: Crappy and slow. Use quaternions
+m4x4 Rotate(f32 xAngle, f32 yAngle, f32 zAngle) {
+    return M4x4(RotateZ(zAngle) * RotateY(yAngle) * RotateX(xAngle));
+}
+
 f32 Determinant(m3x3 m) {
     auto result = m._11 * m._22 * m._33 - m._11 * m._23 * m._32
         - m._12 * m._21 * m._33 + m._12 * m._23 * m._31
@@ -745,9 +793,13 @@ FrustumCorners GetFrustumCorners(Basis basis, f32 fovDeg, f32 aspectRatio, f32 n
 
 struct Mesh;
 
-struct BBoxAligned {
-    v3 min;
-    v3 max;
+union BBoxAligned {
+    struct {
+        v3 min;
+        v3 max;
+    };
+    f32 data[6];
+
     static BBoxAligned From(Mesh* mesh);
     static inline BBoxAligned Realign(BBoxAligned box) {
         BBoxAligned result = {};
@@ -762,7 +814,7 @@ struct BBoxAligned {
 };
 
 bool IntersectFast(BBoxAligned box, v3 ro, v3 rd, f32 tMin, f32 tMax) {
-    // Andrew Kensler’s algorithm
+    // Andrew Kensler's algorithm
     for (u32x i = 0; i < 3; i++) {
         f32 invD = 1.0f / rd.data[i];
         f32 t0 = (box.min.data[i] - ro.data[i]) * invD;
@@ -781,4 +833,94 @@ bool IntersectFast(BBoxAligned box, v3 ro, v3 rd, f32 tMin, f32 tMax) {
         }
     }
     return true;
+}
+
+struct IntersectionResult {
+    b32 hit;
+    f32 t;
+    v3 normal;
+};
+
+f32 TestAABBSideVsRay(BBoxAligned box, v3 ro, v3 rd, f32 tMinBound, f32 tMaxBound, int xi, int yi, int zi, bool boxi) {
+    int boff = boxi ? 3 : 0;
+    f32 tMin = F32::Max;
+    if (Abs(rd.data[xi]) > F32::Eps) {
+        f32 t = (box.data[boff + xi] - ro.data[xi]) / rd.data[xi];
+        if (t > tMinBound && t < tMaxBound) {
+            f32 y = ro.data[yi] + rd.data[yi] * t;
+            f32 z = ro.data[zi] + rd.data[zi] * t;
+            if (y >= box.data[yi] && y <= box.data[3 + yi] && z >= box.data[zi] && z <= box.data[3 + zi]) {
+                tMin = t;
+            }
+        }
+    }
+    return tMin;
+}
+
+IntersectionResult Intersect(BBoxAligned box, v3 ro, v3 rd, f32 tMinBound, f32 tMaxBound) {
+    f32 tMin = F32::Max;
+    v3 n = {};
+
+    f32 t = F32::Max;
+    t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 0, 1, 2, false);
+    if (t < tMin) {
+        tMin = t;
+        n = V3(-1.0f, 0.0f, 0.0f);
+    }
+    t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 1, 0, 2, false);
+    if (t < tMin) {
+        tMin = t;
+        n = V3(0.0f, -1.0f, 0.0f);
+    }
+    t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 2, 0, 1, false);
+    if (t < tMin) {
+        tMin = t;
+        n = V3(0.0f, 0.0f, -1.0f);
+    }
+    t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 0, 1, 2, true);
+    if (t < tMin) {
+        tMin = t;
+        n = V3(1.0f, 0.0f, 0.0f);
+    }
+    t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 1, 0, 2, true);
+    if (t < tMin) {
+        tMin = t;
+        n = V3(0.0f, 1.0f, 0.0f);
+    }
+    t = TestAABBSideVsRay(box, ro, rd, tMinBound, tMaxBound, 2, 0, 1, true);
+    if (t < tMin) {
+        tMin = t;
+        n = V3(0.0f, 0.0f, 1.0f);
+    }
+
+    return { tMin < F32::Max, tMin, n };
+}
+
+struct TriangleIntersectionResult {
+    b32 hit;
+    f32 t;
+};
+
+TriangleIntersectionResult IntersectRayTriangle(v3 ro, v3 rd, v3 vt0, v3 vt1, v3 vt2) {
+    // TODO: This placeholder code taken from https://ru.wikipedia.org/wiki/%D0%90%D0%BB%D0%B3%D0%BE%D1%80%D0%B8%D1%82%D0%BC_%D0%9C%D0%BE%D0%BB%D0%BB%D0%B5%D1%80%D0%B0_%E2%80%94_%D0%A2%D1%80%D1%83%D0%BC%D0%B1%D0%BE%D1%80%D0%B0
+    // It should be replaced with actual intersection code
+    v3 e1 = vt1 - vt0;
+    v3 e2 = vt2 - vt0;
+    v3 pvec = Cross(rd, e2);
+    f32 det = Dot(e1, pvec);
+    if (Abs(det) < F32::Eps) {
+        return {false, 0};
+    }
+    f32 invDet = 1.0f / det;
+    v3 tvec = ro - vt0;
+    f32 u = Dot(tvec, pvec) * invDet;
+    if (u < 0.0f || u > 1.0f) {
+        return {false, 0};
+    }
+    v3 qvec = Cross(tvec, e1);
+    f32 v = Dot(rd, qvec) * invDet;
+    if (v < 0.0f || (u + v) > 1.0f) {
+        return {false, 0};
+    }
+    return { true, Dot(e2, qvec) * invDet };
 }

@@ -126,6 +126,8 @@ struct layout_std140 ShaderMeshData {
     std140_mat3 normalMatrix;
     std140_vec3 lineColor;
 
+    std140_int hasBitangents;
+
     std140_int metallicWorkflow;
     std140_int emitsLight;
 

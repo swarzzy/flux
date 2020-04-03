@@ -38,6 +38,8 @@ layout (std140, binding = 1) uniform ShaderMeshData
     mat3 normalMatrix;
     vec3 lineColor;
 
+    int hasBitangents;
+
     int metallicWorkflow;
     int emitsLight;
 

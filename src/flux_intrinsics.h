@@ -41,6 +41,11 @@ constexpr T Clamp(T x, T min, T max) {
 }
 
 template<typename T>
+constexpr T Saturate(T x) {
+    return Min(Max(x, static_cast<T>(0)), static_cast<T>(1));
+}
+
+template<typename T>
 constexpr T Abs(T val) {
     return val >= static_cast<T>(0) ? val : -val;
 }

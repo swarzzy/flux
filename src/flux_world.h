@@ -3,7 +3,7 @@
 #include "flux_hash_map.h"
 
 enum struct NormalFormat {
-    OpenGL = 0, DirectX
+    OpenGL = 0, DirectX = 1
 };
 
 const char* ToString(NormalFormat value) {
@@ -16,7 +16,7 @@ const char* ToString(NormalFormat value) {
 }
 
 struct Material {
-    enum  Workflow : u32 { Phong = 0, PBRMetallic, PBRSpecular, } workflow;
+    enum  Workflow : u32 { Phong = 0, PBRMetallic = 1, PBRSpecular = 2, } workflow;
     union {
         struct {
             b32 useDiffuseMap;
@@ -109,6 +109,7 @@ struct Entity {
     u32 id;
     v3 p;
     v3 scale = V3(1.0f);
+    v3 rotationAngles;
     u32 mesh;
     Material material;
     m4x4 transform;
@@ -135,6 +136,7 @@ struct Context ;
 void Update(World* world);
 Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* world, v3 ro, v3 rd);
 Entity* AddEntity(World* world);
+void DeleteEntity(World* world, u32 id);
 Entity* GetEntity(World* world, u32 id);
 bool SaveToDisk(AssetManager* assetManager, World* world, const wchar_t* filename);
 World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename);

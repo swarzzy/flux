@@ -6,7 +6,7 @@
 
 out vec4 resultColor;
 
-layout (location = 4) in VertOut
+layout (location = 5) in VertOut
 {
     vec3 fragPos;
     vec3 normal;
@@ -157,4 +157,5 @@ void main()
     L0 = min(vec3(1.0f), L0);
 
     resultColor = vec4((envIrradance + L0 * kShadow + emissionColor), 1.0f);
+    //resultColor = vec4(N, 1.0f);
 }

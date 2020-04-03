@@ -26,6 +26,7 @@ struct FluxMeshEntry {
     u32 normals;
     u32 uv;
     u32 tangents;
+    u32 bitangents;
     u32 colors;
     u32 indices;
 };

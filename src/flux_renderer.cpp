@@ -77,7 +77,7 @@ GLenum ToOpenGL(TextureWrapMode mode) {
     switch (mode) {
     case TextureWrapMode::Repeat: { result = GL_REPEAT; } break;
     case TextureWrapMode::ClampToEdge: { result = GL_CLAMP_TO_EDGE; } break;
-    invalid_default();
+        invalid_default();
     }
     return result;
 }
@@ -99,7 +99,7 @@ GLTextureFormat ToOpenGL(TextureFormat format) {
     case TextureFormat::RG16F: { result.internal = GL_RG16F; result.format = GL_RG; result.type = GL_FLOAT; } break;
     case TextureFormat::R8: { result.internal = GL_R8; result.format = GL_RED; result.type = GL_UNSIGNED_BYTE; } break;
     case TextureFormat::RG8: { result.internal = GL_RG8; result.format = GL_RG; result.type = GL_UNSIGNED_BYTE; } break;
-    invalid_default();
+        invalid_default();
     }
     return result;
 }
@@ -282,8 +282,9 @@ void UploadToGPU(Mesh* mesh) {
                 uptr normalsSize = mesh->vertexCount * sizeof(v3);
                 uptr uvsSize = mesh->vertexCount * sizeof(v2);
                 uptr tangentsSize = mesh->vertexCount * sizeof(v3);
+                uptr bitangentsSize = mesh->vertexCount * sizeof(v3);
                 uptr indexBufferSize = mesh->indexCount * sizeof(u32);
-                uptr vertexBufferSize = verticesSize + normalsSize + uvsSize + tangentsSize;
+                uptr vertexBufferSize = verticesSize + normalsSize + uvsSize + tangentsSize + bitangentsSize;
 
                 glBindBuffer(GL_ARRAY_BUFFER, vboHandle);
 
@@ -292,6 +293,7 @@ void UploadToGPU(Mesh* mesh) {
                 glBufferSubData(GL_ARRAY_BUFFER, verticesSize, normalsSize, (void*)mesh->normals);
                 glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize, uvsSize, (void*)mesh->uvs);
                 glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize + uvsSize, tangentsSize, (void*)mesh->tangents);
+                glBufferSubData(GL_ARRAY_BUFFER, verticesSize + normalsSize + uvsSize + tangentsSize, bitangentsSize, (void*)mesh->bitangents);
 
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -1187,10 +1189,24 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
                         while (mesh) {
                             glBindBuffer(GL_ARRAY_BUFFER, mesh->gpuVertexBufferHandle);
 
+                            bool hasBitangents = mesh->bitangents ? true : false;
+
+                            // TODO: This is very slow and stupid
+                            // There are probably sould be different shaders for meshes that have bitangents
+                            // and for those that do not.
+                            // Or maybe bitangents sholdn't be optional at all?
+                            auto meshBuffer = Map(renderer->meshUniformBuffer);
+                            meshBuffer->hasBitangents = hasBitangents ? 1 : 0;
+                            Unmap(renderer->meshUniformBuffer);
+
+
                             glEnableVertexAttribArray(0);
                             glEnableVertexAttribArray(1);
                             glEnableVertexAttribArray(2);
                             glEnableVertexAttribArray(3);
+                            if (hasBitangents) {
+                                glEnableVertexAttribArray(4);
+                            }
 
                             u64 normalsOffset = mesh->vertexCount * sizeof(v3);
                             u64 uvsOffset = normalsOffset + mesh->vertexCount * sizeof(v3);
@@ -1200,6 +1216,11 @@ void MainPass(Renderer* renderer, RenderGroup* group, AssetManager* assetManager
                             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)normalsOffset);
                             glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)uvsOffset);
                             glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)tangentsOffset);
+
+                            if (hasBitangents) {
+                                u64 bitangentsOffset = tangentsOffset + mesh->vertexCount * sizeof(v3);
+                                glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, (void*)bitangentsOffset);
+                            }
 
                             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->gpuIndexBufferHandle);
 
@@ -1324,11 +1345,18 @@ void End(Renderer* renderer) {
         glBlitFramebuffer(0, 0, renderer->renderRes.x, renderer->renderRes.y,
                           0, 0, renderer->renderRes.x, renderer->renderRes.y,
                           GL_COLOR_BUFFER_BIT, GL_LINEAR);
-
     }
 
     static i32 showShadowMap = false;
     DEBUG_OVERLAY_SLIDER(showShadowMap, 0, 1);
+#if 0
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->captureFramebuffer);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,  GL_TEXTURE_2D, renderer->BRDFLutHandle, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    glBlitFramebuffer(0, 0, renderer->shadowMapRes, renderer->shadowMapRes,
+                      0, 0, 512, 512, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+#endif
 
     if (showShadowMap) {
         static i32 shadowCascadeLevel = 0;

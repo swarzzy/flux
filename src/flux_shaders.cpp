@@ -118,7 +118,9 @@ inline void ReallocUniformBuffer(UniformBuffer<T, Binding>* buffer)
 template<typename T, u32 Binding>
 T* Map(UniformBuffer<T, Binding> buffer)
 {
-    auto mem = (T*)glMapNamedBuffer(buffer.handle, GL_WRITE_ONLY);
+    // TODO: Is that safe for previous data to be invalidated in opengl
+    // Check propperly what happens to old buffer storage when it`s invalidated
+    auto mem = (T*)glMapNamedBufferRange(buffer.handle, 0, sizeof(T), GL_MAP_WRITE_BIT);// | GL_MAP_INVALIDATE_RANGE_BIT);
     assert(mem);
     return mem;
 }

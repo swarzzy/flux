@@ -4,7 +4,7 @@
 void Update(World* world) {
     for (Entity& entity : world->entityTable) {
         if (entity.id) {
-            entity.transform = Translate(entity.p) * Scale(entity.scale);
+            entity.transform = Translate(entity.p) * Scale(entity.scale) * Rotate(entity.rotationAngles.x, entity.rotationAngles.y, entity.rotationAngles.z);
             entity.invTransform = Inverse(entity.transform).Unwrap();
         }
     }
@@ -13,16 +13,37 @@ void Update(World* world) {
 // TODO: Remove context
 Option<RaycastResult> Raycast(Context* context, AssetManager* manager, World* world, v3 ro, v3 rd) {
     auto result = Option<RaycastResult>::None();
+    f32 tMin = F32::Max;
+    u32 hitID = 0;
     for (Entity& entity : world->entityTable) {
         v3 roMesh = (entity.invTransform * V4(ro, 1.0f)).xyz;
         v3 rdMesh = (entity.invTransform * V4(rd, 0.0f)).xyz;
         auto mesh = GetMesh(manager, entity.mesh);
-        if (mesh) {
+        while (mesh) {
             bool hit = IntersectFast(mesh->aabb, roMesh, rdMesh, 0.0f, F32::Max);
             if (hit) {
-                result = Option<RaycastResult>::Some({entity.id});
+                auto intersection = Intersect(mesh->aabb, roMesh, rdMesh, 0.0f, F32::Max);
+                if (intersection.hit && intersection.t < tMin) {
+                    //assert(mesh->indexCount % 3 || mesh->indexCount == 0);
+                    printf("[Raycast] Index count is %lu\n", mesh->indexCount);
+                    for (u32 i = 0; i < mesh->indexCount; i += 3) {
+                        v3 vt0 = mesh->vertices[i];
+                        v3 vt1 = mesh->vertices[i + 1];
+                        v3 vt2 = mesh->vertices[i + 2];
+                        auto triIntersection =  IntersectRayTriangle(roMesh, rdMesh, vt0, vt1, vt2);
+                        if (triIntersection.hit && triIntersection.t > 0.0f) {
+                            tMin = intersection.t;
+                            hitID = entity.id;
+                            break;
+                        }
+                    }
+                }
             }
+            mesh = mesh->next;
         }
+    }
+    if (hitID) {
+        result = Option<RaycastResult>::Some({hitID});
     }
     return result;
 }
@@ -40,6 +61,12 @@ Entity* AddEntity(World* world) {
         result = entity;
     }
     return result;
+}
+
+void DeleteEntity(World* world, u32 id) {
+    assert(id);
+    Delete(&world->entityTable, &id);
+    world->entityCount--;
 }
 
 StoredTexture StoreTexture(AssetManager* manager, u32 id) {
@@ -170,7 +197,7 @@ StoredMaterial StoreMaterial(AssetManager* manager, const Material* m) {
 bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
     bool result = false;
     if (world->name[0]) {
-        u32 fileSize = sizeof(World) + sizeof(StoredEntity) * world->entityCount;
+        u32 fileSize = sizeof(WorldFile) + sizeof(StoredEntity) * world->entityCount;
         void* memory = PlatformAlloc(fileSize);
         defer { PlatformFree(memory); };
         auto header = (WorldFile*)memory;
@@ -188,6 +215,10 @@ bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
             out->id = entity.id;
             out->p = entity.p;
             out->scale = entity.scale;
+            out->rotationAngles.x = entity.rotationAngles.x;
+            out->rotationAngles.y = entity.rotationAngles.y;
+            out->rotationAngles.z = entity.rotationAngles.z;
+
             auto mesh = GetMeshSlot(manager, entity.mesh);
             // TODO: Decide what to do when mesh is null
             if (mesh) {
@@ -386,6 +417,7 @@ World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename) {
             entry->id = stored->id;
             entry->p = stored->p;
             entry->scale = stored->scale;
+            entry->rotationAngles = V3(stored->rotationAngles.x, stored->rotationAngles.y, stored->rotationAngles.z);
             entry->material = LoadMaterial(assetManager, &stored->material);
             auto result = AddMesh(assetManager, stored->meshFileName, (MeshFileFormat)stored->meshFileFormat);
             switch (result.status) {
