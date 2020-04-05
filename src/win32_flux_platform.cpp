@@ -142,6 +142,7 @@ OpenGLLoadResult LoadOpenGL()
         context->functions.fn.glEnable(GL_DEPTH_TEST);
         context->functions.fn.glDepthFunc(GL_LESS);
         context->functions.fn.glEnable(GL_CULL_FACE);
+        context->functions.fn.glEnable(GL_MULTISAMPLE);
         context->functions.fn.glCullFace(GL_BACK);
         context->functions.fn.glFrontFace(GL_CCW);
         context->functions.fn.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);

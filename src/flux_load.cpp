@@ -202,7 +202,7 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         *context = {};
         *data = context;
 
-        context->renderer = InitializeRenderer(UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight));
+        context->renderer = InitializeRenderer(UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
         context->renderGroup = RenderGroup::Make(Kilobytes(1024), 16384);
 

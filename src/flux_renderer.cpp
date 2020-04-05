@@ -9,17 +9,23 @@ struct Renderer {
         GLuint shaderHandles[ShaderCount];
     };
 
+    u32 maxSupportedSampleCount;
+
     GLuint lineBufferHandle;
     GLuint chunkIndexBuffer;
     v4 clearColor;
 
     uv2 renderRes;
+    u32 sampleCount;
     f32 gamma = 2.4f;
     f32 exposure = 1.0f;
 
     GLuint offscreenBufferHandle;
     GLuint offscreenColorTarget;
     GLuint offscreenDepthTarget;
+
+    GLuint offscreenDownsampledBuffer;
+    GLuint offscreenDownsampledColorTarget;
 
     static constexpr u32 RandomValuesTextureSize = 1024;
     // NOTE: Number of cascades is always 3
@@ -97,6 +103,7 @@ GLTextureFormat ToOpenGL(TextureFormat format) {
     case TextureFormat::RGB8: { result.internal = GL_RGB8; result.format = GL_RGB; result.type = GL_UNSIGNED_BYTE; } break;
     case TextureFormat::RGB16F: { result.internal = GL_RGB16F; result.format = GL_RGB; result.type = GL_FLOAT; } break;
     case TextureFormat::RG16F: { result.internal = GL_RG16F; result.format = GL_RG; result.type = GL_FLOAT; } break;
+    case TextureFormat::RG32F: { result.internal = GL_RG32F; result.format = GL_RG; result.type = GL_FLOAT; } break;
     case TextureFormat::R8: { result.internal = GL_R8; result.format = GL_RED; result.type = GL_UNSIGNED_BYTE; } break;
     case TextureFormat::RG8: { result.internal = GL_RG8; result.format = GL_RG; result.type = GL_UNSIGNED_BYTE; } break;
         invalid_default();
@@ -324,7 +331,7 @@ void GenBRDFLut(const Renderer* renderer, Texture* t) {
     assert(t->gpuHandle);
     assert(t->wrapMode == TextureWrapMode::ClampToEdge);
     assert(t->filter == TextureFilter::Bilinear);
-    assert(t->format == TextureFormat::RG16F);
+    assert(t->format == TextureFormat::RG32F);
 
     glUseProgram(renderer->shaders.BRDFIntegrator);
 
@@ -337,6 +344,8 @@ void GenBRDFLut(const Renderer* renderer, Texture* t) {
                            GL_TEXTURE_2D, t->gpuHandle, 0);
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glFlush();
@@ -360,30 +369,49 @@ uv2 GetRenderResolution(Renderer* renderer) {
     return renderer->renderRes;
 }
 
-void ChangeRenderResolution(Renderer* renderer, uv2 newRes) {
+u32 GetRenderSampleCount(Renderer* renderer) {
+    return renderer->sampleCount;
+}
+
+u32 GetRenderMaxSampleCount(Renderer* renderer) {
+    return renderer->maxSupportedSampleCount;
+}
+
+void ChangeRenderResolution(Renderer* renderer, uv2 newRes, u32 newSampleCount) {
     // TODO: There are maybe could be a problems on some drivers
     // with changing framebuffer attachments so this code needs to be checked
     // on different GPUs and drivers
-    renderer->renderRes = newRes;
-    glBindTexture(GL_TEXTURE_2D, renderer->offscreenColorTarget);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderer->renderRes.x, renderer->renderRes.y, 0, GL_RGBA, GL_FLOAT, 0);
+    if (newSampleCount <= renderer->maxSupportedSampleCount) {
+        renderer->renderRes = newRes;
+        renderer->sampleCount = newSampleCount;
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenColorTarget);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, newSampleCount, GL_RGBA16F, renderer->renderRes.x, renderer->renderRes.y, GL_FALSE);
 
-    glBindTexture(GL_TEXTURE_2D, renderer->offscreenDepthTarget);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, renderer->renderRes.x, renderer->renderRes.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenDepthTarget);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, newSampleCount, GL_DEPTH_COMPONENT32, renderer->renderRes.x, renderer->renderRes.y, GL_FALSE);
 
-    glBindTexture(GL_TEXTURE_2D, renderer->srgbColorTarget);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, renderer->renderRes.x, renderer->renderRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glBindTexture(GL_TEXTURE_2D, renderer->offscreenDownsampledColorTarget);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderer->renderRes.x, renderer->renderRes.y, 0, GL_RGBA, GL_FLOAT, 0);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+        glBindTexture(GL_TEXTURE_2D, renderer->srgbColorTarget);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, renderer->renderRes.x, renderer->renderRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
 }
 
-Renderer* InitializeRenderer(uv2 renderRes) {
+Renderer* InitializeRenderer(uv2 renderRes, u32 sampleCount) {
     Renderer* renderer = nullptr;
     renderer = (Renderer*)PlatformAlloc(sizeof(Renderer));
     *renderer = {};
 
     RecompileShaders(renderer);
 
+    GLint maxSamples = 1;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    renderer->maxSupportedSampleCount = maxSamples;
+    assert(renderer->maxSupportedSampleCount >= sampleCount);
     glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, (GLint*)&renderer->uniformBufferAligment);
 
     ReallocUniformBuffer(&renderer->frameUniformBuffer);
@@ -396,6 +424,7 @@ Renderer* InitializeRenderer(uv2 renderRes) {
     renderer->gamma = 2.4f;
     renderer->exposure = 1.0f;
     renderer->renderRes = renderRes;
+    renderer->sampleCount = sampleCount;
 
     GLuint lineBufferHandle;
     glGenBuffers(1, &lineBufferHandle);
@@ -409,23 +438,31 @@ Renderer* InitializeRenderer(uv2 renderRes) {
     glGenTextures(1, &renderer->offscreenDepthTarget);
     assert(renderer->offscreenDepthTarget);
 
-    glBindTexture(GL_TEXTURE_2D, renderer->offscreenColorTarget);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderRes.x, renderRes.y, 0, GL_RGBA, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenColorTarget);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_RGBA16F, renderRes.x, renderRes.y, GL_FALSE);
 
-    glBindTexture(GL_TEXTURE_2D, renderer->offscreenDepthTarget);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, renderRes.x, renderRes.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenDepthTarget);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, GL_DEPTH_COMPONENT32, renderRes.x, renderRes.y, GL_FALSE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, renderer->offscreenBufferHandle);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer->offscreenColorTarget, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, renderer->offscreenDepthTarget, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenColorTarget, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, renderer->offscreenDepthTarget, 0);
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+    glGenFramebuffers(1, &renderer->offscreenDownsampledBuffer);
+    assert(renderer->offscreenDownsampledBuffer);
+    glGenTextures(1, &renderer->offscreenDownsampledColorTarget);
+    assert(renderer->offscreenDownsampledColorTarget);
+
+    glBindTexture(GL_TEXTURE_2D, renderer->offscreenDownsampledColorTarget);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderRes.x, renderRes.y, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, renderer->offscreenDownsampledBuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer->offscreenDownsampledColorTarget, 0);
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
     glGenFramebuffers(1, &renderer->srgbBufferHandle);
@@ -434,7 +471,7 @@ Renderer* InitializeRenderer(uv2 renderRes) {
     assert(renderer->srgbColorTarget);
 
     glBindTexture(GL_TEXTURE_2D, renderer->srgbColorTarget);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, renderRes.x, renderRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, renderRes.x, renderRes.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -512,33 +549,19 @@ Renderer* InitializeRenderer(uv2 renderRes) {
         glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     }
 
-
-#if 0
-    u32 brdfLUTSize = PlatformDebugGetFileSize(L"brdf_lut.aab");
-    if (brdfLUTSize) {
-        assert(brdfLUTSize == sizeof(f32) * 2 * 512 * 512);
-        void* brdfBitmap = PlatformAlloc(brdfLUTSize);
-        defer { PlatformFree(brdfBitmap); };
-        auto loadedSize = PlatformDebugReadFile(brdfBitmap, brdfLUTSize, L"brdf_lut.aab");
-        if (loadedSize == brdfLUTSize) {
-            Texture t = LoadTexture(512, 512, brdfBitmap, GL_RG16F, GL_CLAMP_TO_EDGE, TextureFilter::Bilinear);
-            if (t.gpuHandle) {
-                renderer->BRDFLutHandle = t.gpuHandle;
-            }
-        }
-    }
-#endif
     if (!renderer->BRDFLutHandle) {
-        Texture t = CreateTexture(512, 512, TextureFormat::RG16F, TextureWrapMode::ClampToEdge, TextureFilter::Bilinear);
+        Texture t = CreateTexture(512, 512, TextureFormat::RG32F, TextureWrapMode::ClampToEdge, TextureFilter::Bilinear);
         UploadToGPU(&t);
         assert(t.gpuHandle);
         GenBRDFLut(renderer, &t);
         renderer->BRDFLutHandle = t.gpuHandle;
+#if 0
         void* bitmap = PlatformAlloc(sizeof(f32) * 2 * 512 * 512);
         defer { PlatformFree(bitmap); };
         glBindTexture(GL_TEXTURE_2D, renderer->BRDFLutHandle);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RG, GL_FLOAT, bitmap);
         PlatformDebugWriteFile(L"brdf_lut.aab", bitmap, sizeof(f32) * 2 * 512 * 512);
+#endif
     }
 
     // NOTE: Texture transfer buffers
@@ -1315,6 +1338,12 @@ void Begin(Renderer* renderer, RenderGroup* group) {
 }
 
 void End(Renderer* renderer) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->offscreenBufferHandle);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->offscreenDownsampledBuffer);
+    glBlitFramebuffer(0, 0, renderer->renderRes.x, renderer->renderRes.y,
+                      0, 0, renderer->renderRes.x, renderer->renderRes.y,
+                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, renderer->srgbBufferHandle);
     //glClearColor(renderer->clearColor.r, renderer->clearColor.g, renderer->clearColor.b, renderer->clearColor.a);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -1322,7 +1351,7 @@ void End(Renderer* renderer) {
     auto prog = renderer->shaders.PostFx;
     glUseProgram(prog);
 
-    glBindTextureUnit(PostFxShader::ColorSourceLinear, renderer->offscreenColorTarget);
+    glBindTextureUnit(PostFxShader::ColorSourceLinear, renderer->offscreenDownsampledColorTarget);
 
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -1349,14 +1378,6 @@ void End(Renderer* renderer) {
 
     static i32 showShadowMap = false;
     DEBUG_OVERLAY_SLIDER(showShadowMap, 0, 1);
-#if 0
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, renderer->captureFramebuffer);
-    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,  GL_TEXTURE_2D, renderer->BRDFLutHandle, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-    glBlitFramebuffer(0, 0, renderer->shadowMapRes, renderer->shadowMapRes,
-                      0, 0, 512, 512, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-#endif
 
     if (showShadowMap) {
         static i32 shadowCascadeLevel = 0;

@@ -37,6 +37,23 @@ float GeometrySmithGGX(float NdotV, float NdotL, float roughness)
     return ggx1 * ggx2;
 }
 
+float GeometrySchlickGGX_IBL(float NdotV, float roughness)
+{
+    //float k = (roughness * roughness) / 2.0f; // Original UE4 remapping for IBL
+    //float k = ((roughness + 1.0f) * (roughness + 1.0f));
+    float k = ((0.5f + 0.5f * roughness) * (0.5f + 0.5f * roughness));
+    float num = NdotV;
+    float denom = NdotV * (1.0f - k) + k;
+    return num / denom;
+}
+
+float GeometrySmithGGX_IBL(float NdotV, float NdotL, float roughness)
+{
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+}
+
 struct PBR
 {
     bool metallicWorkflow;
@@ -84,7 +101,7 @@ PBR InitPBRSpecular(vec3 V, vec3 N, vec3 albedo, vec3 specular, float gloss, flo
 
 const float MAX_REFLECTION_LOD = 5.0f;
 
-vec3 Unreal4BRDF(PBR pbr, vec3 L)
+vec3 Unreal4DirectionalLight(PBR pbr, vec3 L)
 {
     vec3 H = normalize(pbr.V + L);
 
@@ -94,8 +111,8 @@ vec3 Unreal4BRDF(PBR pbr, vec3 L)
     float NdotH = saturate(dot(pbr.N, H));
 
     float roughness = pbr.roughness;
-    float alpha = pbr.roughness;
-    float alphaG = pbr.roughness * pbr.roughness;
+    float alpha = pbr.roughness * pbr.roughness;
+    float alphaG = alpha * alpha;
 
     vec3 F = FresnelSchlick(HdotL, pbr.F0);
     float D = DistributionGGX(NdotH, alphaG);
@@ -120,7 +137,7 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
     return F0 + (max(vec3(1.0f - roughness), F0) - F0) * pow(1.0f - cosTheta, 5.0f);
 }
 
-vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, sampler2D brdfLut)
+vec3 Unreal4EnviromentLight(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, sampler2D brdfLut)
 {
     float roughness;
     if (pbr.metallicWorkflow)
@@ -132,7 +149,7 @@ vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, 
         roughness = 1.0f - pbr.roughness;
     }
     // NOTE: Specular irradance
-    float NdotV = saturate(dot(pbr.N, pbr.V));
+    float NdotV = min(abs(dot(pbr.N, pbr.V)) + 0.001f, 1.0f);
     vec3 R = reflect(-pbr.V, pbr.N);
 
     vec3 envIrradance = textureLod(enviromentMap, R, roughness * MAX_REFLECTION_LOD).rgb;
@@ -142,6 +159,7 @@ vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, 
     vec3 envSpecular = envIrradance * (Fenv * envBRDF.r + envBRDF.g);
 
     // NOTE: Diffuse irradance
+    //vec3 Fenv = FresnelSchlick(NdotV, pbr.F0);
     vec3 kS = Fenv;
     vec3 kD = vec3(1.0f) - kS;
     kD *= 1.0f - pbr.metallic;
@@ -150,4 +168,38 @@ vec3 IBLIrradance(PBR pbr, samplerCube irradanceMap, samplerCube enviromentMap, 
 
     vec3 irradance = (kD * diffuse + envSpecular) * pbr.AO;
     return irradance;
+}
+
+// [ http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html ]
+float RadicalInverse_VdC(uint bits) {
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10;
+}
+
+vec2 Hammersley(uint i, uint N) {
+    return vec2( float(i) / float(N), RadicalInverse_VdC(i));
+}
+
+// [ Real Shading in Unreal Engine 4 (Brian Karis), Siggraph 2013, p.4]
+vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N) {
+    float a = roughness * roughness;
+
+    float phi = 2.0f * PI_32 * Xi.x;
+    float cosTheta = sqrt((1.0f - Xi.y) / (1.0f + (a * a - 1.0f) * Xi.y));
+    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+
+    vec3 H;
+    H.x = sinTheta * cos(phi);
+    H.y = sinTheta * sin(phi);
+    H.z = cosTheta;
+
+    vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
+    vec3 tangentX = normalize(cross(up, N));
+    vec3 tangentY = cross(N, tangentX);
+
+    return normalize(tangentX * H.x + tangentY * H.y + N * H.z);
 }

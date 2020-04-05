@@ -17,9 +17,9 @@ void FluxInit(Context* context) {
     UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
     UploadToGPU(&context->hdrMap);
-    context->irradanceMap = MakeEmptyCubemap(64, 64, TextureFormat::RGB16F, TextureFilter::Bilinear, false);
+    context->irradanceMap = MakeEmptyCubemap(64, 64, TextureFormat::RGB16F, TextureFilter::Bilinear, TextureWrapMode::ClampToEdge, false);
     UploadToGPU(&context->irradanceMap);
-    context->enviromentMap = MakeEmptyCubemap(256, 256, TextureFormat::RGB16F, TextureFilter::Trilinear, true);
+    context->enviromentMap = MakeEmptyCubemap(256, 256, TextureFormat::RGB16F, TextureFilter::Trilinear, TextureWrapMode::ClampToEdge, true);
     UploadToGPU(&context->enviromentMap);
 
     context->renderGroup.drawSkybox = true;
@@ -119,13 +119,19 @@ void FluxUpdate(Context* context) {
     auto renderer = context->renderer;
     auto assetManager = &context->assetManager;
 
+    i32 rendererSampleCount = GetRenderSampleCount(renderer);
+    DEBUG_OVERLAY_SLIDER(rendererSampleCount, 0, GetRenderMaxSampleCount(renderer));
+    if (rendererSampleCount != GetRenderSampleCount(renderer)) {
+        ChangeRenderResolution(renderer, GetRenderResolution(renderer), rendererSampleCount);
+    }
+
     DEBUG_OVERLAY_TRACE(assetManager->assetQueueUsage);
     CompletePendingLoads(assetManager);
 
     auto renderRes = GetRenderResolution(renderer);
     if (renderRes.x != GlobalPlatform.windowWidth ||
         renderRes.y != GlobalPlatform.windowHeight) {
-        ChangeRenderResolution(renderer, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight));
+        ChangeRenderResolution(renderer, UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), GetRenderSampleCount(renderer));
     }
 
 

@@ -11,6 +11,7 @@ u32 PixelSize(TextureFormat format) {
     case TextureFormat::RGB8: { size = 3; } break;
     case TextureFormat::RGB16F: { size = 6; } break;
     case TextureFormat::RG16F: { size = 4; } break;
+    case TextureFormat::RG32F: { size = 8; } break;
     case TextureFormat::R8: { size = 1; } break;
     case TextureFormat::RG8: { size = 2; } break;
     invalid_default();
@@ -28,6 +29,7 @@ u32 NumberOfChannels(TextureFormat format) {
     case TextureFormat::RGB8: { size = 3; } break;
     case TextureFormat::RGB16F: { size = 3; } break;
     case TextureFormat::RG16F: { size = 2; } break;
+    case TextureFormat::RG32F: { size = 2; } break;
     case TextureFormat::R8: { size = 1; } break;
     case TextureFormat::RG8: { size = 2; } break;
     invalid_default();
@@ -335,6 +337,7 @@ int STBDesiredBPPFromTextureFormat(TextureFormat format) {
     case TextureFormat::RGB16F: { desiredBpp = 3; } break;
     case TextureFormat::RG16F: { desiredBpp = 2; } break;
     case TextureFormat::R8: { desiredBpp = 1; } break;
+    case TextureFormat::RG8: { desiredBpp = 2; } break;
         invalid_default();
     }
     return desiredBpp;
@@ -438,11 +441,12 @@ CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* 
     return texture;
 }
 
-CubeTexture MakeEmptyCubemap(u32 w, u32 h, TextureFormat format, TextureFilter filter, bool useMips) {
+CubeTexture MakeEmptyCubemap(u32 w, u32 h, TextureFormat format, TextureFilter filter, TextureWrapMode wrapMode, bool useMips) {
     CubeTexture texture = {};
     texture.useMips = useMips;
     texture.filter = filter;
     texture.format = format;
+    texture.wrapMode = wrapMode;
     texture.width = w;
     texture.height = h;
     return texture;

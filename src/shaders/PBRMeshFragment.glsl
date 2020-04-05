@@ -53,7 +53,16 @@ void main()
             // NOTE: Flipping y because engine uses LH normal maps (UE4) but OpenGL does it's job in RH space
             n.y = -n.y;
         }
+
         N = normalize(n);
+#if 0
+        float roughness = texture(RoughnessMap, fragIn.uv).x;
+        N = mix(N, vec3(0.0, 0.0, 1.0), pow(roughness, 0.5)); // smooth normal based on roughness (to reduce specular aliasing)
+        N.x *= 2.0;
+        N.y *= 2.0;
+#endif
+        N = normalize(N);
+
         N = normalize(fragIn.tbn * N);
     }
     else
@@ -142,20 +151,15 @@ void main()
          context = InitPBRSpecular(V, N, albedo, specular, gloss, AO);
     }
 
-    vec3 L0 = vec3(0.0f);
-
     vec3 L = normalize(-FrameData.dirLight.dir);
     vec3 H = normalize(V + L);
 
-    vec3 irradance = FrameData.dirLight.diffuse;
-    L0 += Unreal4BRDF(context, L) * irradance;
+    vec3 dirRadiance = FrameData.dirLight.diffuse;
+    dirRadiance = Unreal4DirectionalLight(context, L) * dirRadiance;
 
-    vec3 envIrradance = IBLIrradance(context, IrradanceMap, EnviromentMap, BRDFLut);
+    vec3 envRadiance = Unreal4EnviromentLight(context, IrradanceMap, EnviromentMap, BRDFLut);
 
     vec3 kShadow = CalcShadow(fragIn.viewPosition, FrameData.shadowCascadeSplits, fragIn.lightSpacePos, ShadowMap, FrameData.shadowFilterSampleScale, FrameData.showShadowCascadeBoundaries);
 
-    L0 = min(vec3(1.0f), L0);
-
-    resultColor = vec4((envIrradance + L0 * kShadow + emissionColor), 1.0f);
-    //resultColor = vec4(N, 1.0f);
+    resultColor = vec4((envRadiance +  dirRadiance * kShadow + emissionColor), 1.0f);
 }

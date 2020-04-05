@@ -11,14 +11,16 @@ struct TexTransferBufferInfo {
     Renderer* renderer;
 };
 
-Renderer* InitializeRenderer(uv2 renderRes);
+Renderer* InitializeRenderer(uv2 renderRes, u32 sampleCount);
 
 void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle);
 void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHandle, u32 mipLevels);
 
 // TODO: Temporary hack while struct is defined in cpp file
 uv2 GetRenderResolution(Renderer* renderer);
-void ChangeRenderResolution(Renderer* renderer, uv2 newRes);
+u32 GetRenderSampleCount(Renderer* renderer);
+u32 GetRenderMaxSampleCount(Renderer* renderer);
+void ChangeRenderResolution(Renderer* renderer, uv2 newRes, u32 newSampleCount);
 
 struct RenderGroup;
 
