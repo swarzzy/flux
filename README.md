@@ -25,6 +25,9 @@ A toy rendering engine. Sandbox for my experiments in computer graphics.
 
 # Some screenshots:
 
+![Screenshot1](https://raw.githubusercontent.com/swarzzy/flux/master/screenshots/flux1.png)
+![Screenshot2](https://raw.githubusercontent.com/swarzzy/flux/master/screenshots/flux2.png)
+
 # How to build:
 
 Just find and run vcvars.bat for x64 in your command promt and then go to project directory and run build.bat
@@ -43,3 +46,5 @@ Just find and run vcvars.bat for x64 in your command promt and then go to projec
 10. Real Shading inUnreal Engine 4, Siggraph 2013: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
 11. Learn OpenGL (RUS): https://habr.com/ru/post/310790/, Original: www.learnopengl.com 
 12. Unreal Engine 4 source
+13. Crytec Sponza: https://www.alexandre-pestana.com/pbr-textures-sponza/
+14. Room 3d model: https://sketchfab.com/3d-models/room-607d5a79f586497581a552407e7ef817
