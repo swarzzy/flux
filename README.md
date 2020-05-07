@@ -20,7 +20,7 @@ A toy rendering engine. Sandbox for my experiments in computer graphics.
 * Asynchronous resource loading
 * Simple scene serialization
 * Simple editor
-* Runtime code hot-reloading
+* Runtime code hot-reloading [1]
 * Manually implemented win32 platform layer (definetly has tons of bugs)
 
 # Some screenshots:
@@ -32,7 +32,7 @@ A toy rendering engine. Sandbox for my experiments in computer graphics.
 
 Just find and run vcvars.bat for x64 in your command promt and then go to project directory and run build.bat
 
-# Refereces:
+# References:
 
 1. Handmade hero: https://handmadehero.org/
 2. Real-Time Rendering, Fourth Edition, Tomas Akenine-Möller, Eric Haines, Naty Hoffman, ISBN:  9781138627000
