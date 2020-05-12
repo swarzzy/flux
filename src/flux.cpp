@@ -1,5 +1,5 @@
 #include "flux.h"
-#include "flux_platform.h"
+#include "../flux-platform/src/Common.h"
 #include "flux_debug_overlay.h"
 #include "flux_resource_manager.h"
 
@@ -35,7 +35,7 @@ void FluxInit(Context* context) {
         wprintf(L"[Flux] Loaded default world: %ls", DefaultWorldW);
         context->world = defaultWorld;
     } else {
-        context->world = (World*)PlatformAlloc(sizeof(World));
+        context->world = (World*)PlatformAlloc(sizeof(World), 0, nullptr);
         *context->world = {};
         strcpy_s(context->world->name, array_count(context->world->name), DefaultWorld);
 
@@ -119,6 +119,14 @@ void FluxUpdate(Context* context) {
     auto renderer = context->renderer;
     auto assetManager = &context->assetManager;
 
+    if (context->showConsole) {
+        DrawConsole(&context->console);
+    }
+
+    if (KeyPressed(Key::Tilde)) {
+        context->showConsole = !context->showConsole;
+    }
+
     i32 rendererSampleCount = GetRenderSampleCount(renderer);
     DEBUG_OVERLAY_SLIDER(rendererSampleCount, 0, GetRenderMaxSampleCount(renderer));
     if (rendererSampleCount != GetRenderSampleCount(renderer)) {
@@ -148,7 +156,7 @@ void FluxUpdate(Context* context) {
             // TODO: Loading and unloading levels
             // TODO: Get rid if this random deallocation confusion
             Drop(&context->world->entityTable);
-            PlatformFree(context->world);
+            PlatformFree(context->world, nullptr);
             ui->selectedEntity = 0;
             context->world = newWorld;
             world = newWorld;

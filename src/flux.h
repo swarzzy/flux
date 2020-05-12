@@ -5,8 +5,11 @@
 #include "flux_world.h"
 #include "flux_ui.h"
 #include "flux_resource_manager.h"
+#include "flux_console.h"
 
 struct Context {
+    Logger logger;
+    Console console;
     World* world;
     Ui ui;
     AssetManager assetManager;
@@ -19,6 +22,7 @@ struct Context {
     CubeTexture hdrMap;
     CubeTexture irradanceMap;
     CubeTexture enviromentMap;
+    b32 showConsole;
 };
 
 void FluxInit(Context* context);

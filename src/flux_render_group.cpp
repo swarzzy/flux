@@ -1,14 +1,14 @@
 #include "flux_render_group.h"
-#include "flux_memory.h"
+#include "../flux-platform/src/Memory.h"
 
 RenderGroup RenderGroup::Make(uptr renderBufferSize, u32 commandQueueCapacity) {
     RenderGroup group = {};
     group.commandQueueCapacity = commandQueueCapacity;
-    group.commandQueue = (CommandQueueEntry*)PlatformAlloc(sizeof(CommandQueueEntry) * commandQueueCapacity);
+    group.commandQueue = (CommandQueueEntry*)PlatformAlloc(sizeof(CommandQueueEntry) * commandQueueCapacity, 0, nullptr);
 
     group.renderBufferSize = renderBufferSize;
     group.renderBufferFree = renderBufferSize;
-    group.renderBuffer = (byte*)PlatformAlloc(renderBufferSize);
+    group.renderBuffer = (byte*)PlatformAlloc(renderBufferSize, 0, nullptr);
     group.renderBufferAt = group.renderBuffer;
 
     return group;

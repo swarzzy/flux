@@ -1,7 +1,9 @@
 #pragma once
 
-#include "flux_platform.h"
-#include "flux_memory.h"
+#include "../flux-platform/src/Common.h"
+
+#include "../flux-platform/src/Memory.h"
+
 #include "flux_hash_map.h"
 #include "flux_globals.h"
 #include "flux_renderer.h"

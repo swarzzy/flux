@@ -3,7 +3,7 @@
 hash_map_template_decl
 void Drop(hash_map_template* map) {
     if (map->size > 0) {
-        PlatformFree(map->table);
+        PlatformFree(map->table, nullptr);
         map->size = 0;
         map->entryCount = 0;
     }
@@ -41,7 +41,7 @@ void Grow(hash_map_template* map) {
             *v = oldBucket->value;
         }
     }
-    PlatformFree(map->table);
+    PlatformFree(map->table, nullptr);
     map->table = newMap.table;
     map->size = newSize;
 }

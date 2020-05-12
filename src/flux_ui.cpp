@@ -1,5 +1,5 @@
 #include "flux_ui.h"
-#include "../ext/imgui/imgui_internal.h"
+#include "../flux-platform/ext/imgui/imgui_internal.h"
 
 void DrawMenu(Ui* ui) {
     ImGui::BeginMainMenuBar();

@@ -5,7 +5,7 @@ void Update(World* world) {
     for (Entity& entity : world->entityTable) {
         if (entity.id) {
             entity.transform = Translate(entity.p) * Scale(entity.scale) * Rotate(entity.rotationAngles.x, entity.rotationAngles.y, entity.rotationAngles.z);
-            entity.invTransform = Inverse(entity.transform).Unwrap();
+            entity.invTransform = Inverse(entity.transform);
         }
     }
 }
@@ -198,8 +198,8 @@ bool SaveToDisk(AssetManager* manager, World* world, const wchar_t* filename) {
     bool result = false;
     if (world->name[0]) {
         u32 fileSize = sizeof(WorldFile) + sizeof(StoredEntity) * world->entityCount;
-        void* memory = PlatformAlloc(fileSize);
-        defer { PlatformFree(memory); };
+        void* memory = PlatformAlloc(fileSize, 0, nullptr);
+        defer { PlatformFree(memory, nullptr); };
         auto header = (WorldFile*)memory;
         auto entities = (StoredEntity*)((byte*)memory + sizeof(WorldFile));
 
@@ -394,14 +394,14 @@ World* LoadWorldFromDisc(AssetManager* assetManager, const wchar_t* filename) {
     World* world = nullptr;
     auto fileSize = PlatformDebugGetFileSize(filename);
     if (fileSize) {
-        auto fileBuffer = PlatformAlloc(fileSize);
-        defer { PlatformFree(fileBuffer); };
+        auto fileBuffer = PlatformAlloc(fileSize, 0, nullptr);
+        defer { PlatformFree(fileBuffer, nullptr); };
         u32 bytesRead = PlatformDebugReadFile(fileBuffer, fileSize, filename);
         assert(fileSize == bytesRead);
         auto header = (WorldFile*)fileBuffer;
 
         // TODO: Pretty zeroed allocations
-        world = (World*)PlatformAlloc(sizeof(World));
+        world = (World*)PlatformAlloc(sizeof(World), 0, nullptr);
         *world = {};
 
         world->nextEntitySerialNumber = header->nextEntitySerialNumber;

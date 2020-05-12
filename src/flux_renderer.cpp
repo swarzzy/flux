@@ -403,7 +403,7 @@ void ChangeRenderResolution(Renderer* renderer, uv2 newRes, u32 newSampleCount) 
 
 Renderer* InitializeRenderer(uv2 renderRes, u32 sampleCount) {
     Renderer* renderer = nullptr;
-    renderer = (Renderer*)PlatformAlloc(sizeof(Renderer));
+    renderer = (Renderer*)PlatformAlloc(sizeof(Renderer), 0, nullptr);
     *renderer = {};
 
     RecompileShaders(renderer);
@@ -536,8 +536,8 @@ Renderer* InitializeRenderer(uv2 renderRes, u32 sampleCount) {
         glBindTexture(GL_TEXTURE_1D, renderer->randomValuesTexture);
         defer { glBindTexture(GL_TEXTURE_1D, 0); };
 
-        u8* randomTextureBuffer = (u8*)PlatformAlloc(sizeof(u8) * Renderer::RandomValuesTextureSize);
-        defer { PlatformFree(randomTextureBuffer); };
+        u8* randomTextureBuffer = (u8*)PlatformAlloc(sizeof(u8) * Renderer::RandomValuesTextureSize, 0, nullptr);
+        defer { PlatformFree(randomTextureBuffer, nullptr); };
         RandomSeries series = {};
         for (u32x i = 0; i < Renderer::RandomValuesTextureSize; i++)
         {
@@ -610,14 +610,14 @@ void GenIrradanceMap(const Renderer* renderer, CubeTexture* t, GLuint sourceHand
 #endif
 
     // TODO: Make this constexpr
-    static auto projInv = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f)).Unwrap();
+    static auto projInv = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
     static m3x3 capViews[] = {
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
     };
 
     auto prog = renderer->shaders.IrradanceConvolver;
@@ -659,14 +659,14 @@ void GenEnvPrefiliteredMap(const Renderer* renderer, CubeTexture* t, GLuint sour
     assert(t->useMips);
     assert(t->filter == TextureFilter::Trilinear);
 
-    const m4x4 capProj = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f)).Unwrap();
+    const m4x4 capProj = Inverse(PerspectiveGLRH(0.1, 10.0f, 90.0f, 1.0f));
     const m3x3 capViews[] = {
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
-        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f))).Unwrap()),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(-1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(1.0f, 0.0f, 0.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, -1.0f, 0.0f), V3(0.0f, 0.0f, 1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 1.0f, 0.0f), V3(0.0f, 0.0f, -1.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, -1.0f), V3(0.0f, -1.0f, 0.0f)))),
+        M3x3(Inverse(LookAtGLRH(V3(0.0f), V3(0.0f, 0.0f, 1.0f), V3(0.0f, -1.0f, 0.0f)))),
     };
 
     auto prog = renderer->shaders.EnvMapPrefilter;
@@ -723,7 +723,7 @@ void DrawSkybox(Renderer* renderer, RenderGroup* group, const m4x4* invView, con
 }
 
 m3x3 MakeNormalMatrix(m4x4 model) {
-    auto inverted= Inverse(model).Unwrap();
+    auto inverted= Inverse(model);
     inverted = Transpose(inverted);
     auto normal = M3x3(inverted);
     return normal;
@@ -1284,7 +1284,7 @@ void Begin(Renderer* renderer, RenderGroup* group) {
     //
 
     // TODO: Fix the mess with lookAt matrices4
-    m4x4 lightLookAt = LookAtGLRH(light.from, light.from + light.dir, V3(0.0f, 1.0f, 0.0f));
+    m4x4 lightLookAt = LookAtGLRH(light.from, Normalize(-light.dir), V3(0.0f, 1.0f, 0.0f));
 
     f32 frustrumDepth = camera->farPlane - camera->nearPlane;
     f32 cascadeDepth = frustrumDepth / Renderer::NumShadowCascades;

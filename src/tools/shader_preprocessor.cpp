@@ -1,7 +1,7 @@
 #define PLATFORM_WINDOWS
 #include <windows.h>
-#include "../flux_platform.h"
-#include "../flux_intrinsics.cpp"
+#include "../../flux-platform/src/Common.h"
+#include "../../flux-platform/src/Intrinsics.h"
 #include <vector>
 #include <string>
 #include <sstream>
@@ -9,6 +9,24 @@
 #include <stdlib.h>
 
 #include "utils.cpp"
+
+void Logger(void* data, const char* fmt, va_list* args) {
+    vprintf(fmt, *args);
+}
+
+LoggerFn* GlobalLogger = Logger;
+void* GlobalLoggerData = nullptr;
+
+inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
+    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+    if (args) {
+        GlobalLogger(GlobalLoggerData, fmt, args);
+    }
+    debug_break();
+}
+
+AssertHandlerFn* GlobalAssertHandler = AssertHandler;
+void* GlobalAssertHandlerData = nullptr;
 
 #define INVALID_DEFAULT_CASE() assert(false)
 

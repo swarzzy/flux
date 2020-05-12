@@ -1,6 +1,7 @@
 #pragma once
 #include "flux_resource_manager.h"
 #include "flux_hash_map.h"
+#include "flux_option.h"
 
 enum struct NormalFormat {
     OpenGL = 0, DirectX = 1

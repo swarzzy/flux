@@ -80,10 +80,10 @@ void Update(Camera* camera, f32 dt) {
     normMousePos.y = 2.0f * GlobalInput.mouseY - 1.0f;
     v4 mouseClip = V4(normMousePos, -1.0f, 0.0f);
 
-    camera->viewMatrix = LookAtGLRH(camera->position, camera->targetPosition, V3(0.0f, 1.0f, 0.0f));
+    camera->viewMatrix = LookAtGLRH(camera->position, Normalize(camera->position - camera->targetPosition), V3(0.0f, 1.0f, 0.0f));
     camera->projectionMatrix = PerspectiveGLRH(camera->nearPlane, camera->farPlane, camera->fovDeg, camera->aspectRatio);
-    camera->invViewMatrix = Inverse(camera->viewMatrix).Unwrap();
-    camera->invProjectionMatrix = Inverse(camera->projectionMatrix).Unwrap();
+    camera->invViewMatrix = Inverse(camera->viewMatrix);
+    camera->invProjectionMatrix = Inverse(camera->projectionMatrix);
 
     v4 mouseView = camera->invProjectionMatrix * mouseClip;
     mouseView = V4(mouseView.xy, -1.0f, 0.0f);

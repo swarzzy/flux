@@ -94,7 +94,7 @@ u32 GetID(AssetNameTable* table, const char* _name) {
 Mesh* ReadMeshFileFlux(void* file, u32 fileSize) {
     auto header = (FluxMeshHeader*)file;
     uptr memorySize = header->dataSize + sizeof(Mesh) * header->entryCount;
-    auto memory = PlatformAlloc(memorySize);
+    auto memory = PlatformAlloc(memorySize, 0, nullptr);
 
     auto entries = (FluxMeshEntry*)((byte*)file + header->entries);
     Mesh* loadedHeaders = (Mesh*)memory;
@@ -163,7 +163,7 @@ OpenMeshResult OpenMeshFileFlux(const char* filename) {
         auto fileSize = PlatformDebugGetFileSize(filenameW);
 
         if (fileSize) {
-            void* file = PlatformAlloc(fileSize);
+            void* file = PlatformAlloc(fileSize, 0, nullptr);
             u32 bytesRead = PlatformDebugReadFile(file, fileSize, filenameW);
 
             if (bytesRead == fileSize) {
@@ -176,11 +176,11 @@ OpenMeshResult OpenMeshFileFlux(const char* filename) {
 
                     result = { OpenMeshResult::Ok, file, fileSize};
                 } else {
-                    PlatformFree(file);
+                    PlatformFree(file, nullptr);
                     result = { OpenMeshResult::InvalidFileFormat, nullptr, 0};
                 }
             } else {
-                PlatformFree(file);
+                PlatformFree(file, nullptr);
                 result = { OpenMeshResult::ReadFileError, nullptr, 0 };
             }
         } else {
@@ -193,7 +193,7 @@ OpenMeshResult OpenMeshFileFlux(const char* filename) {
 }
 
 void CloseMeshFile(void* file) {
-    PlatformFree(file);
+    PlatformFree(file, nullptr);
 }
 
 Mesh* LoadMeshFlux(const char* filename) {
@@ -257,7 +257,7 @@ OpenMeshResult OpenMeshFileAAB(const char* filename) {
 
         if (fileSize) {
 
-            void* fileData = PlatformAlloc(fileSize);
+            void* fileData = PlatformAlloc(fileSize, 0, nullptr);
             u32 bytesRead = PlatformDebugReadFile(fileData, fileSize, filenameW);
 
             if (bytesRead == fileSize) {
@@ -265,11 +265,11 @@ OpenMeshResult OpenMeshFileAAB(const char* filename) {
                 if (header->magicValue == AAB_FILE_MAGIC_VALUE) {
                     result = { OpenMeshResult::Ok, fileData, fileSize};
                 } else {
-                    PlatformFree(fileData);
+                    PlatformFree(fileData, nullptr);
                     result = { OpenMeshResult::InvalidFileFormat, nullptr, 0};
                 }
             } else {
-                PlatformFree(fileData);
+                PlatformFree(fileData, nullptr);
                 result = { OpenMeshResult::ReadFileError, nullptr, 0 };
             }
         } else {
@@ -296,7 +296,7 @@ Mesh* LoadMeshAAB(const char* filename) {
         u32 fileSize = PlatformDebugGetFileSize(filenameW);
         if (fileSize) {
             auto totalSize = fileSize + headerSize;
-            void* memory = PlatformAlloc(totalSize);
+            void* memory = PlatformAlloc(totalSize, 0, nullptr);
             mesh = (Mesh*)memory;
             *mesh = {};
             mesh->base = memory;
@@ -317,10 +317,10 @@ Mesh* LoadMeshAAB(const char* filename) {
 
                     mesh->aabb = BBoxAligned::From(mesh);
                 } else {
-                    PlatformFree(memory);
+                    PlatformFree(memory, nullptr);
                 }
             } else {
-                PlatformFree(memory);
+                PlatformFree(memory, nullptr);
             }
         }
     }
@@ -364,7 +364,7 @@ Texture LoadTextureFromFile(const char* filename, TextureFormat format, TextureW
         desiredBpp = STBDesiredBPPFromTextureFormat(format);
     }
 
-    auto image = ResourceLoaderLoadImage(filename, range, true, desiredBpp, PlatformAlloc);
+    auto image = ResourceLoaderLoadImage(filename, range, true, desiredBpp, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     assert(image);
 
     if (format == TextureFormat::Unknown) {
@@ -403,17 +403,17 @@ CubeTexture LoadCubemap(const char* backPath, const char* downPath, const char* 
 
     // TODO: Use memory arena
     // TODO: Free memory
-    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc);
+    auto back = ResourceLoaderLoadImage(backPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(back->base); };
-    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc);
+    auto down = ResourceLoaderLoadImage(downPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(down->base); };
-    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc);
+    auto front = ResourceLoaderLoadImage(frontPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(front->base); };
-    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc);
+    auto left = ResourceLoaderLoadImage(leftPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(left->base); };
-    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc);
+    auto right = ResourceLoaderLoadImage(rightPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(right->base); };
-    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc);
+    auto up = ResourceLoaderLoadImage(upPath, range, false, 0, PlatformAlloc, GlobalLogger, GlobalLoggerData);
     //defer { PlatformFree(up->base); };
 
     assert(back->width == down->width);
@@ -484,8 +484,8 @@ AssetQueueEntry* AssetQueueGet(AssetManager* manager, u32 index) {
     return result;
 }
 
-void LoadMeshWork(void* data, u32 threadIndex) {
-    auto queueEntry = (AssetQueueEntry*)data;
+void LoadMeshWork(void* data0, void* data1, void* data2, u32 threadIndex) {
+    auto queueEntry = (AssetQueueEntry*)data0;
     assert(queueEntry->used);
     assert(queueEntry->type == AssetType::Mesh);
     auto slot = (MeshSlot*)(&queueEntry->meshSlot);
@@ -512,8 +512,8 @@ void LoadMeshWork(void* data, u32 threadIndex) {
     }
 }
 
-void LoadTextureWork(void* data, u32 threadIndex) {
-    auto queueEntry = (AssetQueueEntry*)data;
+void LoadTextureWork(void* data0, void* data1, void* data2, u32 threadIndex) {
+    auto queueEntry = (AssetQueueEntry*)data0;
     assert(queueEntry->used);
     assert(queueEntry->type == AssetType::Texture);
     auto slot = (TextureSlot*)(&queueEntry->textureSlot);
@@ -534,7 +534,7 @@ void LoadTextureWork(void* data, u32 threadIndex) {
             printf("[Asset manager] Failed to load texture: %s. The file is different than one that was added before\n", slot->filename);
             auto prevState = AtomicExchange((u32 volatile*)&slot->state, (u32)AssetState::Error);
             assert(prevState == (u32)AssetState::Queued);
-            PlatformFree(tex.data);
+            PlatformFree(tex.data, nullptr);
         }
     } else {
         printf("[Asset manager] Failed to load texture: %s\n", slot->filename);
@@ -613,7 +613,7 @@ AddAssetResult AddMesh(AssetManager* manager, const char* filename, MeshFileForm
 AddAssetResult AddTexture(AssetManager* manager, const char* filename, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, DynamicRange range) {
     // TODO: Validate file
     AddAssetResult result = {};
-    auto info = ResourceLoaderValidateImageFile(filename);
+    auto info = ResourceLoaderValidateImageFile(filename, GlobalLogger, GlobalLoggerData);
     if (info.valid) {
         if (format == TextureFormat::Unknown) {
             format = GuessTextureFormat(info.channelCount, range);
@@ -668,7 +668,7 @@ void LoadMesh(AssetManager* manager, u32 id) {
             *slotPtr = *slot;
 
             // TODO: Spin-locking here for now. We should handle the case when platform queue is full propperly
-            while (!PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadMeshWork)) {}
+            while (!PlatformPushWork(GlobalLowPriorityWorkQueue, LoadMeshWork, queueEntry, nullptr, nullptr)) {}
         }
     }
 }
@@ -677,7 +677,7 @@ void UnloadMesh(AssetManager* manager, MeshSlot* slot) {
     if (slot->state == AssetState::Loaded) {
         FreeGPUBuffer(slot->mesh->gpuVertexBufferHandle);
         FreeGPUBuffer(slot->mesh->gpuIndexBufferHandle);
-        PlatformFree(slot->mesh->base);
+        PlatformFree(slot->mesh->base, nullptr);
         slot->mesh = nullptr;
         slot->state = AssetState::Unloaded;
     }
@@ -702,7 +702,7 @@ void RemoveMesh(AssetManager* manager, u32 id) {
 void UnloadTexture(AssetManager* manager, TextureSlot* slot) {
     if (slot->state == AssetState::Loaded) {
         FreeGPUTexture(slot->texture.gpuHandle);
-        PlatformFree(slot->texture.base);
+        PlatformFree(slot->texture.base, nullptr);
         slot->texture = {};
         slot->state = AssetState::Unloaded;
     }
@@ -739,7 +739,7 @@ void LoadTexture(AssetManager* manager, u32 id) {
                 *slotPtr = *slot;
 
                 // TODO: Spin-locking here for now. We should handle the case when platform queue is full propperly
-                while (!PlatformPushWork(GlobalPlaformWorkQueue, queueEntry, LoadTextureWork)) {}
+                while (!PlatformPushWork(GlobalLowPriorityWorkQueue, LoadTextureWork, queueEntry, nullptr, nullptr )) {}
             }
         } else {
             printf("[Asset manager] Failed to load the texture %s. Unable to get transfer buffer\n", slot->name);

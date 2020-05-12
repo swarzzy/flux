@@ -1,4 +1,5 @@
-#include "flux_platform.h"
+#include "../flux-platform/src/Common.h"
+#include "../flux-platform/src/Platform.h"
 #include "flux.h"
 
 #define DEBUG_OPENGL
@@ -7,7 +8,15 @@
 
 void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const GLvoid* userParam);
 
-// NOTE: Platforn globals
+inline void AssertHandler(void* data, const char* file, const char* func, u32 line, const char* assertStr, const char* fmt, va_list* args) {
+    log_print("[Assertion failed] Expression (%s) result is false\nFile: %s, function: %s, line: %d.\n", assertStr, file, func, (int)line);
+    if (args) {
+        GlobalLogger(GlobalLoggerData, fmt, args);
+    }
+    debug_break();
+}
+
+// NOTE: Platform globals
 static PlatformState* _GlobalPlatform = 0;
 #define GlobalPlatform (*((const PlatformState *const)(_GlobalPlatform)))
 // NOTE: Actual frame time
@@ -15,7 +24,14 @@ static PlatformState* _GlobalPlatform = 0;
 // NOTE: Frame time corrected by game speed
 #define GlobalGameDeltaTime GlobalPlatform.gameDeltaTime
 #define GlobalInput GlobalPlatform.input
-#define GlobalPlaformWorkQueue GlobalPlatform.workQueue
+#define GlobalLowPriorityWorkQueue GlobalPlatform.lowPriorityQueue
+#define GlobalHighPriorityWorkQueue GlobalPlatform.highPriorityQueue
+
+LoggerFn* GlobalLogger = LogMessageAPI;
+void* GlobalLoggerData;
+
+AssertHandlerFn* GlobalAssertHandler = AssertHandler;
+void* GlobalAssertHandlerData = nullptr;
 
 bool KeyHeld(Key key) {
     return GlobalInput.keys[(u32)key].pressedNow;
@@ -52,7 +68,7 @@ bool MouseButtonPressed(MouseButton button) {
 #define PlatformGetTimeStamp platform_call(GetTimeStamp)
 
 void* PlatformAllocClear(uptr size) {
-    void* memory = PlatformAlloc(size);
+    void* memory = PlatformAlloc(size, 0, nullptr);
     memset(memory, 0, size);
     return memory;
 }
@@ -168,18 +184,18 @@ void* PlatformAllocClear(uptr size) {
 #define glMapBufferRange gl_call(glMapBufferRange)
 #define glMapNamedBufferRange gl_call(glMapNamedBufferRange)
 
-#include "flux_memory.h"
+#include "../flux-platform/src/Memory.h"
 // NOTE: Libs
 
-void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size); memset(ptr, 0, num * size); return ptr; }
+void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size, 0, nullptr); memset(ptr, 0, num * size); return ptr; }
 
 #define IMGUI_DEFINE_MATH_OPERATORS
-#include "../ext/imgui/imgui.h"
+#include "../flux-platform/ext/imgui/imgui.h"
 
-void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size); }
-void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr); }
+void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size, 0, nullptr); }
+void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr, nullptr); }
 
-#include "../ext/imgui/imgui_internal.h"
+#include "../flux-platform/ext/imgui/imgui_internal.h"
 
 extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void** data) {
     switch (reason) {
@@ -198,9 +214,13 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, 0, GL_FALSE);
         glDebugMessageControl(GL_DONT_CARE, GL_DEBUG_TYPE_OTHER, GL_DEBUG_SEVERITY_LOW, 0, 0, GL_FALSE);
 #endif
-        auto context = (Context*)PlatformAlloc(sizeof(Context));
+        auto context = (Context*)PlatformAlloc(sizeof(Context), 0, nullptr);
         *context = {};
         *data = context;
+
+        InitLogger(&context->logger, PlatformAlloc, PlatformFree, nullptr);
+        InitConsole(&context->console, &context->logger, PlatformAlloc, nullptr, context);
+        GlobalLoggerData = &context->logger;
 
         context->renderer = InitializeRenderer(UV2(GlobalPlatform.windowWidth, GlobalPlatform.windowHeight), 8);
         //context->renderer->clearColor = V4(0.8f, 0.8f, 0.8f, 1.0f);
@@ -214,6 +234,7 @@ extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, Gam
         ImGui::SetAllocatorFunctions(ImguiAllocWrapper, ImguiFreeWrapper, nullptr);
         ImGui::SetCurrentContext(platform->imguiContext);
         _GlobalPlatform = platform;
+        GlobalLoggerData = &context->logger;
 #if defined(DEBUG_OPENGL)
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(OpenglDebugCallback, 0);
@@ -268,7 +289,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 #include "flux.cpp"
-#include "flux_math.cpp"
+#include "../flux-platform/src/Math.cpp"
 #include "flux_debug_overlay.cpp"
 #include "flux_camera.cpp"
 #include "flux_render_group.cpp"
@@ -277,8 +298,11 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_world.cpp"
 #include "flux_ui.cpp"
 #include "flux_resource_manager.cpp"
-#include "flux_memory.cpp"
+#include "../flux-platform/src/Memory.cpp"
 #include "flux_hash_map.cpp"
+#include "flux_console.cpp"
+#include "flux_console_commands.cpp"
+#include "flux_flat_array.cpp"
 
 // NOTE: Platform specific intrinsics implementation begins here
 #if defined(PLATFORM_WINDOWS)
@@ -286,10 +310,10 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #else
 #error Unsupported OS
 #endif
-#include "flux_intrinsics.cpp"
+#include "../flux-platform/src/Intrinsics.cpp"
 
-#include "../ext/imgui/imconfig.h"
-#include "../ext/imgui/imgui.cpp"
-#include "../ext/imgui/imgui_draw.cpp"
-#include "../ext/imgui/imgui_widgets.cpp"
-#include "../ext/imgui/imgui_demo.cpp"
+#include "../flux-platform/ext/imgui/imconfig.h"
+#include "../flux-platform/ext/imgui/imgui.cpp"
+#include "../flux-platform/ext/imgui/imgui_draw.cpp"
+#include "../flux-platform/ext/imgui/imgui_widgets.cpp"
+#include "../flux-platform/ext/imgui/imgui_demo.cpp"

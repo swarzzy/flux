@@ -46,8 +46,8 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
                             i32 logLength;
                             glGetProgramiv(programHandle, GL_INFO_LOG_LENGTH, &logLength);
                             // TODO: Stop using alloca
-                            char* message = (char*)PlatformAlloc(logLength);
-                            defer { PlatformFree(message); };
+                            char* message = (char*)PlatformAlloc(logLength, 0, nullptr);
+                            defer { PlatformFree(message, nullptr); };
                             glGetProgramInfoLog(programHandle, logLength, 0, message);
                             printf("[Error]: Failed to link shader program (%s) \n%s\n", name, message);
                         }
@@ -61,8 +61,8 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
                 {
                     GLint logLength;
                     glGetShaderiv(fragmentHandle, GL_INFO_LOG_LENGTH, &logLength);
-                    char* message = (char*)PlatformAlloc(logLength);
-                    defer { PlatformFree(message); };
+                    char* message = (char*)PlatformAlloc(logLength, 0, nullptr);
+                    defer { PlatformFree(message, nullptr); };
                     glGetShaderInfoLog(fragmentHandle, logLength, nullptr, message);
                     printf("[Error]: Failed to compile frag shader (%s)\n%s\n", name, message);
                 }
@@ -76,8 +76,8 @@ GLuint CompileGLSL(const char* name, const char* vertexSource, const char* fragm
         {
             GLint logLength;
             glGetShaderiv(vertexHandle, GL_INFO_LOG_LENGTH, &logLength);
-            char* message = (char*)PlatformAlloc(logLength);
-            defer { PlatformFree(message); };
+            char* message = (char*)PlatformAlloc(logLength, 0, nullptr);
+            defer { PlatformFree(message, nullptr); };
             glGetShaderInfoLog(vertexHandle, logLength, nullptr, message);
             printf("[Error]: Failed to compile vertex shader (%s)\n%s", name, message);
         }
