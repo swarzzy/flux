@@ -10,6 +10,7 @@
 struct Context {
     Logger logger;
     Console console;
+    MemoryArena* tempArena;
     World* world;
     Ui ui;
     AssetManager assetManager;

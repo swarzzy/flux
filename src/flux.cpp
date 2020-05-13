@@ -13,6 +13,8 @@ void Work(void* data, u32 id) {
 void FluxInit(Context* context) {
     AssetManager::Init(&context->assetManager, context->renderer);
 
+    context->tempArena = AllocateArena(Megabytes(32), true);
+
     context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
     UploadToGPU(&context->skybox);
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
@@ -118,6 +120,12 @@ void FluxUpdate(Context* context) {
     auto world = context->world;
     auto renderer = context->renderer;
     auto assetManager = &context->assetManager;
+
+    if (KeyPressed(Key::O)) {
+        auto frame = BeginTemporaryMemory(context->tempArena);
+        auto result = PlatformShowOpenFileDialog(context->tempArena, false);
+        EndTemporaryMemory(&frame);
+    }
 
     if (context->showConsole) {
         DrawConsole(&context->console);

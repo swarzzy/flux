@@ -1,6 +1,8 @@
 #include "flux_ui.h"
 #include "../flux-platform/ext/imgui/imgui_internal.h"
 
+#include "flux_string.h"
+
 void DrawMenu(Ui* ui) {
     ImGui::BeginMainMenuBar();
     if (ImGui::BeginMenu("Tools")) {
@@ -32,6 +34,32 @@ void DrawMenu(Ui* ui) {
     }
     ImGui::EndMainMenuBar();
 }
+
+void AddTextureFromFileDialog(MemoryArena* tempArena, AssetManager* manager, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, DynamicRange range) {
+    auto memoryFrame = BeginTemporaryMemory(tempArena);
+    defer { EndTemporaryMemory(&memoryFrame); };
+    auto dialogResult = PlatformShowOpenFileDialog(tempArena, true);
+    if (dialogResult.ok) {
+        auto dirLen = StringLength(dialogResult.directory);
+        auto path = (char*)PushSize(tempArena, sizeof(char) * dirLen + 1);
+        wcstombs(path, dialogResult.directory, dirLen + 1);
+        for (uptr i = 0; i < dialogResult.fileCount; i++) {
+            // TODO STRING BUILDER!!!
+            // TODO: Decide: char or wchar!!!
+            auto filename = dialogResult.files[i];
+            auto innerFrame = BeginTemporaryMemory(tempArena);
+            defer { EndTemporaryMemory(&innerFrame); };
+            auto filenameLen = StringLength(filename);
+            auto fullLen = dirLen + filenameLen;
+            auto fullPath = (char*)PushSize(tempArena, fullLen + 2);
+            memcpy(fullPath, path, dirLen);
+            fullPath[dirLen] = '/';
+            wcstombs(fullPath + (dirLen + 1), filename, fullLen - dirLen + 1);
+            AddTexture(manager, fullPath, format, wrapMode, filter, range);
+        }
+    }
+}
+
 
 void DrawAssetManager(Context* context) {
     auto ui = &context->ui;
@@ -112,6 +140,12 @@ void DrawAssetManager(Context* context) {
                 if (ImGui::Button("Load")) {
                     // TODO: properties
                     AddTexture(&context->assetManager, ui->assetLoadFileBuffer, (TextureFormat)ui->textureLoadFormat, (TextureWrapMode)ui->textureLoadWrapMode, (TextureFilter)ui->textureLoadFilter, (DynamicRange)ui->textureLoadDynamicRange);
+                }
+
+                // Open file platform dialog
+
+                if (ImGui::Button("File")) {
+                    AddTextureFromFileDialog(context->tempArena, &context->assetManager, (TextureFormat)ui->textureLoadFormat, (TextureWrapMode)ui->textureLoadWrapMode, (TextureFilter)ui->textureLoadFilter, (DynamicRange)ui->textureLoadDynamicRange);
                 }
 
 #define selectable_item(enumerator, uiVar) do { if (ImGui::Selectable(ToString(enumerator), ui->textureLoadFormat == (u32)enumerator)) { uiVar = (u32)enumerator; } } while (false)
