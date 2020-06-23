@@ -3,20 +3,56 @@
 #include "flux_debug_overlay.h"
 #include "flux_resource_manager.h"
 
-void Work(void* data, u32 id) {
-    //while (true) {
-        printf("Thread %d does some work\n", (int)id);
-        //}
-}
-
-
 void FluxInit(Context* context) {
     AssetManager::Init(&context->assetManager, context->renderer);
 
     context->tempArena = AllocateArena(Megabytes(32), true);
 
-    context->skybox = LoadCubemapLDR("../res/skybox/sky_back.png", "../res/skybox/sky_down.png", "../res/skybox/sky_front.png", "../res/skybox/sky_left.png", "../res/skybox/sky_right.png", "../res/skybox/sky_up.png");
-    UploadToGPU(&context->skybox);
+    StringBuilderW builder {};
+    {
+        StringBuilderInit(&builder, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+
+        wchar_t from[] = L"E:\\Dev/flux\\build\\flux.exe";
+        wchar_t to [] = L"E:\\dev\\flux\\res\\sponza\\floor.mesh";
+
+        NormalizePath(from);
+        NormalizePath(to);
+
+        auto result = GetRelativePath(&builder, from, to);
+    }
+    {
+        StringBuilderInit(&builder, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+
+        wchar_t from[] = L"E:\\Dev/flux\\";
+        wchar_t to [] = L"E:\\dev\\flux\\res\\sponza\\";
+
+        NormalizePath(from);
+        NormalizePath(to);
+
+        auto result = GetRelativePath(&builder, from, to);
+    }
+    {
+        StringBuilderInit(&builder, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+
+        wchar_t from[] = L"C:\\Dev/flux\\build\\flux.exe";
+        wchar_t to [] = L"E:\\dev\\flux\\res\\sponza\\floor.mesh";
+
+        NormalizePath(from);
+        NormalizePath(to);
+
+        auto result = GetRelativePath(&builder, from, to);
+    }
+
+    StringBuilder cbuilder {};
+    StringBuilderInit(&cbuilder, MakeAllocator(PlatformAlloc, PlatformFree, nullptr));
+
+    for (u32 i = 0; i < 100; i++) {
+        char buffer[256];
+        sprintf(buffer, "This is string %lu", i);
+        StringBuilderAppend(&cbuilder, buffer);
+    }
+
+
     context->hdrMap = LoadCubemapHDR("../res/desert_sky/nz.hdr", "../res/desert_sky/ny.hdr", "../res/desert_sky/pz.hdr", "../res/desert_sky/nx.hdr", "../res/desert_sky/px.hdr", "../res/desert_sky/py.hdr");
     UploadToGPU(&context->hdrMap);
     context->irradanceMap = MakeEmptyCubemap(64, 64, TextureFormat::RGB16F, TextureFilter::Bilinear, TextureWrapMode::ClampToEdge, false);
@@ -116,20 +152,14 @@ void FluxReload(Context* context) {
 }
 
 void FluxUpdate(Context* context) {
+    if (context->showConsole) {
+        DrawConsole(&context->console);
+    }
+
     auto ui = &context->ui;
     auto world = context->world;
     auto renderer = context->renderer;
     auto assetManager = &context->assetManager;
-
-    if (KeyPressed(Key::O)) {
-        auto frame = BeginTemporaryMemory(context->tempArena);
-        auto result = PlatformShowOpenFileDialog(context->tempArena, false);
-        EndTemporaryMemory(&frame);
-    }
-
-    if (context->showConsole) {
-        DrawConsole(&context->console);
-    }
 
     if (KeyPressed(Key::Tilde)) {
         context->showConsole = !context->showConsole;

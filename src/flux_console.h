@@ -49,7 +49,8 @@ static const ConsoleCommand GlobalConsoleCommands[] = {
     { "echo",               ConsoleEchoCommand },
 
     { "recompile_shaders",  RecompileShadersCommand },
-    { "toggle_dbg_overlay", ToggleDebugOverlayCommand }
+    { "toggle_dbg_overlay", ToggleDebugOverlayCommand },
+    { "load", LoadCommand }
 };
 
 struct ConsoleCommandRecord {

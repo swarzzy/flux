@@ -11,3 +11,4 @@ void ConsoleEchoCommand(Console* console, Context* context, ConsoleCommandArgs* 
 
 void RecompileShadersCommand(Console* console, Context* context, ConsoleCommandArgs* args);
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args);
+void LoadCommand(Console* console, Context* context, ConsoleCommandArgs* args);

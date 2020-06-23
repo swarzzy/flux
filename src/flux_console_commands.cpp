@@ -99,3 +99,24 @@ void RecompileShadersCommand(Console* console, Context* context, ConsoleCommandA
 void ToggleDebugOverlayCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
     GlobalDrawDebugOverlay = !GlobalDrawDebugOverlay;
 }
+
+void LoadCommand(Console* console, Context* context, ConsoleCommandArgs* args) {
+    auto logger = console->logger;
+    if (args->args) {
+        StringBuilder builder {};
+        StringBuilderInit(&builder, MakeAllocator(PlatformAlloc, PlatformFree, nullptr), args->args);
+        defer { StringBuilderFree(&builder); };
+        auto wideBuilder = StringBuilderToWide(&builder);
+        auto path = StringBuilderToString(&wideBuilder);
+        defer { PlatformFree(path, nullptr); };
+        auto world = LoadWorldFromDisc(&context->assetManager, path);
+        if (world) {
+            // TODO: World names
+            strcpy_s(world->name, array_count(world->name), args->args);
+            Drop(&context->world->entityTable);
+            PlatformFree(context->world, nullptr);
+            context->ui.selectedEntity = 0;
+            context->world = world;
+        }
+    }
+}

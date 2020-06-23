@@ -2,6 +2,9 @@
 #include "../flux-platform/src/Platform.h"
 #include "flux.h"
 
+#include "../flux-platform/src/StringBuilder.h"
+#include "../flux-platform/src/Path.h"
+
 #define DEBUG_OPENGL
 // NOTE: Defined only in debug build
 #include <stdlib.h>

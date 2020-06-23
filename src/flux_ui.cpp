@@ -35,31 +35,30 @@ void DrawMenu(Ui* ui) {
     ImGui::EndMainMenuBar();
 }
 
-void AddTextureFromFileDialog(MemoryArena* tempArena, AssetManager* manager, TextureFormat format, TextureWrapMode wrapMode, TextureFilter filter, DynamicRange range) {
+char* GetFileNameFromPlatformDialog(MemoryArena* tempArena) {
+    char* result = nullptr;
     auto memoryFrame = BeginTemporaryMemory(tempArena);
     defer { EndTemporaryMemory(&memoryFrame); };
-    auto dialogResult = PlatformShowOpenFileDialog(tempArena, true);
+    auto dialogResult = PlatformShowOpenFileDialog(tempArena, false);
     if (dialogResult.ok) {
-        auto dirLen = StringLength(dialogResult.directory);
-        auto path = (char*)PushSize(tempArena, sizeof(char) * dirLen + 1);
-        wcstombs(path, dialogResult.directory, dirLen + 1);
-        for (uptr i = 0; i < dialogResult.fileCount; i++) {
-            // TODO STRING BUILDER!!!
-            // TODO: Decide: char or wchar!!!
-            auto filename = dialogResult.files[i];
-            auto innerFrame = BeginTemporaryMemory(tempArena);
-            defer { EndTemporaryMemory(&innerFrame); };
-            auto filenameLen = StringLength(filename);
-            auto fullLen = dirLen + filenameLen;
-            auto fullPath = (char*)PushSize(tempArena, fullLen + 2);
-            memcpy(fullPath, path, dirLen);
-            fullPath[dirLen] = '/';
-            wcstombs(fullPath + (dirLen + 1), filename, fullLen - dirLen + 1);
-            AddTexture(manager, fullPath, format, wrapMode, filter, range);
+        StringBuilderW builder {};
+        StringBuilderInit(&builder, MakeAllocator(PlatformAlloc, PlatformFree, nullptr), dialogResult.directory);
+        defer { StringBuilderFree(&builder); };
+
+        StringBuilderAppend(&builder, PlatformDirectorySeparator);
+        StringBuilderAppend(&builder, dialogResult.files[0]);
+
+        auto absPath = StringBuilderExtractString(&builder);
+        defer { PlatformFree(absPath, nullptr); };
+
+        NormalizePath(absPath);
+        if (GetRelativePath(&builder, GlobalPlatform.executablePath, absPath)) {
+            auto charBuilder = StringBuilderToASCII(&builder);
+            result = StringBuilderToString(&charBuilder);
         }
     }
+    return result;
 }
-
 
 void DrawAssetManager(Context* context) {
     auto ui = &context->ui;
@@ -140,12 +139,6 @@ void DrawAssetManager(Context* context) {
                 if (ImGui::Button("Load")) {
                     // TODO: properties
                     AddTexture(&context->assetManager, ui->assetLoadFileBuffer, (TextureFormat)ui->textureLoadFormat, (TextureWrapMode)ui->textureLoadWrapMode, (TextureFilter)ui->textureLoadFilter, (DynamicRange)ui->textureLoadDynamicRange);
-                }
-
-                // Open file platform dialog
-
-                if (ImGui::Button("File")) {
-                    AddTextureFromFileDialog(context->tempArena, &context->assetManager, (TextureFormat)ui->textureLoadFormat, (TextureWrapMode)ui->textureLoadWrapMode, (TextureFilter)ui->textureLoadFilter, (DynamicRange)ui->textureLoadDynamicRange);
                 }
 
 #define selectable_item(enumerator, uiVar) do { if (ImGui::Selectable(ToString(enumerator), ui->textureLoadFormat == (u32)enumerator)) { uiVar = (u32)enumerator; } } while (false)
@@ -287,6 +280,7 @@ u32 DrawTextureCombo(AssetManager* assetManager, u32 id, const char* name) {
 
 
 void DrawEntityInspector(Context* context, Ui* ui, World* world) {
+    auto manager = &context->assetManager;
     auto io = ImGui::GetIO();
     ImGui::SetNextWindowSize({300, 600});
     auto windowFlags = ImGuiWindowFlags_NoResize; //ImGuiWindowFlags_AlwaysAutoResize;
@@ -355,6 +349,17 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                 }
                 ImGui::PopID();
 
+                ImGui::SameLine();
+                if (ImGui::Button("Load###loadMeshButton")) {
+                    auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                    if (filename) {
+                        auto id = AddMesh(manager, filename, MeshFileFormat::Flux).id;
+                        if (id) {
+                            entity->mesh = id;
+                        }
+                    }
+                }
+
                 ImGui::Separator();
                 if (ImGui::CollapsingHeader("Material")) {
                     if (ImGui::BeginCombo("workflow", ToString(entity->material.workflow))) {
@@ -400,6 +405,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         ImGui::Checkbox("Albedo map", &useAlbedoMap);
                         entity->material.pbrMetallic.useAlbedoMap = useAlbedoMap;
                         if (entity->material.pbrMetallic.useAlbedoMap) {
+                            ImGui::SameLine();
+                            if (ImGui::Button("Load###albedoFileDialogButton")) {
+                                auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                                if (filename) {
+                                    auto id = AddTexture(manager, filename, TextureFormat::SRGB8, TextureWrapMode::Default, TextureFilter::Anisotropic).id;
+                                    if (id) {
+                                        entity->material.pbrMetallic.albedoMap = id;
+                                    }
+                                }
+                            }
                             entity->material.pbrMetallic.albedoMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.albedoMap, "albedo map");
                         } else {
                             ImGui::ColorEdit3("Albedo", entity->material.pbrMetallic.albedoValue.data);
@@ -409,6 +424,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         ImGui::Checkbox("Roughness map", &useRoughnessMap);
                         entity->material.pbrMetallic.useRoughnessMap = useRoughnessMap;
                         if (entity->material.pbrMetallic.useRoughnessMap) {
+                            ImGui::SameLine();
+                            if (ImGui::Button("Load###roughnessFileDialogButton")) {
+                                auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                                if (filename) {
+                                    auto id = AddTexture(manager, filename, TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Anisotropic).id;
+                                    if (id) {
+                                        entity->material.pbrMetallic.roughnessMap = id;
+                                    }
+                                }
+                            }
                             entity->material.pbrMetallic.roughnessMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.roughnessMap, "roughness map");
                         } else {
                             ImGui::SliderFloat("Roughness", &entity->material.pbrMetallic.roughnessValue, 0.0f, 1.0f);
@@ -418,6 +443,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         ImGui::Checkbox("Metallic map", &useMetallicMap);
                         entity->material.pbrMetallic.useMetallicMap = useMetallicMap;
                         if (entity->material.pbrMetallic.useMetallicMap) {
+                            ImGui::SameLine();
+                            if (ImGui::Button("Load###metallicFileDialogButton")) {
+                                auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                                if (filename) {
+                                    auto id = AddTexture(manager, filename, TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Anisotropic).id;
+                                    if (id) {
+                                        entity->material.pbrMetallic.metallicMap = id;
+                                    }
+                                }
+                            }
                             entity->material.pbrMetallic.metallicMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.metallicMap, "metallic map");
                         } else {
                             ImGui::SliderFloat("Metallic", &entity->material.pbrMetallic.metallicValue, 0.0f, 1.0f);
@@ -427,6 +462,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         ImGui::Checkbox("Normal map", &useNormalMap);
                         entity->material.pbrMetallic.useNormalMap = useNormalMap;
                         if (entity->material.pbrMetallic.useNormalMap) {
+                            ImGui::SameLine();
+                            if (ImGui::Button("Load###normalFileDialogButton")) {
+                                auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                                if (filename) {
+                                    auto id = AddTexture(manager, filename, TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Anisotropic).id;
+                                    if (id) {
+                                        entity->material.pbrMetallic.normalMap = id;
+                                    }
+                                }
+                            }
                             if (ImGui::BeginCombo("Normal format select", ToString(entity->material.pbrMetallic.normalFormat))) {
                                 if (ImGui::Selectable("OpenGL", entity->material.pbrMetallic.normalFormat == NormalFormat::OpenGL)) {
                                     entity->material.pbrMetallic.normalFormat = NormalFormat::OpenGL;
@@ -443,6 +488,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                         ImGui::Checkbox("AO map", &useAOMap);
                         entity->material.pbrMetallic.useAOMap = useAOMap;
                         if (entity->material.pbrMetallic.useAOMap) {
+                            ImGui::SameLine();
+                            if (ImGui::Button("Load###aoFileDialogButton")) {
+                                auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                                if (filename) {
+                                    auto id = AddTexture(manager, filename, TextureFormat::R8, TextureWrapMode::Default, TextureFilter::Anisotropic).id;
+                                    if (id) {
+                                        entity->material.pbrMetallic.AOMap = id;
+                                    }
+                                }
+                            }
                             entity->material.pbrMetallic.AOMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.AOMap, "ao map");
                         }
 
@@ -456,6 +511,16 @@ void DrawEntityInspector(Context* context, Ui* ui, World* world) {
                             entity->material.pbrMetallic.useEmissionMap = useEmissionMap;
 
                             if (entity->material.pbrMetallic.useEmissionMap) {
+                                ImGui::SameLine();
+                                if (ImGui::Button("Load###emissionFileDialogButton")) {
+                                    auto filename = GetFileNameFromPlatformDialog(context->tempArena);
+                                    if (filename) {
+                                        auto id = AddTexture(manager, filename, TextureFormat::RGB8, TextureWrapMode::Default, TextureFilter::Anisotropic).id;
+                                        if (id) {
+                                            entity->material.pbrMetallic.emissionMap = id;
+                                        }
+                                    }
+                                }
                                 entity->material.pbrMetallic.emissionMap = DrawTextureCombo(&context->assetManager, entity->material.pbrMetallic.emissionMap, "emission map");
                             } else {
                                 ImGui::ColorEdit3("emission color", entity->material.pbrMetallic.emissionValue.data);
