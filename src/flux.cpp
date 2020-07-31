@@ -82,7 +82,6 @@ void FluxInit(Context* context) {
 
         AddMesh(assetManager, "../res/meshes/plate.aab", MeshFileFormat::AAB);
         AddMesh(assetManager, "../res/meshes/sphere.aab", MeshFileFormat::AAB);
-        AddMesh(assetManager, "../res/meshes/backpack_low.mesh", MeshFileFormat::Flux);
 
         auto checkerboardEntityID = AddEntity(context->world)->id;
         auto backpackEntityID = AddEntity(context->world)->id;
@@ -92,11 +91,6 @@ void FluxInit(Context* context) {
         u32 oldMetalRoughId = AddRoughnessMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-roughness.png").Unwrap();
         u32 oldMetalMetallicId = AddMetallicMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-metal.png").Unwrap();
         u32 oldMetalNormalId = AddNormalMap(assetManager, "../res/materials/oldmetal/greasy-metal-pan1-normal.png").Unwrap();
-
-        u32 backpackAlbedoId = AddAlbedoMap(assetManager, "../res/materials/backpack/albedo.png").Unwrap();
-        u32 backpackRoughId = AddRoughnessMap(assetManager, "../res/materials/backpack/rough.png").Unwrap();
-        u32 backpackMetallicId = AddMetallicMap(assetManager, "../res/materials/backpack/metallic.png").Unwrap();
-        u32 backpackNormalId = AddNormalMap(assetManager, "../res/materials/backpack/normal.png").Unwrap();
 
         u32 checkerboardID = AddPhongTexture(assetManager, "../res/checkerboard.jpg").Unwrap();
 
@@ -112,18 +106,6 @@ void FluxInit(Context* context) {
         oldMetal.pbrMetallic.metallicMap = oldMetalMetallicId;
         oldMetal.pbrMetallic.normalMap = oldMetalNormalId;
 
-        Material backpack = {};
-        backpack.workflow = Material::PBRMetallic;
-        backpack.pbrMetallic.useAlbedoMap = true;
-        backpack.pbrMetallic.useRoughnessMap = true;
-        backpack.pbrMetallic.useMetallicMap = true;
-        backpack.pbrMetallic.useNormalMap = true;
-        backpack.pbrMetallic.normalFormat = NormalFormat::DirectX;
-        backpack.pbrMetallic.albedoMap = backpackAlbedoId;
-        backpack.pbrMetallic.roughnessMap = backpackRoughId;
-        backpack.pbrMetallic.metallicMap = backpackMetallicId;
-        backpack.pbrMetallic.normalMap = backpackNormalId;
-
         Material checkerboard = {};
         checkerboard.workflow = Material::Phong;
         checkerboard.phong.useDiffuseMap = true;
@@ -133,13 +115,6 @@ void FluxInit(Context* context) {
         checkerboardEntity->mesh = GetID(&assetManager->nameTable, "plate");
         assert(checkerboardEntity->mesh);
         checkerboardEntity->material = checkerboard;
-
-        auto backpackEntity = GetEntity(world, backpackEntityID);
-        backpackEntity->p = V3(1.0f);
-        backpackEntity->scale = V3(0.01f);
-        backpackEntity->mesh = GetID(&assetManager->nameTable, "backpack_low");
-        assert(backpackEntity->mesh);
-        backpackEntity->material = backpack;
 
         auto sphereEntity = GetEntity(world, sphereEntityID);
         sphereEntity->mesh = GetID(&assetManager->nameTable, "sphere");
