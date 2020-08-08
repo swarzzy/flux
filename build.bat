@@ -7,12 +7,8 @@ popd
 goto end
 )
 
-rem Building platform...
-pushd flux-platform
-call build.bat
-popd
-
-set BuildShaderPreprocessor=true
+set BuildShaderPreprocessor=false
+set BuildResourceLoader=true
 
 set ObjOutDir=build\obj\
 set BinOutDir=build\
@@ -29,6 +25,9 @@ set CommonCompilerFlags=/Gm- /fp:fast /GR- /nologo /diagnostics:classic /WX /std
 set DebugCompilerFlags=/Od /RTC1 /MTd /Fd%BinOutDir% /DPBR_DEBUG
 set ReleaseCompilerFlags=/O2 /MT
 set GameLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutDir%\flux.dll  /PDB:%BinOutDir%\flux_%PdbMangleVal%.pdb
+set PlatformLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /NOIMPLIB user32.lib gdi32.lib opengl32.lib winmm.lib comdlg32.lib /OUT:%BinOutDir%\win32_flux.exe /PDB:%BinOutDir%\win32_flux.pdb
+set ResourceLoaderLinkerFlags=/INCREMENTAL:NO /OPT:REF /MACHINE:X64 /DLL /OUT:%BinOutDir%\flux_resource_loader.dll  /PDB:%BinOutDir%\flux_resource_loader.pdb
+set ResourceLoaderFlags=%CommonCompilerFlags% %ReleaseCompilerFlags%
 
 set ConfigCompilerFlags=%DebugCompilerFlags%
 
@@ -41,6 +40,14 @@ echo Preprocessing shaders...
 build\shader_preprocessor.exe src/flux_shader_config.txt
 COPY shader_preprocessor_output.h src\flux_shaders_generated.h
 DEL shader_preprocessor_output.h
+
+if %BuildResourceLoader% equ true (
+echo Building resource loader...
+start /b "__flux_compilation__" cmd /c cl /EHsc /Fo%ObjOutDir% %CommonDefines% %ResourceLoaderFlags%  src/ResourceLoader.cpp /link %ResourceLoaderLinkerFlags%
+)
+
+echo Building platform...
+start /b "__flux_compilation__" cmd /c cl /DPLATFORM_CODE /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/Win32Platform.cpp /link %PlatformLinkerFlags%
 
 echo Building game...
 start /b /wait "__flux_compilation__" cmd /c cl /Fo%ObjOutDir% %CommonDefines% %CommonCompilerFlags% %ConfigCompilerFlags% src/flux_load.cpp /link %GameLinkerFlags%

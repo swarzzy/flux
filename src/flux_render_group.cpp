@@ -1,5 +1,5 @@
 #include "flux_render_group.h"
-#include "../flux-platform/src/Memory.h"
+#include "Memory.h"
 
 RenderGroup RenderGroup::Make(uptr renderBufferSize, u32 commandQueueCapacity) {
     RenderGroup group = {};

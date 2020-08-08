@@ -759,9 +759,9 @@ void CompleteAssetLoad(AssetManager* manager, AssetType type, u32 queueIndex, u3
             assert(slot->id == queueEntry->id);
             *slot = *queueSlot;
             AssetQueueRemove(manager, queueIndex);
-            auto begin = PlatformGetTimeStamp();
+            auto begin = GetTimeStamp();
             UploadToGPU(slot->mesh);
-            auto end = PlatformGetTimeStamp();
+            auto end = GetTimeStamp();
             printf("[Asset manager] Loaded mesh on gpu: %f ms\n", (end - begin) * 1000.0f);
             slot->state = AssetState::Loaded;
         } else if (queueSlot->state == AssetState::Error) {
@@ -783,9 +783,9 @@ void CompleteAssetLoad(AssetManager* manager, AssetType type, u32 queueIndex, u3
             assert(slot->id == queueEntry->id);
             *slot = *queueSlot;
             AssetQueueRemove(manager, queueIndex);
-            auto begin = PlatformGetTimeStamp();
+            auto begin = GetTimeStamp();
             CompleteTextureTransfer(&queueEntry->texTransferBufferInfo, &slot->texture);
-            auto end = PlatformGetTimeStamp();
+            auto end = GetTimeStamp();
             printf("[Asset manager] Loaded material on gpu: %f ms\n", (end - begin) * 1000.0f);
             slot->state = AssetState::Loaded;
         } else if (queueSlot->state == AssetState::Error) {

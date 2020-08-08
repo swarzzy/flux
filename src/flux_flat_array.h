@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../flux-platform/src/Common.h"
+#include "Common.h"
 
 template <typename T>
 struct FlatArray {

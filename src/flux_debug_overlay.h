@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux-platform/src/Common.h"
+#include "Common.h"
 
 b32 GlobalDrawDebugOverlay = false;
 

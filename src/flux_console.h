@@ -1,5 +1,5 @@
 #pragma once
-#include "../flux-platform/src/Common.h"
+#include "Common.h"
 #include "flux_console_commands.h"
 #include "flux_flat_array.h"
 

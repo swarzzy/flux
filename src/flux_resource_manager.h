@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../flux-platform/src/Common.h"
+#include "Common.h"
 
-#include "../flux-platform/src/Memory.h"
+#include "Memory.h"
 
 #include "flux_hash_map.h"
 #include "flux_globals.h"

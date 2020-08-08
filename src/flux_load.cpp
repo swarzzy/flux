@@ -1,9 +1,9 @@
-#include "../flux-platform/src/Common.h"
-#include "../flux-platform/src/Platform.h"
+#include "Common.h"
+#include "Platform.h"
 #include "flux.h"
 
-#include "../flux-platform/src/StringBuilder.h"
-#include "../flux-platform/src/Path.h"
+#include "StringBuilder.h"
+#include "Path.h"
 
 #define DEBUG_OPENGL
 // NOTE: Defined only in debug build
@@ -70,6 +70,7 @@ bool MouseButtonPressed(MouseButton button) {
 #define ResourceLoaderValidateImageFile platform_call(ResourceLoaderValidateImageFile)
 #define PlatformGetTimeStamp platform_call(GetTimeStamp)
 #define PlatformShowOpenFileDialog platform_call(ShowOpenFileDialog)
+#define PlatformAllocateArena platform_call(AllocateArena)
 
 void* PlatformAllocClear(uptr size) {
     void* memory = PlatformAlloc(size, 0, nullptr);
@@ -188,18 +189,18 @@ void* PlatformAllocClear(uptr size) {
 #define glMapBufferRange gl_call(glMapBufferRange)
 #define glMapNamedBufferRange gl_call(glMapNamedBufferRange)
 
-#include "../flux-platform/src/Memory.h"
+#include "Memory.h"
 // NOTE: Libs
 
 void* PlatformCalloc(uptr num, uptr size) { void* ptr = PlatformAlloc(num * size, 0, nullptr); memset(ptr, 0, num * size); return ptr; }
 
 #define IMGUI_DEFINE_MATH_OPERATORS
-#include "../flux-platform/ext/imgui/imgui.h"
+#include "../ext/imgui/imgui.h"
 
 void* ImguiAllocWrapper(size_t size, void* _) { return PlatformAlloc((uptr)size, 0, nullptr); }
 void ImguiFreeWrapper(void* ptr, void*_) { PlatformFree(ptr, nullptr); }
 
-#include "../flux-platform/ext/imgui/imgui_internal.h"
+#include "../ext/imgui/imgui_internal.h"
 
 extern "C" GAME_CODE_ENTRY void GameUpdateAndRender(PlatformState* platform, GameInvoke reason, void** data) {
     switch (reason) {
@@ -293,7 +294,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 #include "flux.cpp"
-#include "../flux-platform/src/Math.cpp"
+#include "Math.cpp"
 #include "flux_debug_overlay.cpp"
 #include "flux_camera.cpp"
 #include "flux_render_group.cpp"
@@ -302,7 +303,7 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #include "flux_world.cpp"
 #include "flux_ui.cpp"
 #include "flux_resource_manager.cpp"
-#include "../flux-platform/src/Memory.cpp"
+#include "Memory.cpp"
 #include "flux_hash_map.cpp"
 #include "flux_console.cpp"
 #include "flux_console_commands.cpp"
@@ -314,10 +315,10 @@ void OpenglDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 #else
 #error Unsupported OS
 #endif
-#include "../flux-platform/src/Intrinsics.cpp"
+#include "Intrinsics.cpp"
 
-#include "../flux-platform/ext/imgui/imconfig.h"
-#include "../flux-platform/ext/imgui/imgui.cpp"
-#include "../flux-platform/ext/imgui/imgui_draw.cpp"
-#include "../flux-platform/ext/imgui/imgui_widgets.cpp"
-#include "../flux-platform/ext/imgui/imgui_demo.cpp"
+#include "../ext/imgui/imconfig.h"
+#include "../ext/imgui/imgui.cpp"
+#include "../ext/imgui/imgui_draw.cpp"
+#include "../ext/imgui/imgui_widgets.cpp"
+#include "../ext/imgui/imgui_demo.cpp"

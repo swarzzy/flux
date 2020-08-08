@@ -1,12 +1,13 @@
 #include "flux.h"
-#include "../flux-platform/src/Common.h"
+#include "Common.h"
 #include "flux_debug_overlay.h"
 #include "flux_resource_manager.h"
 
 void FluxInit(Context* context) {
     AssetManager::Init(&context->assetManager, context->renderer);
 
-    context->tempArena = AllocateArena(Megabytes(32), true);
+    context->tempArena = PlatformAllocateArena(Megabytes(32));
+    context->tempArena->isTemporary = true;
 
     StringBuilderW builder {};
     {
